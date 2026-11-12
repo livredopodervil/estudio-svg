@@ -5,6 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from schema import VERSION
 from graphics import visualize
+from scene_video import overlay_clip
 
 ROOT=Path(__file__).resolve().parent
 PROJECTS=ROOT/'projetos';MEDIA=ROOT/'midia';CACHE=ROOT/'cache';OUTPUT=ROOT/'render'
@@ -143,7 +144,10 @@ def scene_length(scene,pr,voice=True):
 def visual_key(scene,pr,seconds):
     c={k:v for k,v in scene.items() if k not in ('audio','fala','id')}
     file=c['imagem']['arquivo']
-    return digest(['visual-3','2.3.0',c,pr['video'],seconds,asset_sha(file),sha_file(ROOT/'graphics.py'),sha_file(ROOT/'scene_animation.py'),sha_file(ROOT/'svg_engine_legacy.py')])
+    clip=c.get('video_clipe',{}).get('arquivo','')
+    return digest(['visual-4','2.7.3',c,pr['video'],seconds,asset_sha(file),
+      asset_sha(clip),sha_file(ROOT/'graphics.py'),sha_file(ROOT/'scene_animation.py'),
+      sha_file(ROOT/'scene_video.py'),sha_file(ROOT/'svg_engine_legacy.py')])
 
 def audio_key(scene,pr,seconds,voice_path):
     au=scene['audio'];tracks=[(x,asset_sha(x['file'])) for x in au['tracks']]
@@ -207,6 +211,15 @@ def render_visual(scene,pr,index,total,seconds,progress=lambda *_:None):
         _,err=ff.communicate(timeout=max(90,int(seconds*12)))
         if ff.returncode:raise StudioError('Codificação da cena: '+err.decode(errors='replace')[-1300:])
         if not tmp.exists() or duration(tmp)<seconds-.2:raise StudioError('Vídeo da cena incompleto')
+        clip=scene.get('video_clipe',{})
+        if clip.get('arquivo'):
+            composed=out.with_suffix('.overlay.mp4')
+            try:
+                overlay_clip(tmp, media_file(clip['arquivo']), composed, clip,
+                  cfg['width'],cfg['height'],cfg['fps'],seconds,run)
+                if duration(composed)<seconds-.2:raise StudioError('Sobreposição do vídeo incompleta')
+                composed.replace(tmp)
+            finally:composed.unlink(missing_ok=True)
         tmp.replace(out);return out,True
     except (BrokenPipeError,OSError) as e:
         raise StudioError('Falha na comunicação com FFmpeg: '+str(e)+' '+err.decode(errors='replace')[-350:]) from e

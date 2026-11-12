@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json, re, copy, math
 
-VERSION='2.7.2'
+VERSION='2.7.3'
 MODES={'globo','linha','barras','numero','cartoes','arvore','svg','foto'}
 PRESETS={'16:9':(1280,720),'9:16':(720,1280),'1:1':(800,800),'4:5':(800,1000),'21:9':(1260,540)}
 COLORS={'fundo':'#241b1a','destaque':'#d99a62','texto':'#fff1da'}
@@ -60,6 +60,18 @@ def image_dict(v, portrait=False, photo=False):
        'w':n(v.get('w',.82 if portrait else .41),.82 if portrait else .41,.08,1),
        'h':n(v.get('h',.34 if portrait else .65),.34 if portrait else .65,.08,1),
        'frame':bool(v.get('frame',True))}
+
+
+def video_clip_dict(raw):
+    """A video is an independently positioned layer above the scene artwork."""
+    v=raw if isinstance(raw,dict) else {}
+    return {'arquivo':asset(v.get('arquivo','')),
+      'x':n(v.get('x',.5),.5,0,1), 'y':n(v.get('y',.56),.56,0,1),
+      'w':n(v.get('w',.70),.70,.08,1),'h':n(v.get('h',.40),.40,.08,1),
+      'fit':v.get('fit','cover') if v.get('fit') in ('cover','contain') else 'cover',
+      'inicio':n(v.get('inicio',0),0,0,3600),
+      'repetir':bool(v.get('repetir',True)),
+      'opacidade':n(v.get('opacidade',1),1,0,1)}
 
 
 def image_crop(raw):
@@ -134,6 +146,7 @@ def normalize(data):
             'sufixo':str(r.get('sufixo',''))[:400], 'destaque':str(r.get('destaque',''))[:200],
             'svg':str(r.get('svg',''))[:2000000],
             'animacoes':animation_dict(r.get('animacoes',[])),
+            'video_clipe':video_clip_dict(r.get('video_clipe',{})),
             'imagem':image_dict(image,h>w,typ=='foto'),
             'cores':{k:color(cs.get(k),COLORS[k]) for k in COLORS},
             'audio':audio_dict(r.get('audio'),r.get('fala',''))}

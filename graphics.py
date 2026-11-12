@@ -189,9 +189,17 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
     elif ty=='svg':
         fragment=render_fragment(c.get('svg',''),str(media_dir or Path('.')))
         fragment=animate_svg_fragment(fragment,c.get('animacoes',[]),p)
-        # SVG fragments use a 1280x720 design canvas, with centered extra room in portrait.
-        trans=(height_v-720)/2
-        a.append(f'<g transform="translate(0,{trans:.1f}) translate(640,360) scale({.86+.14*e:.3f}) translate(-640,-360)">{fragment}</g>')
+        # New drawings share the FULL video canvas. Legacy 1280x720 drawings
+        # remain centred and unchanged until deliberately converted in the editor.
+        import xml.etree.ElementTree as ET
+        root_svg=ET.fromstring(fragment)
+        vb=[float(v) for v in re.split(r'[ ,]+',root_svg.get('viewBox','0 0 1280 720').strip())]
+        is_full=abs(vb[3]/vb[2] - height_v/1280)<.002
+        if is_full:
+            a.append(fragment)
+        else:
+            trans=(height_v-720)/2
+            a.append(f'<g transform="translate(0,{trans:.1f}) translate(640,360) scale({.86+.14*e:.3f}) translate(-640,-360)">{fragment}</g>')
     if has_image and config.get('modo','fundo' if ty=='foto' else 'quadro')=='quadro':
         markup=image_element(config,media_dir,bg,height_v,full=False)
         mx=1280*clamp(config.get('x',.73));my=height_v*clamp(config.get('y',.58))

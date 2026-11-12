@@ -133,3 +133,9 @@ Em **Projeto → Trilha global contínua**, habilite a música ao longo de todo 
 A **Imagem da cena → Recortar e posicionar** aceita pranchas com várias fotos. Selecione o modo **Quadro móvel / ajustável** para redimensionar o fragmento pelos quatro cantos; o modo **Fundo inteiro** ocupa todo o quadro. A mídia original não é sobrescrita.
 
 A V2.7.2 deve ser aplicada somente após pré-validação do instalador de patch, no worktree de desenvolvimento. Execute os testes e valide os gestos no Android antes de registrar um commit. A documentação anterior descreve a V2.6 e é preservada para referência histórica.
+
+## V2.7.3: vídeo e captura local
+
+A partir de uma cena, use **Importar vídeo** (MP4/WebM/MOV/MKV/M4V) ou **Gravar câmera**. Em Áudio, escolha **Gravar narração**; a gravação exige permissão explícita. O JSON da cena possui `video_clipe`, cujo arquivo está em `midia/`. Vídeos são sobrepostos no quadro SVG e seu áudio é opcional, vinculado por `audio.voice_file`.
+
+Abra uma cena SVG pelo editor para adaptar a prancheta ao 9:16. A conversão de viewBox só se torna permanente ao salvar. Use **Animações → Inspecionar animação no tempo** e o botão de exemplo para visualizar fade e translação.

@@ -140,13 +140,19 @@ def clean_svg(svg,media_dir,storage=True):
         return node
     cleaned=clean(root)
     if cleaned is None or _node_local(cleaned.tag)!='svg':raise ValueError('O arquivo deve conter um SVG')
-    cleaned.set('width','1280');cleaned.set('height','720')
     vb=cleaned.get('viewBox','')
     try:
         nums=[float(x) for x in re.split(r'[ ,]+',vb.strip())]
         valid=len(nums)==4 and all(abs(x)<1e7 for x in nums) and nums[2]>0 and nums[3]>0
     except ValueError:valid=False
-    if not valid:cleaned.set('viewBox','0 0 1280 720')
+    if not valid:
+        nums=[0.,0.,1280.,720.]
+        cleaned.set('viewBox','0 0 1280 720')
+    # The nested SVG viewport must reflect the artwork's actual canvas aspect
+    # ratio, otherwise the video crops or stretches portrait drawings.
+    logical_h=round(1280*nums[3]/nums[2])
+    if not 320<=logical_h<=4800:raise ValueError('Altura lógica SVG inválida')
+    cleaned.set('width','1280');cleaned.set('height',str(logical_h))
     return ET.tostring(cleaned,encoding='unicode')
 
 @lru_cache(maxsize=8)

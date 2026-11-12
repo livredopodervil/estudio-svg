@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Estúdio SVG 2.7.2 — projeto audiovisual",
-  "description": "Estúdio SVG V2.3: vozes online e offline, prévias de cenas; compatível com V2.2.",
+  "title": "Estúdio SVG V2.7.3 — projeto audiovisual",
+  "description": "Formato das cenas, animações, imagens, vídeo local e gravação de áudio.",
   "type": "object",
   "required": [
     "titulo",
@@ -336,6 +336,55 @@
               "ate_y": {
                 "type": "number"
               }
+            }
+          }
+        },
+        "video_clipe": {
+          "type": "object",
+          "description": "Clipe local sobreposto ao SVG. Arquivo importado pela interface.",
+          "properties": {
+            "arquivo": {
+              "type": "string",
+              "description": "Nome em midia/ (MP4, WebM, MOV, MKV ou M4V)"
+            },
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "w": {
+              "type": "number",
+              "minimum": 0.08,
+              "maximum": 1
+            },
+            "h": {
+              "type": "number",
+              "minimum": 0.08,
+              "maximum": 1
+            },
+            "fit": {
+              "enum": [
+                "cover",
+                "contain"
+              ]
+            },
+            "inicio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3600
+            },
+            "repetir": {
+              "type": "boolean"
+            },
+            "opacidade": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
             }
           }
         }

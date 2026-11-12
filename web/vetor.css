@@ -60,3 +60,7 @@
 .selectionBox .rotateHandle{position:absolute;top:-45px;left:calc(50% - 13px);width:26px;height:26px;border-radius:100%;background:#bfe7ff;border:2px solid #204251;cursor:grab;pointer-events:auto;touch-action:none;z-index:11;box-shadow:0 0 0 2px #fff9}
 .selectionBox .rotateHandle:before{content:"";position:absolute;top:24px;left:11px;width:2px;height:20px;background:#bfe7ff;pointer-events:none}
 @media(max-width:730px){.selectionColors{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin}.selectionColors .quickColorLabel{white-space:nowrap}.selectionBox .rotateHandle{top:-49px;width:29px;height:29px;left:calc(50% - 14px)}}
+
+/* 2.7.3: aspect ratio is assigned from the active project, not 16:9. */
+#artboard{aspect-ratio:var(--stage-ratio,16/9)}
+#svgHost>svg{overflow:hidden}
