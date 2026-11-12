@@ -1,0 +1,43 @@
+# Dados locais
+.backups/
+backups/
+cache/
+render/
+midia/
+modelos/
+projetos/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Credenciais
+.env
+.env.*
+!.env.example
+.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*
+*token*
+*secret*
+
+# Arquivos gerados
+*.mp4
+*.wav
+*.mp3
+*.onnx
+*.log
+*.tmp
+*.bak
+*.sqlite
+*.sqlite3
+*.db
+
+# Configurações locais
+.DS_Store

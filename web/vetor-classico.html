@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><base href="/vendor/svgedit/editor/"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Editor Vetorial · Estúdio SVG (Avançado)</title>
+<link rel="stylesheet" href="/vetor-classico.css">
+<link rel="stylesheet" href="/vendor/svgedit/editor/svgedit.css">
+</head><body>
+<header id="header">
+ <div class="brand"><b>✺ ESTÚDIO SVG</b><small id="sceneTag">Editor vetorial · carregando...</small></div>
+ <div class="actions">
+  <button id="save" class="primary" disabled>Salvar na cena</button>
+  <button id="importSvg">Abrir SVG</button><button id="importImage">Importar imagem</button>
+  <select id="exportType" aria-label="Formato de exportação"><option value="svg">SVG</option><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WEBP</option></select>
+  <button id="exportFile">Exportar</button>
+  <button id="back">Voltar ao Estúdio</button>
+ </div>
+</header>
+<div id="notice" role="status">Carregando editor gráfico...</div>
+<main id="editorHost"></main>
+<input type="file" id="svgUpload" accept=".svg,image/svg+xml" hidden>
+<input type="file" id="imageUpload" accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,image/*" hidden>
+<script type="module" src="/vetor-classico.js"></script>
+</body></html>

@@ -1,0 +1,31 @@
+{
+  "titulo": "Demonstração de camadas SVG",
+  "video": {
+    "width": 720,
+    "height": 720,
+    "fps": 24,
+    "draw_fps": 2,
+    "background": "#34241c"
+  },
+  "motor_voz": "edge-tts",
+  "cenas": [
+    {
+      "id": "cena_camadas",
+      "tipo": "svg",
+      "duracao": 8,
+      "titulo": "UM EDITOR VETORIAL",
+      "subtitulo": "Camadas e formas orgânicas",
+      "categoria": "ESTÚDIO SVG • V2.5",
+      "fonte": "SVG-Edit e FFmpeg — teste de ilustração",
+      "cores": {
+        "fundo": "#3b2922",
+        "destaque": "#cb8151",
+        "texto": "#faedda"
+      },
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1280 720\" width=\"1280\" height=\"720\"><g class=\"layer\" id=\"folhas\"><title>Folhas</title><path d=\"M380 570 C220 370 390 240 660 210 C770 360 610 540 380 570Z\" fill=\"#73975d\"/><path d=\"M470 530 Q600 350 640 252\" fill=\"none\" stroke=\"#def1aa\" stroke-width=\"8\"/></g><g class=\"layer\" id=\"sol\"><title>Sol</title><circle cx=\"840\" cy=\"310\" r=\"132\" fill=\"#db8b48\" opacity=\".84\"/><circle cx=\"840\" cy=\"310\" r=\"165\" fill=\"none\" stroke=\"#db8b48\" stroke-width=\"6\" opacity=\".46\"/></g></svg>",
+      "audio": {
+        "voice_enabled": false
+      }
+    }
+  ]
+}
