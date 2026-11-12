@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Estúdio SVG V2.4, com apresentação vetorial e modo econômico."""
+"""Estúdio SVG V2.7: editor de imagens e apresentação vetorial."""
 from __future__ import annotations
 import argparse, base64, io, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, traceback, uuid, hashlib
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
@@ -202,6 +202,10 @@ class Handler(BaseHTTPRequestHandler):
                     save_project(n,pr)
                     revision=hashlib.sha256(doc.encode('utf8')).hexdigest()
                 return self.response(200,{'ok':True,'revision':revision,'scene':idx+1})
+            if route=='/api/project/validate' and method=='POST':
+                # Validation is read-only: no project file is created or overwritten.
+                data=self.payload(6_000_000)
+                return self.response(200,{'ok':True,'project':normalize(data.get('project'))})
             if route=='/api/projects' and method=='GET':return self.response(200,{'projects':[p.stem for p in sorted(PROJECTS.glob('*.json'))]})
             if route=='/api/project' and method=='GET':return self.response(200,{'name':q('name','demo_organico'),'project':read_project(q('name','demo_organico'))})
             if route=='/api/project' and method=='POST':
@@ -266,6 +270,14 @@ class Handler(BaseHTTPRequestHandler):
                 with JOB_LOCK:j=JOBS.get(route.split('/')[-1])
                 if not j:return self.response(404,{'error':'Trabalho não encontrado'})
                 return self.response(200,{k:v for k,v in j.items() if k!='lastlog'})
+            if route=='/api/media/image' and method=='GET':
+                fname=asset(q('file'))
+                if not fname or Path(fname).suffix.lower() not in ('.jpg','.jpeg','.png','.webp'):
+                    raise StudioError('Imagem inválida')
+                f=MEDIA/fname
+                if not f.is_file():return self.response(404,{'error':'Imagem não encontrada'})
+                ctype=mimetypes.guess_type(fname)[0] or 'application/octet-stream'
+                return self.response(200,f.read_bytes(),ctype)
             if route=='/api/upload' and method=='POST':
                 inp=self.payload(19_000_000);raw=base64.b64decode(str(inp.get('data','')).split(',')[-1],validate=True)
                 if not raw or len(raw)>12_000_000:raise StudioError('Arquivo vazio ou maior que 12 MB')
@@ -316,7 +328,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,128*1024)
             return
-        filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
+        filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
         if r not in filemap:return self.response(404,'Não encontrado','text/plain')
         fn=ROOT/'web'/filemap[r];mime=('.js' if r.endswith('js') else '.css' if r.endswith('css') else '.html')
         types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'}
@@ -342,7 +354,7 @@ def migrate(old):
     print(f'Migração concluída: {count} projetos novos, mídias copiadas sem sobrescrever.')
 
 def cli():
-    p=argparse.ArgumentParser(description='Estúdio SVG V2.6 para Termux')
+    p=argparse.ArgumentParser(description='Estúdio SVG V2.7 para Termux')
     p.add_argument('acao',nargs='?',default='servir',choices=['servir','verificar','quadros','audio','mix','render','render-leve','cena','cache-status','cache-clear','migrar'])
     p.add_argument('--projeto',default='demo_organico');p.add_argument('--port',type=int,default=8771)
     p.add_argument('--scene',type=int);p.add_argument('--sem-voz',action='store_true')
@@ -355,7 +367,7 @@ def cli():
         print('Projetos:',*[f.stem for f in PROJECTS.glob('*.json')])
     elif args.acao=='migrar':migrate(args.origem)
     elif args.acao=='servir':
-        print('Estúdio SVG V2.6: http://127.0.0.1:'+str(args.port),flush=True)
+        print('Estúdio SVG V2.7: http://127.0.0.1:'+str(args.port),flush=True)
         server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
         try:server.serve_forever()
         except KeyboardInterrupt:print('\nServidor encerrado')

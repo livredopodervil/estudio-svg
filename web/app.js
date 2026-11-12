@@ -4,7 +4,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const types=['globo','linha','barras','numero','cartoes','arvore','svg','foto'];
 const names={globo:'Globo',linha:'Linhas',barras:'Barras',numero:'Número',cartoes:'Cartões',arvore:'Árvore fractal',svg:'SVG personalizado',foto:'Fotografia'};
 const presets={'16:9':[1280,720],'9:16':[720,1280],'1:1':[800,800],'4:5':[800,1000],'21:9':[1260,540]};
-const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[]},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,tracks:[]}});
+const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',animacoes:[],imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[],modo:'quadro',x:.73,y:.58,w:.41,h:.65,frame:true},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,tracks:[]}});
 let project=null,projectName='',selected=0,tab='scene',dirty=false,saving=false,playing=false,playTime=0,lastFrame=0,previewBusy=false,previewPending=false,jobTimer=null,busy=false,assetPath=null,cacheInfo=null,selectedPane='previewPanel';
 const api=async(path,options={})=>{const response=await fetch(path,options);const kind=response.headers.get('Content-Type')||'';let v=kind.includes('json')?await response.json():await response.text();if(!response.ok)throw Error(v.error||'HTTP '+response.status);return v;};
 const post=(path,body)=>api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -49,6 +49,8 @@ function renderProject(){let h='<div class="sectionTitle">Configuração global<
  h+=field('Se voz exceder a cena','encaixe_voz','select',[['estender','Estender a cena'],['avisar','Interromper e avisar']]);
  h+=field('Volume geral da voz','volume_voz','number');h+=field('Volume de trilha global','volume_musica','number');
  h+=field('Arquivo de música global','trilha');h+=action('trilha','Importar música global');
+ h+=field('Trilha global contínua (não reiniciar em cada cena)','trilha_continua','checkbox',null,
+   'Quando ativada, a música atravessa os cortes entre cenas sem reiniciar. O mix final e o MP4 usam a mesma trilha.');
  h+='<p class="smallNote">Mudar resolução ou FPS invalida o cache visual de todas as cenas. Mudar a voz não invalida os quadros.</p>';
  return h;
 }
@@ -72,18 +74,78 @@ function renderScene(){let h='<div class="sectionTitle">Cena '+(selected+1)+' ·
   h+=field('Fragmento SVG (sem <svg> externo)',`cenas.${selected}.svg`,'textarea');
   h+='<div class="inline"><button data-shape="circle">+ Círculo</button><button data-shape="rect">+ Retângulo</button><button data-shape="path">+ Curva</button><button data-shape="text">+ Texto</button></div>';
  }
- if(sType('foto')){
-  h+='<div class="sectionTitle">Imagem e enquadramento</div>';
-  h+=field('Imagem importada',`cenas.${selected}.imagem.arquivo`);
-  h+=action(`cenas.${selected}.imagem.arquivo`,'Importar imagem');
-  h+=field('Modo de ajuste',`cenas.${selected}.imagem.fit`,'select',[['cover','Preencher e recortar'],['contain','Mostrar inteira'],['pad','Inteira com fundo'],['stretch','Esticar'],['crop','Recorte definido']]);
-  h+=field('Posição horizontal (0 a 1)',`cenas.${selected}.imagem.align_x`,'number');
-  h+=field('Posição vertical (0 a 1)',`cenas.${selected}.imagem.align_y`,'number');
-  h+=field('Cor de preenchimento',`cenas.${selected}.imagem.bg`,'color');
-  h+=`<div class="formField"><label>Recorte relativo (x, y, largura, altura) — números de 0 a 1</label><input id="cropInput" value="${esc(sImgCrop())}"></div>`;
- }
+ h+=renderAnimations();
+ h+='<div class="sectionTitle">Imagem ou prancha de fotos</div>';
+ h+=`<div class="inline"><button data-upload="cenas.${selected}.imagem.arquivo" class="primary">▧ Importar imagem</button><button id="imageComposerOpen" ${project.cenas[selected].imagem.arquivo?'':'disabled'}>✂ Recortar e posicionar</button></div>`;
+ const fromScenes=[...new Set(project.cenas.map(c=>c.imagem?.arquivo).filter(Boolean))];
+ if(fromScenes.length){h+='<div class="formField"><label>Reutilizar imagem já importada</label><select id="reuseImage"><option value="">Selecionar…</option>'+fromScenes.map(a=>`<option value="${esc(a)}" ${a===project.cenas[selected].imagem.arquivo?'selected':''}>${esc(a)}</option>`).join('')+'</select></div>';}
+ h+=field('Nome do arquivo importado',`cenas.${selected}.imagem.arquivo`);
+ h+=field('Exibição da imagem',`cenas.${selected}.imagem.modo`,'select', [['quadro','Quadro móvel'],['fundo','Plano de fundo']]);
+ h+='<p class="fieldHint">Recorte uma área de uma prancha de fotografias e arraste-a sobre o quadro do vídeo. A mesma imagem pode ser reutilizada sem novo upload.</p>';
+ h+='<div class="fieldGrid2">';
+ h+=field('Ajuste',`cenas.${selected}.imagem.fit`,'select', [['cover','Preencher'],['contain','Mostrar inteira'],['stretch','Esticar']]);
+ h+=field('Moldura',`cenas.${selected}.imagem.frame`,'checkbox');
+ h+='</div>';
  h+='<div class="separator"></div><div class="inline"><button id="duplicateScene">Duplicar cena</button><button id="removeScene">Excluir cena</button><button id="moveUp">↑ Subir</button><button id="moveDown">↓ Descer</button></div>';
  return h;
+}
+function animationTargets(scene){
+ const options=[];
+ if(scene.imagem?.arquivo)options.push(['__imagem__','Imagem da cena']);
+ if(scene.tipo==='svg'&&scene.svg){
+  for(const m of scene.svg.matchAll(/\bid=["']([A-Za-z_][A-Za-z0-9_.:-]{0,80})["']/g)){
+   if(!options.some(v=>v[0]===m[1])&&!m[1].startsWith('camada'))options.push([m[1],m[1]]);
+  }
+ }
+ options.push(['__titulo__','Título da cena'],['__subtitulo__','Subtítulo da cena'],['__conteudo__','Conteúdo gráfico da cena']);
+ return options;
+}
+function renderAnimations(){
+ const scene=project.cenas[selected],animations=scene.animacoes||(scene.animacoes=[]);
+ const options=animationTargets(scene);
+ let h='<div class="sectionTitle">Animações dos elementos</div>';
+ h+='<p class="fieldHint">Selecione o ID de um objeto no SVG ou a fotografia da cena. Cada animação atua entre duas frações da duração da cena (0 a 1). A prévia e o MP4 usam os mesmos valores.</p>';
+ h+='<button id="addAnimation" '+(options.length?'':'disabled')+'>+ Animação</button>';
+ if(!options.length)h+='<p class="smallNote">Para animar, importe uma imagem ou salve uma cena com objetos identificados pelo editor SVG.</p>';
+ animations.forEach((a,i)=>{
+  const prefix=`cenas.${selected}.animacoes.${i}`;
+  const kinds=[['translacao','Translação'],['rotacao','Rotação'],['escala','Escala'],['fade','Fade / Opacidade']];
+  const targetOptions=options.some(v=>v[0]===a.alvo)?options:[[a.alvo,a.alvo],...options];
+  h+=`<div class="track animationCard"><div class="trackHead"><strong>Animação ${i+1}</strong><button data-remove-animation="${i}">Excluir</button></div>`;
+  h+=field('Objeto',prefix+'.alvo','select',targetOptions);
+  h+=field('Movimento',prefix+'.tipo','select',kinds);
+  h+=`<div class="fieldGrid2">${field('Início (0–1)',prefix+'.inicio','number')}${field('Fim (0–1)',prefix+'.fim','number')}</div>`;
+  h+=field('Interpolação',prefix+'.easing','select',[['suave','Suave'],['linear','Linear']]);
+  if(a.tipo==='translacao'){
+   h+=`<div class="fieldGrid4">${field('X inicial (px)',prefix+'.de_x','number')}${field('Y inicial (px)',prefix+'.de_y','number')}${field('X final (px)',prefix+'.ate_x','number')}${field('Y final (px)',prefix+'.ate_y','number')}</div>`;
+  }else{
+   const unit={rotacao:'graus',escala:'fator',fade:'0 a 1'}[a.tipo];
+   h+=`<div class="fieldGrid2">${field('De ('+unit+')',prefix+'.de','number')}${field('Até ('+unit+')',prefix+'.ate','number')}</div>`;
+  }
+  h+='</div>';
+ });
+ return h;
+}
+function addSceneAnimation(){
+ const a=animationTargets(project.cenas[selected]);if(!a.length)return toast('Primeiro crie um objeto SVG ou importe uma imagem',true);
+ project.cenas[selected].animacoes.push({alvo:a[0][0],tipo:'translacao',inicio:0,fim:1,easing:'suave',de:0,ate:0,de_x:0,de_y:0,ate_x:150,ate_y:0});
+ dirtyNow(true);
+}
+async function openImageComposer(){
+ const s=project.cenas[selected],image=s.imagem;if(!image.arquivo)return toast('Importe uma imagem primeiro',true);
+ try{await window.StudioImageComposer.open({
+  url:'/api/media/image?file='+encodeURIComponent(image.arquivo),
+  config:image,video:project.video,
+  onChange:result=>{s.imagem={...s.imagem,...result};dirtyNow(true);toast('Recorte aplicado. Use Salvar para gravar o projeto.');}
+ });}catch(e){toast(e.message,true);}
+}
+function requestImageFile(){assetPath=`cenas.${selected}.imagem.arquivo`;$('mediaFile').accept='image/*';$('mediaFile').click();}
+function openOrCreateSVG(){
+ if(project.cenas[selected].tipo!=='svg'){
+  if(!confirm('Esta cena não é SVG. Criar uma nova cena vetorial sem alterar a atual?'))return;
+  $('addSvgScene').click();
+ }
+ $('editSVG').click();
 }
 function sType(...choices){return choices.includes(project.cenas[selected].tipo);}
 function sImgCrop(){return (project.cenas[selected].imagem.crop||[]).join(', ');}
@@ -117,7 +179,7 @@ async function save(force=false){if(!project||(!dirty&&!force))return;
  try{const d=await post('/api/project',{name:projectName,project});dirty=false;$('saveInfo').textContent='✓ Salvo no aparelho';}finally{saving=false;}}
 function drawSceneList(){const l=$('sceneList');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneItem ${i===selected?'active':''}"><button class="scenePick" data-scene="${i}"><small>${String(i+1).padStart(2,'0')} · ${esc(names[s.tipo]||s.tipo)} · ${s.duracao}s</small><b>${esc(s.titulo||'Sem título')}</b><small>${s.audio.voice_enabled?'♫ voz':'sem voz'}</small></button><div class="sceneOrder"><button data-shift="-1" data-index="${i}">↑</button><button data-shift="1" data-index="${i}">↓</button></div></div>`).join('');$('sceneCount').textContent=project.cenas.length;}
 function drawTimeline(){const total=totalDuration();$('timeline').innerHTML=project.cenas.map((s,i)=>`<button class="${selected===i?'active':''}" data-scene="${i}" style="width:${Math.max(94,Math.min(230,Math.floor(s.duracao/total*680)))}px">${i+1}. ${esc(s.titulo)}</button>`).join('');}
-function drawEverything(){if(!project)return;drawSceneList();drawTimeline();drawEditor();$('stage').style.aspectRatio=project.video.width+'/'+project.video.height;$('formatInfo').textContent=`${project.video.width} × ${project.video.height} · ${project.video.fps} FPS`;showPreview();}
+function drawEverything(){if(!project)return;drawSceneList();drawTimeline();drawEditor();$('stage').style.aspectRatio=project.video.width+'/'+project.video.height;document.body.classList.toggle('portraitProject',project.video.height>project.video.width);$('formatInfo').textContent=`${project.video.width} × ${project.video.height} · ${project.video.fps} FPS`;showPreview();}
 function jump(i){clearMediaPlayers();selected=Math.max(0,Math.min(project.cenas.length-1,i));playTime=startOf(selected);drawEverything();}
 function tick(ts){if(!playing)return;if(lastFrame){playTime=Math.min(totalDuration(),playTime+(ts-lastFrame)/1000);}lastFrame=ts;
  if(playTime>=totalDuration()){playing=false;$('playButton').textContent='▶';}
@@ -174,15 +236,51 @@ async function listenAndroid(){
 }
 function switchPane(id){selectedPane=id;document.querySelectorAll('.mobileTabs button').forEach(b=>b.classList.toggle('on',b.dataset.pane===id));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('mobileActive',p.id===id));}
 function exportJSON(){let blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json'});let u=URL.createObjectURL(blob);let a=document.createElement('a');a.href=u;a.download=projectName+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);}
+function jsonDocument(){return $('jsonMode').value==='scene'?project.cenas[selected]:project;}
+function fillJsonText(){
+ if(!project)return;
+ $('jsonText').value=JSON.stringify(jsonDocument(),null,2);
+ $('jsonMessage').textContent='Texto carregado do projeto em memória. Nenhuma alteração aplicada.';
+}
+function openJson(){
+ if(!project)return;
+ $('jsonMode').value='scene';fillJsonText();$('jsonDialog').showModal();
+}
+function jsonCandidate(){
+ const edited=JSON.parse($('jsonText').value);
+ if(!edited||typeof edited!=='object'||Array.isArray(edited))throw Error('O JSON deve representar um objeto.');
+ if($('jsonMode').value==='project')return edited;
+ const scenes=project.cenas.slice();scenes[selected]=edited;
+ return {...project,cenas:scenes};
+}
+async function checkJson(apply=false){
+ const msg=$('jsonMessage');msg.textContent='Validando…';
+ try{
+  const candidate=jsonCandidate();
+  const result=await post('/api/project/validate',{project:candidate});
+  if(!result.ok||!result.project)throw Error('O servidor não retornou um projeto válido');
+  if(apply){
+   project=result.project;
+   selected=Math.min(selected,project.cenas.length-1);
+   playTime=startOf(selected);
+   dirtyNow(true);
+   msg.textContent='Aplicado ao projeto em memória. Use Salvar para persistir.';
+   $('jsonDialog').close();toast('JSON aplicado. Salve para persistir.');
+  }else{
+   msg.textContent='JSON válido para o esquema do Estúdio. Nenhum arquivo modificado. A normalização pode descartar campos desconhecidos.';
+  }
+ }catch(e){msg.textContent='ERRO: '+e.message;}
+}
+
 async function upload(file,path){if(!file)return;if(file.size>12e6)return toast('Arquivo máximo: 12 MB',true);
  let kind=path.endsWith('imagem.arquivo')?'image':'audio';const data=await new Promise((yes,no)=>{let fr=new FileReader();fr.onload=()=>yes(fr.result);fr.onerror=no;fr.readAsDataURL(file);});
- try{const r=await post('/api/upload',{kind,data,filename:file.name});setPath(path,r.filename);dirtyNow(true);drawEditor();toast('Arquivo importado: '+r.filename);}catch(e){toast(e.message,true);}}
+ try{const r=await post('/api/upload',{kind,data,filename:file.name});setPath(path,r.filename);dirtyNow(true);drawEditor();toast('Arquivo importado: '+r.filename);if(kind==='image')await openImageComposer();}catch(e){toast(e.message,true);}}
 function moveScene(i,shift){clearMediaPlayers();let j=i+shift;if(j<0||j>=project.cenas.length)return;[project.cenas[i],project.cenas[j]]=[project.cenas[j],project.cenas[i]];selected=j;playTime=startOf(selected);dirtyNow(true);}
 function parseFields(e){let el=e.target;const path=el.dataset.path;if(path){let v=el.type==='checkbox'?el.checked:el.value;if(el.type==='number'){v=Number(v);if(!Number.isFinite(v))return;}setPath(path,v);
    if(path.endsWith('voice_text')){setPath(`cenas.${selected}.fala`,v);if(v.trim())setPath(`cenas.${selected}.audio.voice_enabled`,true);}
    if(path.endsWith('.id')&&!/^[A-Za-z0-9_-]{1,64}$/.test(v))return toast('ID inválido',true);
    if(path.startsWith('video.')){drawEverything();}
-   dirtyNow(path.endsWith('.tipo')||path.endsWith('.fit'));return;
+   dirtyNow(path.endsWith('.tipo')||path.endsWith('.fit')||path.includes('.animacoes.')&&(path.endsWith('.tipo')||path.endsWith('.alvo')));return;
  }
  if(el.id==='preset'&&presets[el.value]){[project.video.width,project.video.height]=presets[el.value];dirtyNow(true);}
  if(el.id==='dataPairs'){
@@ -201,11 +299,19 @@ function bind(){
  $('saveButton').onclick=()=>save(true).then(()=>toast('Salvo no celular')).catch(e=>toast(e.message,true));
  $('newProject').onclick=async()=>{let n=prompt('Nome identificador, sem espaços:','novo_projeto');if(!n)return;try{let r=await post('/api/project/new',{name:n,titulo:'Meu documentário'});await listProjects();await load(r.name);toast('Projeto criado');}catch(e){toast(e.message,true);}};
  $('exportButton').onclick=exportJSON;$('importButton').onclick=()=>$('jsonFile').click();
+ $('editJson').onclick=()=>{lastJsonMode='scene';openJson();};
+ $('closeJson').onclick=()=>$('jsonDialog').close();
+ let lastJsonMode='scene';$('jsonMode').onchange=()=>{if($('jsonText').value!==JSON.stringify(lastJsonMode==='scene'?project.cenas[selected]:project,null,2)&&!confirm('Descartar alterações não aplicadas no texto JSON?')){$('jsonMode').value=lastJsonMode;return;}lastJsonMode=$('jsonMode').value;fillJsonText();};
+ $('refreshJson').onclick=()=>{if(confirm('Recarregar JSON e descartar edições não aplicadas?'))fillJsonText();};
+ $('validateJson').onclick=()=>checkJson(false);$('applyJson').onclick=()=>checkJson(true);
+
  $('jsonFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());let n=prompt('Nome do projeto importado:',f.name.replace(/\.json$/i,'').replace(/[^A-Za-z0-9_-]/g,'_'));if(!n)return;await post('/api/project',{name:n,project:data});await listProjects();await load(n);toast('JSON importado e migrado');}catch(e){toast(e.message,true);}e.target.value='';};
  $('sceneList').onclick=e=>{let mv=e.target.closest('[data-shift]');if(mv)return moveScene(Number(mv.dataset.index),Number(mv.dataset.shift));let b=e.target.closest('[data-scene]');if(b)jump(Number(b.dataset.scene));};
  $('timeline').onclick=e=>{let b=e.target.closest('[data-scene]');if(b)jump(Number(b.dataset.scene));};
  $('addScene').onclick=()=>{project.cenas.splice(selected+1,0,sceneBase());selected++;playTime=startOf(selected);dirtyNow(true);};
  $('addSvgScene').onclick=()=>{let c=sceneBase();c.tipo='svg';c.titulo='ILUSTRAÇÃO VETORIAL';c.svg='<g class="layer" id="camada1"><title>Camada 1</title><circle cx="640" cy="360" r="125" fill="#d99a62"/></g>';project.cenas.splice(selected+1,0,c);selected++;playTime=startOf(selected);dirtyNow(true);};
+ $('openSvgFromTop').onclick=openOrCreateSVG;
+ $('quickImage').onclick=()=>project.cenas[selected].imagem.arquivo?openImageComposer():requestImageFile();
  $('editSVG').onclick=async()=>{
   if(project.cenas[selected].tipo!=='svg')return toast('Selecione uma cena SVG ou use + SVG para criar uma.',true);
   const popup=window.open('about:blank','_blank');
@@ -218,8 +324,12 @@ function bind(){
  document.querySelectorAll('.mobileTabs button').forEach(b=>b.onclick=()=>switchPane(b.dataset.pane));
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{tab=b.dataset.edit;document.querySelectorAll('[data-edit]').forEach(k=>k.classList.toggle('on',k===b));drawEditor();});
  $('editor').addEventListener('change',parseFields);
+ $('editor').addEventListener('change',e=>{if(e.target.id==='reuseImage'&&e.target.value){project.cenas[selected].imagem.arquivo=e.target.value;dirtyNow(true);}});
  $('editor').onclick=e=>{
   let t=e.target;if(t.dataset.upload){assetPath=t.dataset.upload;$('mediaFile').accept=assetPath.endsWith('imagem.arquivo')?'image/*':'audio/*';$('mediaFile').click();return;}
+  if(t.id==='imageComposerOpen'){openImageComposer();return;}
+  if(t.id==='addAnimation'){addSceneAnimation();return;}
+  if(t.dataset.removeAnimation!==undefined){project.cenas[selected].animacoes.splice(Number(t.dataset.removeAnimation),1);dirtyNow(true);return;}
   if(t.dataset.removeTrack!==undefined){project.cenas[selected].audio.tracks.splice(Number(t.dataset.removeTrack),1);dirtyNow(true);}
   if(t.id==='addTrack'){project.cenas[selected].audio.tracks.push({file:'',start:0,volume:.4,fade_in:0,fade_out:0,loop:false});dirtyNow(true);}
   if(t.id==='duplicateScene'){let dup=cp(project.cenas[selected]);dup.id='cena_'+Date.now();project.cenas.splice(++selected,0,dup);playTime=startOf(selected);dirtyNow(true);}

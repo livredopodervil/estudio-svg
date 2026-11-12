@@ -1,0 +1,8 @@
+{
+  "titulo": "Teste de compatibilidade V2.1",
+  "largura": 640,
+  "altura": 360,
+  "cenas": [
+    {"tipo": "intro", "duracao": 3, "titulo": "Compatibilidade", "fala": "Exemplo antigo."}
+  ]
+}

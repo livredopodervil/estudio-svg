@@ -6,6 +6,7 @@ from functools import lru_cache
 from PIL import Image, ImageOps
 from svg_engine_legacy import safe_fragment
 from svg_graphic import render_fragment
+from scene_animation import animate_svg_fragment, animate_image_markup, animate_markup
 
 
 def esc(x):return html.escape(str(x),quote=True)
@@ -21,7 +22,7 @@ def wrap(s,n=41,limit=3):
     if cur:ls.append(cur)
     return ls[:limit]
 
-def _image_processing(path,fit,ax,ay,bg,crop,target_h):
+def _image_processing(path,fit,ax,ay,bg,crop,target_h,target_w=1280):
     with Image.open(path) as raw:
         im=ImageOps.exif_transpose(raw).convert('RGB')
     if crop and len(crop)==4:
@@ -29,7 +30,7 @@ def _image_processing(path,fit,ax,ay,bg,crop,target_h):
         if w>.005 and h>.005:
             x0=int(x*im.width);y0=int(y*im.height)
             im=im.crop((x0,y0,min(im.width,x0+max(1,int(w*im.width))),min(im.height,y0+max(1,int(h*im.height)))))
-    tw,th=1280,target_h
+    tw,th=target_w,target_h
     bgim=Image.new('RGB',(tw,th),bg)
     if fit in ('contain','pad'):
         ratio=min(tw/im.width, th/im.height)
@@ -47,8 +48,33 @@ def _image_processing(path,fit,ax,ay,bg,crop,target_h):
     return 'data:image/jpeg;base64,'+base64.b64encode(buff.getvalue()).decode()
 
 @lru_cache(maxsize=10)
-def image_uri(path,stamp,fit,ax,ay,bg,crop,target_h):
-    return _image_processing(path,fit,ax,ay,bg,crop,target_h)
+def image_uri(path,stamp,fit,ax,ay,bg,crop,target_h,target_w=1280):
+    return _image_processing(path,fit,ax,ay,bg,crop,target_h,target_w)
+
+
+
+def image_element(config,media_dir,bg,view_h,full=False):
+    """SVG image from a local media asset; crop and placement use normalized coordinates."""
+    if not isinstance(config,dict) or not config.get('arquivo') or not media_dir:return ''
+    path=Path(media_dir)/config['arquivo']
+    if not path.is_file():return ''
+    crop=tuple(config.get('crop') or ())
+    if full:
+        xx=yy=0;ww=1280;hh=view_h;radius=0
+    else:
+        ww=max(1,int(1280*clamp(config.get('w',.41),.08,1)))
+        hh=max(1,int(view_h*clamp(config.get('h',.65),.08,1)))
+        xx=int(1280*clamp(config.get('x',.73))-ww/2)
+        yy=int(view_h*clamp(config.get('y',.58))-hh/2)
+        radius=max(10,min(30,round(min(ww,hh)*.06)))
+    uri=image_uri(str(path),path.stat().st_mtime_ns,config.get('fit','cover'),
+        clamp(config.get('align_x',.5)),clamp(config.get('align_y',.5)),
+        config.get('bg',bg),crop,hh,ww)
+    if full:return f'<image x="0" y="0" width="1280" height="{view_h}" href="{uri}"/>'
+    clip='image-frame'
+    return (f'<defs><clipPath id="{clip}"><rect x="{xx}" y="{yy}" width="{ww}" height="{hh}" rx="{radius}"/></clipPath></defs>'
+        + (f'<rect x="{xx-6}" y="{yy+8}" width="{ww+12}" height="{hh+8}" rx="{radius}" fill="#000" opacity=".20"/>' if config.get('frame',True) else '')
+        + f'<image x="{xx}" y="{yy}" width="{ww}" height="{hh}" href="{uri}" clip-path="url(#{clip})"/>')
 
 def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
     p=clamp(p);height_v=round(1280*height/width)
@@ -65,20 +91,18 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
        f'<ellipse cx="{1070+52*math.sin(p*math.tau)}" cy="{350+30*math.sin(p*math.pi)}" rx="510" ry="330" fill="{esc(ac)}" opacity=".065"/>',
        f'<ellipse cx="130" cy="{height_v-110}" rx="590" ry="320" fill="{esc(ac)}" opacity=".11"/>',
        f'<path d="M0 {height_v*.75:.0f} Q300 {height_v*.65:.0f} 640 {height_v*.82:.0f} T1280 {height_v*.72:.0f}" stroke="{esc(ac)}" stroke-width="2" fill="none" opacity=".20"/>']
+    config=c.get('imagem',{})
+    has_image=isinstance(config,dict) and bool(config.get('arquivo'))
+    if has_image and config.get('modo', 'fundo' if ty=='foto' else 'quadro')=='fundo':
+        markup=image_element(config,media_dir,bg,height_v,full=True)
+        a.append(animate_image_markup(markup,c.get('animacoes',[]),p,(640,height_v/2)))
+        a.append(f'<rect width="1280" height="{height_v}" fill="url(#shade)"/>')
     for z in range(23):
         x=(z*193+53)%1280;y=(z*283+78)%height_v
         a.append(f'<circle cx="{x}" cy="{y}" r="{2+z%3}" fill="{esc(ac)}" opacity=".16"/>')
+    content_start=len(a)
     if ty=='foto':
-        config=c.get('imagem',{})
-        file=(config.get('arquivo','') if isinstance(config,dict) else str(config))
-        if file and media_dir:
-            path=Path(media_dir)/file
-            if path.is_file():
-                cr=config.get('crop',[]) if isinstance(config,dict) else []
-                uri=image_uri(str(path),path.stat().st_mtime_ns,config.get('fit','cover'),config.get('align_x',.5),config.get('align_y',.5),config.get('bg',bg),tuple(cr),height_v)
-                a.append(f'<image width="1280" height="{height_v}" href="{uri}"/>')
-                a.append(f'<rect width="1280" height="{height_v}" fill="url(#shade)"/>')
-        else:
+        if not has_image:
             a.append(label(640,main_y+85,'IMPORTE UMA IMAGEM',42,ac,700,'middle'))
     elif ty=='globo':
         cy=main_y+140 if not tall else height_v*.55
@@ -136,12 +160,21 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
         a.append(f'<rect x="180" y="{yy+215}" width="920" height="20" rx="10" fill="{esc(ac)}" opacity=".15"/>')
         a.append(f'<rect x="180" y="{yy+215}" width="{920*e:.1f}" height="20" rx="10" fill="{esc(ac)}"/>')
     elif ty=='cartoes':
-        items=c.get('itens',[])[:8];start=main_y-80 if not tall else height_v*.36
+        items=c.get('itens',[])[:8]
+        step=100 if tall else 86
+        start=main_y-80 if not tall else height_v*.36
+        if tall and has_image and config.get('modo')=='quadro':
+            photo_start=height_v*(config.get('y',.52)-config.get('h',.34)/2)
+            photo_end=height_v*(config.get('y',.52)+config.get('h',.34)/2)
+            needed=max(1,len(items)-1)*step+78
+            # Prefer a non-overlapping column below the photo; otherwise above it.
+            if photo_end+35+needed<height_v-180:start=photo_end+35
+            elif 590+needed<photo_start-20:start=590
         for i,item in enumerate(items):
-            y=start+i*(86 if not tall else 110)
+            y=start+i*step
             if y>height_v-180:break
-            a.append(f'<rect x="102" y="{y:.1f}" width="1070" height="72" rx="20" fill="{esc(ac)}" opacity="{.14+min(.16,max(0,(p*len(items)-i)*.3)):.2f}"/>')
-            a.append(label(145,y+47,str(item)[:58],31,fg,550))
+            a.append(f'<rect x="102" y="{y:.1f}" width="1070" height="72" rx="20" fill="{esc(ac)}" opacity="{.22+min(.22,max(0,(p*len(items)-i)*.3)):.2f}"/>')
+            a.append(label(145,y+47,str(item)[:58],31,fg,600))
     elif ty=='arvore':
         cx=640;cy=height_v-210
         def grow(x,y,a0,L,level):
@@ -155,18 +188,28 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
         grow(cx,cy,math.pi/2,160 if not tall else 245,6)
     elif ty=='svg':
         fragment=render_fragment(c.get('svg',''),str(media_dir or Path('.')))
+        fragment=animate_svg_fragment(fragment,c.get('animacoes',[]),p)
         # SVG fragments use a 1280x720 design canvas, with centered extra room in portrait.
         trans=(height_v-720)/2
         a.append(f'<g transform="translate(0,{trans:.1f}) translate(640,360) scale({.86+.14*e:.3f}) translate(-640,-360)">{fragment}</g>')
+    if has_image and config.get('modo','fundo' if ty=='foto' else 'quadro')=='quadro':
+        markup=image_element(config,media_dir,bg,height_v,full=False)
+        mx=1280*clamp(config.get('x',.73));my=height_v*clamp(config.get('y',.58))
+        a.append(animate_image_markup(markup,c.get('animacoes',[]),p,(mx,my)))
+    if len(a)>content_start:
+        content=''.join(a[content_start:]); del a[content_start:]
+        a.append(animate_markup(content,c.get('animacoes',[]),p,'__conteudo__',(640,height_v/2)))
     # Header, title and footnote overlay
     a.append(f'<rect x="0" y="0" width="1280" height="11" fill="{esc(ac)}"/>')
     a.append(label(80,header_y,c.get('categoria','ESTÚDIO SVG'),23,ac,750))
     a.append(label(1170,header_y,f'{idx+1:02d}/{total:02d}',22,fg,600,'end'))
-    n=0
-    for j,line in enumerate(wrap(c.get('titulo',''),37,3)):
-        a.append(label(80,title_y+j*64,line,50,fg,800));n=j+1
-    for j,line in enumerate(wrap(c.get('subtitulo',''),63,2)):
-        a.append(label(82,title_y+n*64+12+j*39,line,27,fg,420))
+    n=0;title_parts=[];sub_parts=[]
+    for j,line in enumerate(wrap(c.get('titulo',''),28 if tall else 37,3)):
+        title_parts.append(label(80,title_y+j*(60 if tall else 64),line,47 if tall else 50,fg,800));n=j+1
+    a.append(animate_markup(''.join(title_parts),c.get('animacoes',[]),p,'__titulo__',(640,title_y+n*24)))
+    for j,line in enumerate(wrap(c.get('subtitulo',''),43 if tall else 63,2)):
+        sub_parts.append(label(82,title_y+n*(60 if tall else 64)+12+j*39,line,29 if tall else 27,fg,420))
+    a.append(animate_markup(''.join(sub_parts),c.get('animacoes',[]),p,'__subtitulo__',(640,title_y+n*60+45)))
     a.append(f'<rect x="0" y="{footer_y}" width="1280" height="110" fill="{esc(bg)}" opacity=".92"/>')
     a.append(f'<rect x="80" y="{footer_y+16}" width="1120" height="6" rx="3" fill="{esc(ac)}" opacity=".28"/>')
     a.append(f'<rect x="80" y="{footer_y+16}" width="{1120*p:.1f}" height="6" rx="3" fill="{esc(ac)}"/>')

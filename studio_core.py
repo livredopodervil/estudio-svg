@@ -143,11 +143,13 @@ def scene_length(scene,pr,voice=True):
 def visual_key(scene,pr,seconds):
     c={k:v for k,v in scene.items() if k not in ('audio','fala','id')}
     file=c['imagem']['arquivo']
-    return digest(['visual-3','2.3.0',c,pr['video'],seconds,asset_sha(file),sha_file(ROOT/'graphics.py'),sha_file(ROOT/'svg_engine_legacy.py')])
+    return digest(['visual-3','2.3.0',c,pr['video'],seconds,asset_sha(file),sha_file(ROOT/'graphics.py'),sha_file(ROOT/'scene_animation.py'),sha_file(ROOT/'svg_engine_legacy.py')])
 
 def audio_key(scene,pr,seconds,voice_path):
     au=scene['audio'];tracks=[(x,asset_sha(x['file'])) for x in au['tracks']]
-    return digest(['audio-3',au,pr['trilha'],asset_sha(pr['trilha']),pr['volume_musica'],pr['volume_voz'],
+    continuous=pr.get('trilha_continua',False)
+    return digest(['audio-4',au,continuous,('' if continuous else pr['trilha']),('' if continuous else asset_sha(pr['trilha'])),
+                   (0 if continuous else pr['volume_musica']),pr['volume_voz'],
                    voice_path.name if voice_path else '',(sha_file(voice_path) if voice_path else ''),
                    asset_sha(au['music_file']),tracks,seconds])
 
@@ -235,7 +237,8 @@ def make_scene_audio(scene,pr,seconds,voice_path):
         filters.append(f);mixed.append('['+tag+']');index+=1
     if voice_path:
         add(voice_path,pr['volume_voz']*au['voice_volume'],au['voice_delay'])
-    music=au['music_file'] or pr['trilha']
+    # Per-scene music is unchanged; global music is added *once* after scene concatenation.
+    music=au['music_file'] or ('' if pr.get('trilha_continua',False) else pr['trilha'])
     if music:
         vol=au['music_volume'] if au['music_file'] else pr['volume_musica']
         if au['duck_music'] and voice_path:vol*=.33
@@ -268,7 +271,59 @@ def make_scene_audio(scene,pr,seconds,voice_path):
     fixed.replace(out);tmp.unlink(missing_ok=True)
     return out,True
 
-def concat_audio(paths,out):
+def continuous_music_signature(pr):
+    return [pr.get('trilha_continua',False),pr['trilha'],pr['volume_musica'],asset_sha(pr['trilha'])]
+
+
+def continuous_duck_intervals(pr, scene_audios):
+    """Return positions where the global track should be lowered for the spoken voice."""
+    intervals=[];offset=0.
+    for scene,audio in zip(pr['cenas'],scene_audios):
+        with wave.open(str(audio),'rb') as f:seconds=f.getnframes()/f.getframerate()
+        if scene['audio']['duck_music']:
+            voice=voice_source(scene,pr,required=False)
+            if voice:
+                begin=offset+scene['audio']['voice_delay']
+                end=min(offset+seconds,begin+duration(voice))
+                if end>begin:intervals.append((begin,end))
+        offset+=seconds
+    return intervals
+
+
+def apply_continuous_music(dry_path, target, pr, start_seconds=0, duck_intervals=()):
+    """Overlay one uninterrupted music stream on the already concatenated scene mix."""
+    track=pr.get('trilha')
+    volume=pr['volume_musica']
+    if not(pr.get('trilha_continua') and track and volume>0):
+        shutil.copyfile(dry_path,target)
+        return
+    music=media_file(track)
+    with wave.open(str(dry_path),'rb') as wavein:
+        total=wavein.getnframes()/wavein.getframerate()
+    # Use a continuously looped music source; offset only matters for scene previews.
+    duck=''.join(f",volume=0.33:enable='between(t,{begin:.5f},{end:.5f})'"
+                 for begin,end in duck_intervals)
+    f=(f'[1:a]aresample=48000,aformat=channel_layouts=stereo,'
+       f'atrim=start={max(0,start_seconds):.5f}:duration={total:.5f},asetpts=PTS-STARTPTS,'
+       f'volume={volume:.5f}{duck},apad=whole_dur={total:.5f}[music];'
+       f'[0:a]aresample=48000,aformat=channel_layouts=stereo[dry];'
+       f'[dry][music]amix=inputs=2:normalize=0:duration=first,'
+       f'alimiter=limit=0.93,atrim=0:{total:.5f}[a]')
+    run(['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y',
+         '-i',dry_path,'-stream_loop','-1','-i',music,
+         '-filter_complex',f,'-map','[a]','-ar','48000','-ac','2',
+         '-c:a','pcm_s16le',target],timeout=max(120,int(total*5)))
+
+
+def concat_audio(paths,out,pr=None):
+    """Concatenate 48 kHz stereo scenes, adding global soundtrack if requested."""
+    import tempfile
+    if pr and pr.get('trilha_continua') and pr.get('trilha') and pr.get('volume_musica',0)>0:
+        with tempfile.TemporaryDirectory(dir=str(CACHE)) as directory:
+            dry=Path(directory)/'dry.wav'
+            concat_audio(paths,dry)
+            apply_continuous_music(dry,out,pr,duck_intervals=continuous_duck_intervals(pr,paths))
+        return
     with wave.open(str(out),'wb') as dst:
         dst.setnchannels(2);dst.setsampwidth(2);dst.setframerate(48000)
         for p in paths:
@@ -279,7 +334,7 @@ def concat_audio(paths,out):
                     if not data:break
                     dst.writeframesraw(data)
 
-def mux_video(segments,audios,target):
+def mux_video(segments,audios,target,pr=None):
     import tempfile
     target=Path(target);target.parent.mkdir(parents=True,exist_ok=True)
     with tempfile.TemporaryDirectory(dir=str(CACHE)) as d:
@@ -287,7 +342,7 @@ def mux_video(segments,audios,target):
         playlist.write_text(''.join("file '"+str(Path(p).resolve()).replace("'", "'\\''")+"'\n" for p in segments))
         run(['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y','-f','concat','-safe','0',
              '-i',playlist,'-c','copy','-an',silent],timeout=1800)
-        concat_audio(audios,audio)
+        concat_audio(audios,audio,pr)
         tmp=target.with_suffix('.partial.mp4')
         try:
             run(['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y',
@@ -327,7 +382,7 @@ def project_audio_mix(name,pr,progress=lambda *_:None):
         paths.append(out)
         signs.append(audio_key(scene,pr,seconds,voice))
         progress((i+1)/len(scenes)*.9,f'Áudio da cena {i+1}/{len(scenes)}: '+('gerado' if modified else 'cache'))
-    final=OUTPUT/(name+'_mix.wav');manifest=OUTPUT/(name+'_mix.json');signature=digest(['mix24',signs])
+    final=OUTPUT/(name+'_mix.wav');manifest=OUTPUT/(name+'_mix.json');signature=digest(['mix25',signs,continuous_music_signature(pr)])
     if final.is_file() and final.stat().st_size>1000 and manifest.is_file():
         try:
             if json.loads(manifest.read_text())['signature']==signature:
@@ -336,7 +391,7 @@ def project_audio_mix(name,pr,progress=lambda *_:None):
         except (ValueError,OSError,KeyError):pass
     temporary=final.with_suffix('.partial.wav')
     try:
-        concat_audio(paths,temporary)
+        concat_audio(paths,temporary,pr)
         temporary.replace(final)
         manifest.write_text(json.dumps({'signature':signature,'duration':duration(final),'cenas':len(scenes)},indent=2))
     finally:temporary.unlink(missing_ok=True)
@@ -374,7 +429,7 @@ def project_render(name,pr,progress=lambda *_:None,mode='render',scene_only=None
         segs.append(seg);audio.append(aud);signs.append([keyv,keya])
         progress((k+1)/len(indices),f'Cena {i+1}: áudio '+('atualizado' if a_changed else 'em cache'))
     output=(name+f'_cena_{scene_only:03d}.mp4') if scene_only is not None else (name+'.mp4')
-    target=OUTPUT/output;manifest=OUTPUT/(output+'.manifest.json');signature=digest(['final-3',signs])
+    target=OUTPUT/output;manifest=OUTPUT/(output+'.manifest.json');signature=digest(['final-4',signs,continuous_music_signature(pr) if scene_only is None else None])
     if target.is_file() and target.stat().st_size>1000 and manifest.is_file():
         try:
             if json.loads(manifest.read_text())['signature']==signature and duration(target)>0:
@@ -382,7 +437,7 @@ def project_render(name,pr,progress=lambda *_:None,mode='render',scene_only=None
                 return {'video':target.name,'cached':True}
         except (OSError,KeyError,ValueError):pass
     progress(.95,'Montando MP4 sem reprocessar cenas preservadas')
-    mux_video(segs,audio,target)
+    mux_video(segs,audio,target,pr if scene_only is None else None)
     manifest.write_text(json.dumps({'signature':signature,'duration':duration(target),'segments':len(segs)},indent=2))
     export_to_android(target)
     progress(1,'MP4 concluído')

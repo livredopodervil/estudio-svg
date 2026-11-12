@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json, re, copy, math
 
-VERSION='2.6.0'
+VERSION='2.7.2'
 MODES={'globo','linha','barras','numero','cartoes','arvore','svg','foto'}
 PRESETS={'16:9':(1280,720),'9:16':(720,1280),'1:1':(800,800),'4:5':(800,1000),'21:9':(1260,540)}
 COLORS={'fundo':'#241b1a','destaque':'#d99a62','texto':'#fff1da'}
@@ -46,14 +46,53 @@ def audio_dict(v,legacy_fala=''):
             'music_file':asset(v.get('music_file','')),'music_volume':n(v.get('music_volume',.16),.16,0,2),
             'duck_music':bool(v.get('duck_music',False)),'tracks':tracks}
 
-def image_dict(v):
+def image_dict(v, portrait=False, photo=False):
     if isinstance(v,str):v={'arquivo':v}
     v=v if isinstance(v,dict) else {}
     return {'arquivo':asset(v.get('arquivo','')),
        'fit':v.get('fit','cover') if v.get('fit') in ('contain','cover','stretch','pad','crop') else 'cover',
        'align_x':n(v.get('align_x',.5),.5,0,1),'align_y':n(v.get('align_y',.5),.5,0,1),
        'bg':color(v.get('bg','#241b1a'),'#241b1a'),
-       'crop': [n(z,0,0,1) for z in v.get('crop',[])][:4] if isinstance(v.get('crop',[]),list) else []}
+       'crop': image_crop(v.get('crop',[])),
+       'modo': v.get('modo','fundo' if photo else 'quadro') if v.get('modo') in ('fundo','quadro') else ('fundo' if photo else 'quadro'),
+       'x':n(v.get('x',.5 if portrait else .73),.5 if portrait else .73,0,1),
+       'y':n(v.get('y',.52 if portrait else .58),.52 if portrait else .58,0,1),
+       'w':n(v.get('w',.82 if portrait else .41),.82 if portrait else .41,.08,1),
+       'h':n(v.get('h',.34 if portrait else .65),.34 if portrait else .65,.08,1),
+       'frame':bool(v.get('frame',True))}
+
+
+def image_crop(raw):
+    if not isinstance(raw,list) or len(raw)!=4:return []
+    values=[n(z,0,0,1) for z in raw]
+    x,y,w,h=values
+    if w<=.001 or h<=.001:return []
+    return [x,y,min(w,1-x),min(h,1-y)] if x<1 and y<1 else []
+
+def animation_dict(raw):
+    """Validate animation ranges before using any values as SVG attributes."""
+    if not isinstance(raw,list):return []
+    result=[]
+    for a in raw[:32]:
+        if not isinstance(a,dict):continue
+        target=str(a.get('alvo',''))[:85]
+        if not (target=='__imagem__' or re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.:-]{0,80}',target)):
+            continue
+        kind=a.get('tipo')
+        if kind not in ('translacao','rotacao','escala','fade'):continue
+        start=n(a.get('inicio',0),0,0,1)
+        finish=n(a.get('fim',1),1,0,1)
+        if finish<=start:finish=min(1,start+.01)
+        if finish<=start:continue
+        lo,hi= ((0,1) if kind=='fade' else ((-8,8) if kind=='escala' else (-3600,3600)))
+        result.append({'alvo':target,'tipo':kind,'inicio':start,'fim':finish,
+            'easing':a.get('easing') if a.get('easing') in ('linear','suave') else 'suave',
+            'de':n(a.get('de',1 if kind=='escala' else 0),1 if kind=='escala' else 0,lo,hi),
+            'ate':n(a.get('ate',1 if kind=='escala' else (1 if kind=='fade' else 0)),1 if kind=='escala' else (1 if kind=='fade' else 0),lo,hi),
+            'de_x':n(a.get('de_x',0),0,-3500,3500),'de_y':n(a.get('de_y',0),0,-3500,3500),
+            'ate_x':n(a.get('ate_x',0),0,-3500,3500),'ate_y':n(a.get('ate_y',0),0,-3500,3500)})
+    return result
+
 
 def normalize(data):
     if not isinstance(data,dict):raise ValueError('O projeto deve ser objeto JSON')
@@ -72,7 +111,7 @@ def normalize(data):
          'modelo_piper':asset(data.get('modelo_piper','')),'voz_espeak':str(data.get('voz_espeak','pt-br'))[:50],
          'velocidade_espeak':int(n(data.get('velocidade_espeak',165),165,80,260)),
          'encaixe_voz':data.get('encaixe_voz','estender') if data.get('encaixe_voz') in ('estender','avisar') else 'estender',
-         'trilha':asset(data.get('trilha','')),'volume_musica':n(data.get('volume_musica',.16),.16,0,2),
+         'trilha':asset(data.get('trilha','')),'trilha_continua':bool(data.get('trilha_continua',False)),'volume_musica':n(data.get('volume_musica',.16),.16,0,2),
          'volume_voz':n(data.get('volume_voz',1.35),1.35,0,3),'cenas':[]}
     ids=set()
     for i,r in enumerate(raw):
@@ -94,7 +133,8 @@ def normalize(data):
             'valor':str(r.get('valor',''))[:60], 'unidade':str(r.get('unidade',''))[:70],
             'sufixo':str(r.get('sufixo',''))[:400], 'destaque':str(r.get('destaque',''))[:200],
             'svg':str(r.get('svg',''))[:2000000],
-            'imagem':image_dict(image),
+            'animacoes':animation_dict(r.get('animacoes',[])),
+            'imagem':image_dict(image,h>w,typ=='foto'),
             'cores':{k:color(cs.get(k),COLORS[k]) for k in COLORS},
             'audio':audio_dict(r.get('audio'),r.get('fala',''))}
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.

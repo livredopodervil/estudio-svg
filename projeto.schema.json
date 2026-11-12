@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Estúdio SVG 2.2 — projeto audiovisual",
+  "title": "Estúdio SVG 2.7.2 — projeto audiovisual",
   "description": "Estúdio SVG V2.3: vozes online e offline, prévias de cenas; compatível com V2.2.",
   "type": "object",
   "required": [
@@ -114,6 +114,10 @@
       "type": "integer",
       "minimum": 80,
       "maximum": 260
+    },
+    "trilha_continua": {
+      "type": "boolean",
+      "description": "Música global contínua ao longo de todo o filme, sem reiniciar nas mudanças de cena"
     }
   },
   "$defs": {
@@ -241,11 +245,99 @@
                 "minimum": 0,
                 "maximum": 1
               }
+            },
+            "modo": {
+              "enum": [
+                "fundo",
+                "quadro"
+              ]
+            },
+            "x": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "y": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "w": {
+              "type": "number",
+              "minimum": 0.08,
+              "maximum": 1
+            },
+            "h": {
+              "type": "number",
+              "minimum": 0.08,
+              "maximum": 1
+            },
+            "frame": {
+              "type": "boolean"
             }
           }
         },
         "audio": {
           "$ref": "#/$defs/audio"
+        },
+        "animacoes": {
+          "type": "array",
+          "maxItems": 32,
+          "description": "Animações por elemento SVG, imagem, título, subtítulo ou conteúdo gráfico da cena",
+          "items": {
+            "type": "object",
+            "required": [
+              "alvo",
+              "tipo"
+            ],
+            "properties": {
+              "alvo": {
+                "type": "string"
+              },
+              "tipo": {
+                "enum": [
+                  "translacao",
+                  "rotacao",
+                  "escala",
+                  "fade"
+                ]
+              },
+              "inicio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "fim": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "easing": {
+                "enum": [
+                  "suave",
+                  "linear"
+                ]
+              },
+              "de": {
+                "type": "number"
+              },
+              "ate": {
+                "type": "number"
+              },
+              "de_x": {
+                "type": "number"
+              },
+              "de_y": {
+                "type": "number"
+              },
+              "ate_x": {
+                "type": "number"
+              },
+              "ate_y": {
+                "type": "number"
+              }
+            }
+          }
         }
       }
     },

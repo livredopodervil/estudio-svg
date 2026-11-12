@@ -20,7 +20,7 @@ class CoreV26Tests(unittest.TestCase):
             self.assertIn('circle',output)
     def test_legacy_json_compatibility(self):
         from pathlib import Path
-        original=json.loads((Path(__file__).resolve().parents[1]/'projetos'/'arcabouco_fiscal_2026.json').read_text())
+        original=json.loads((Path(__file__).resolve().parent/'fixtures'/'legacy_v21.json').read_text())
         project=normalize(original)
         self.assertTrue(len(project['cenas'])>=1)
         self.assertIn('audio',project['cenas'][0])

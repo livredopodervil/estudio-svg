@@ -90,3 +90,46 @@ Oito testes Python passaram nesta distribuição. No Chromium, foram verificados
 - Edge-TTS: https://github.com/rany2/edge-tts
 
 Os avisos de licença das bibliotecas instaladas separadamente permanecem em suas distribuições.
+
+
+## Atualização experimental 2.7 (branch Git isolada)
+
+A V2.7 adiciona um botão **SVG** no cabeçalho, acesso direto ao Ateliê SVG na prévia,
+**imagem opcional em qualquer tipo de cena**, seleção visual de uma foto dentro de uma
+prancha e reposicionamento/redimensionamento no quadro. Em telas verticais, o tipo
+`cartoes` procura uma área sem sobreposição entre a imagem e os cartões de texto.
+
+O editor vetorial usa **um dedo** para desenhar/selecionar e **dois dedos** para
+ampliar/reduzir e deslocar a prancheta. O gesto de navegação não é salvo dentro do
+SVG nem acrescentado ao histórico de desenho. **Ajustar** restaura a visualização.
+
+O editor de fotografia é **não destrutivo**: a mídia original é preservada em `midia/`,
+o recorte relativo (`imagem.crop`) e a posição/tamanho relativos (`x`, `y`, `w`, `h`)
+são salvos por cena no JSON. A mesma imagem importada pode ser reutilizada em
+outras cenas sem duplicar o arquivo. `modo: fundo` estende a imagem ao quadro;
+`modo: quadro` a posiciona como cartão independente.
+
+A branch de desenvolvimento deve ser instalada em um **worktree próprio**, sem
+sobrescrever a V2.6. Para servir esse worktree em uma porta livre:
+
+```bash
+cd "$HOME/estudio_svg_v27_git"
+python app.py verificar
+python -m unittest discover -s tests -p 'test_*.py' -v
+python app.py servir --port 8772
+```
+
+Acesse `http://127.0.0.1:8772`. Faça a validação no Android antes de integrar
+qualquer alteração na branch `main`. Não existe publicação remota automática.
+
+## Atualização experimental 2.7.2 — transformações, animações e áudio
+
+Na branch `feat/v27-editor-imagens`, o Ateliê permite girar pelo controle acima da seleção, espelhar por redimensionamento cruzando o canto oposto, excluir objetos pelo botão **Excluir**, e escolher espessura e estilo de linha (**Contínua**, **Tracejada**, **Pontilhada**, **Traço-ponto**). As alças ficam ocultas nas ferramentas de desenho. O botão legado **Avançado** não é mais exibido; os arquivos e as licenças externos não foram apagados.
+
+Em **Cena → Animações**, adicione efeitos temporais aos objetos SVG identificados por `id`, ao fragmento de fotografia (`__imagem__`), ao título (`__titulo__`), subtítulo (`__subtitulo__`) ou conteúdo gráfico (`__conteudo__`). Cada efeito pode transladar, girar, escalar ou alterar a opacidade entre `inicio` e `fim`, valores normalizados de 0 a 1. A taxa de estados SVG por segundo (`draw_fps`) controla a suavidade do MP4.
+
+Em **Projeto → Trilha global contínua**, habilite a música ao longo de todo o vídeo. Por padrão, projetos legados mantêm a trilha reiniciada por cena. Quando a opção está ativa, o Estúdio concatena o áudio das cenas, mistura a trilha global depois, e respeita a opção de atenuar a música durante a locução. Trilhas específicas de cena permanecem independentes. A prévia de uma única cena não inclui a trilha global contínua; use **Mixar áudio** ou renderize o vídeo inteiro para ouvi-la corretamente.
+
+A **Imagem da cena → Recortar e posicionar** aceita pranchas com várias fotos. Selecione o modo **Quadro móvel / ajustável** para redimensionar o fragmento pelos quatro cantos; o modo **Fundo inteiro** ocupa todo o quadro. A mídia original não é sobrescrita.
+
+A V2.7.2 deve ser aplicada somente após pré-validação do instalador de patch, no worktree de desenvolvimento. Execute os testes e valide os gestos no Android antes de registrar um commit. A documentação anterior descreve a V2.6 e é preservada para referência histórica.

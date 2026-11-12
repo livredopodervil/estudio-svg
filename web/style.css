@@ -8,3 +8,41 @@
 #scenePlayer{display:block;width:100%;max-height:55vh;margin-top:10px;border-radius:10px;background:#120f0d}
 #scenePlayer[hidden]{display:none}
 #mediaStatus{margin:3px 0 8px}
+
+/* Composição vertical: maximizar leitura sem deformar a prévia. */
+.portraitProject .stageShell{max-width:min(100%,460px)}
+.portraitProject .stage{max-height:76dvh}
+.portraitProject #previewPanel .panelHead{flex-wrap:wrap}
+@media(max-width:760px){.portraitProject .stageShell{margin:auto;max-width:min(100%,calc(70dvh * 9 / 16 + 22px))}.portraitProject .stage{max-height:70dvh}.topactions{flex-wrap:wrap}}
+/* Celulares em paisagem, mesmo quando a largura CSS supera 760px. */
+@media (max-height:600px){
+ .top{padding:5px 9px;gap:7px;min-height:46px}
+ .brand small{font-size:10px}
+ .topactions button{font-size:11px;min-height:31px;padding:5px 8px}
+ .projectRow{order:0;flex-basis:auto;flex:1;min-width:140px}
+ .projectRow select{min-width:100px}
+ .mobileTabs{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:4px;position:sticky;top:0;z-index:3;background:#221b18}
+ .mobileTabs button{min-height:30px;padding:4px 2px;font-size:12px}
+ .workspace{display:block;margin:0;padding:4px}
+ .panel{display:none;min-height:calc(100dvh - 140px)}
+ .panel.mobileActive{display:block}
+ .editorScroll{max-height:none;min-height:150px;padding-bottom:26px}
+ .stageShell{max-width:100%}
+ .portraitProject .stageShell{width:min(95%,calc(66dvh * 9 / 16 + 22px));margin:auto}
+ .portraitProject .stage{max-height:66dvh}
+ .previewMedia{margin:4px 6px}
+ .sceneList{max-height:none}
+}
+
+/* V2.7.1: inspeção e edição JSON */
+#jsonDialog{width:min(96vw,980px);height:min(94dvh,950px);max-width:none;max-height:none;background:#26211e;color:var(--fg);border:1px solid #9a785b;border-radius:15px;padding:12px;box-shadow:0 20px 70px #000b}
+#jsonDialog::backdrop{background:#000b}
+#jsonDialog[open]{display:flex;flex-direction:column;gap:7px}
+.jsonDialogHead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.jsonDialogHead h3{margin:0;font-size:17px}
+.jsonTools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.jsonTools label{display:flex;align-items:center;gap:8px}
+#jsonText{flex:1;width:100%;min-height:150px;resize:none;white-space:pre;overflow:auto;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;background:#161717;border:1px solid #866c5c;color:#ecf4ef;tab-size:2}
+.jsonDialogFoot{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+#jsonMessage{white-space:pre-wrap;min-height:25px}
+@media(max-width:760px){#jsonDialog{width:100vw;height:100dvh;max-width:none;max-height:none;border-radius:0;padding:10px}.jsonDialogFoot button{flex:1}}

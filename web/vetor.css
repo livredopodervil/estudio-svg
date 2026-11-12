@@ -9,3 +9,54 @@
 
 /* V2.6.1: multitoque exclusivo da prancheta, sem rolagem do navegador. */
 #svgHost,#artboard,#svgHost svg{touch-action:none;}
+
+#stageScroll{touch-action:none;overscroll-behavior:contain}
+
+/* V2.7.1: alças acessíveis e cores no próprio desenho. */
+.quickColorLabel{display:flex;align-items:center;gap:5px;color:#f4f7f8;font-size:12px;white-space:nowrap;padding:0 3px}
+.quickColorLabel input[type=color]{width:43px;height:36px;min-height:36px;padding:2px;cursor:pointer}
+.toolbar button.outline:disabled{opacity:.45;cursor:not-allowed}
+.selectionBox .resizeHandle{position:absolute;width:22px;height:22px;background:#ffc38b;border:2px solid #422315;border-radius:5px;pointer-events:auto;touch-action:none;z-index:10;box-shadow:0 0 0 2px #fff8}
+.selectionBox .resizeNW{top:-11px;left:-11px;cursor:nwse-resize}
+.selectionBox .resizeNE{top:-11px;right:-11px;cursor:nesw-resize}
+.selectionBox .resizeSW{bottom:-11px;left:-11px;cursor:nesw-resize}
+.selectionBox .resizeSE{bottom:-11px;right:-11px;cursor:nwse-resize}
+@media(max-width:730px){.toolbar .quickColorLabel{font-size:12px}.toolbar #noFill,.toolbar #noStroke{font-size:12px!important;min-height:35px}.selectionBox .resizeHandle{width:27px;height:27px}.selectionBox .resizeNW{top:-14px;left:-14px}.selectionBox .resizeNE{top:-14px;right:-14px}.selectionBox .resizeSW{bottom:-14px;left:-14px}.selectionBox .resizeSE{bottom:-14px;right:-14px}}
+
+.selectionColors{display:flex;gap:7px;align-items:center;padding:5px 10px;background:#27343b;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.selectionColors .colorBarTitle{font-size:12px;color:#c6d7df;font-weight:650}
+.selectionColors button{padding:5px 7px;min-height:34px;font-size:12px}
+@media(max-width:730px){.selectionColors{padding:4px 6px;gap:4px}.selectionColors .colorBarTitle{display:none}.selectionColors .quickColorLabel{font-size:11px}.selectionColors button{padding:4px;font-size:11px}}
+/* Compact landscape phones: preserve canvas space and keep inspector reachable. */
+@media (max-height:520px) and (max-width:1100px){
+ .workspace{display:flex;position:relative}
+ .workspace .panel{position:absolute;inset:0;z-index:4;display:none}
+ .workspace .drawing{position:absolute;inset:0;z-index:1}
+ .workspace.panel-layers .layers{display:flex}
+ .workspace.panel-inspector .inspector{display:flex}
+ .workspace.panel-canvas .drawing{display:flex}
+ .mobileNav{display:flex;gap:4px;padding:3px;background:#1c272e;border-top:1px solid var(--line);z-index:5}
+ .mobileNav button{flex:1;min-height:32px}
+ .mobileNav button.active{background:#bf8556;color:#18110d;font-weight:750}
+ .topbar{padding:4px 8px}.brandIcon{display:none}.brand b{font-size:12px}
+ .topActions button{min-height:30px;padding:4px 7px;font-size:12px}
+ .toolbar{padding:4px;gap:2px}.toolbar button{padding:5px 7px;min-height:32px}
+ #notice{min-height:20px;padding:2px 8px;font-size:11px}
+ .stageBar{min-height:33px;padding:3px 8px}
+ .selectionColors{flex-wrap:nowrap;padding:2px 8px;gap:6px}
+ .selectionColors .quickColorLabel input{height:28px;min-height:28px}
+ .selectionColors button{min-height:28px;padding:2px 7px}
+ .statusline{display:none}
+ .stageScroll{padding:2px}
+ .stageScroll .artboard{width:min(98%,calc((100dvh - 210px) * 16 / 9))}
+}
+
+/* V2.7.2: handles only while selecting; line styling stays usable while drawing. */
+.selectionBox[hidden],.resizeHandle[hidden],.rotateHandle[hidden]{display:none!important}
+.selectionColors #strokeSize{width:67px;min-height:33px;padding:5px;font-variant-numeric:tabular-nums}
+.selectionColors #strokePattern{width:auto;max-width:135px;min-height:33px;padding:5px;font-size:12px}
+.selectionColors .danger{background:#623333;border-color:#b8655f;color:#ffe0de;min-height:34px}
+.selectionColors .danger:disabled{opacity:.38}
+.selectionBox .rotateHandle{position:absolute;top:-45px;left:calc(50% - 13px);width:26px;height:26px;border-radius:100%;background:#bfe7ff;border:2px solid #204251;cursor:grab;pointer-events:auto;touch-action:none;z-index:11;box-shadow:0 0 0 2px #fff9}
+.selectionBox .rotateHandle:before{content:"";position:absolute;top:24px;left:11px;width:2px;height:20px;background:#bfe7ff;pointer-events:none}
+@media(max-width:730px){.selectionColors{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin}.selectionColors .quickColorLabel{white-space:nowrap}.selectionBox .rotateHandle{top:-49px;width:29px;height:29px;left:calc(50% - 14px)}}

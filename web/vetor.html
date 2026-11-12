@@ -1,7 +1,7 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#1d242b"><title>Ateliê SVG | Estúdio V2.6</title><link rel="stylesheet" href="/vetor.css?v=2.6.1"></head>
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#1d242b"><title>Ateliê SVG | Estúdio V2.7.2</title><link rel="stylesheet" href="/vetor.css?v=2.7.2"></head>
 <body>
 <header class="topbar">
- <div class="brand"><span class="brandIcon">◈</span><span><b>ATELIÊ SVG</b><small id="sceneTag">Editor vetorial · Estúdio V2.6</small></span></div>
+ <div class="brand"><span class="brandIcon">◈</span><span><b>ATELIÊ SVG</b><small id="sceneTag">Editor vetorial · Estúdio V2.7</small></span></div>
  <div class="topActions"><span id="saveState" class="saveState">Carregando</span><button id="undo" aria-label="Desfazer" title="Desfazer (Ctrl+Z)">↶ <span>Desfazer</span></button><button id="redo" aria-label="Refazer" title="Refazer (Ctrl+Shift+Z)">↷ <span>Refazer</span></button><button id="save" class="primary" disabled>Salvar cena</button><button id="back">Voltar</button></div>
 </header>
 <div class="toolbar" id="toolButtons" role="toolbar" aria-label="Ferramentas">
@@ -16,7 +16,6 @@
  <button id="importSvg">↥ <span>Abrir SVG</span></button>
  <button id="importImage">▧ <span>Imagem</span></button>
  <button id="showCode">&lt;/&gt; <span>Código</span></button>
- <button id="advancedEditor" title="SVG-Edit: ferramentas avançadas opcionais">⚙ <span>Avançado</span></button>
  <div class="toolbarSpacer"></div>
  <select id="exportType" aria-label="Formato de exportação"><option value="svg">SVG</option><option value="png">PNG</option><option value="jpeg">JPEG</option><option value="webp">WebP</option></select>
  <button id="exportFile" class="outline">⇩ Exportar</button>
@@ -24,10 +23,25 @@
 <div id="notice" role="status" aria-live="polite">Selecione uma ferramenta e desenhe sobre a tela.</div>
 <div class="workspace">
  <aside class="panel layers" id="layersPanel"><div class="panelHead"><strong>Camadas</strong><button id="addLayer2" title="Nova camada">＋</button></div><div id="layersList" class="layersList"></div><div class="panelFooter">Arraste objetos com <b>Selecionar</b>. Ocultar ou bloquear não exclui a camada.</div></aside>
- <section class="drawing"><div class="stageBar"><span id="toolHint">Desenhe com 1 dedo; use 2 dedos para zoom e navegar</span><div class="zoomBtns"><button id="zoomOut" title="Diminuir zoom">−</button><output id="zoomLabel">100%</output><button id="zoomIn" title="Aumentar zoom">＋</button><button id="zoomFit" title="Ajustar à tela">Ajustar</button></div></div><div class="stageScroll" id="stageScroll"><div class="artboard" id="artboard"><div id="svgHost" class="svgHost"></div><div id="selectionBox" class="selectionBox" hidden></div></div></div><div class="statusline"><span>Área do desenho: <b>1280 × 720</b></span><span id="xyInfo">x: — · y: —</span></div></section>
+ <section class="drawing"><div class="stageBar"><span id="toolHint">1 dedo: desenhar/selecionar · 2 dedos: zoom e navegar · redimensionar além do limite: espelhar</span><div class="zoomBtns"><button id="zoomOut" title="Diminuir zoom">−</button><output id="zoomLabel">100%</output><button id="zoomIn" title="Aumentar zoom">＋</button><button id="zoomFit" title="Ajustar à tela">Ajustar</button></div></div><div class="selectionColors" aria-label="Cores do objeto selecionado">
+ <span class="colorBarTitle">Objeto</span>
+ <label class="quickColorLabel" for="quickFill">Preenchimento <input id="quickFill" type="color" value="#d77b53" disabled aria-label="Cor do preenchimento"></label>
+ <button id="noFill" class="outline" disabled title="Sem preenchimento">Sem cor</button>
+ <label class="quickColorLabel" for="quickStroke">Contorno <input id="quickStroke" type="color" value="#354f5e" disabled aria-label="Cor do contorno"></label>
+ <button id="noStroke" class="outline" title="Sem contorno">Sem traço</button>
+ <label class="quickColorLabel" for="strokeSize">Espessura <input id="strokeSize" type="number" inputmode="decimal" min="0.5" max="150" step="0.5" value="8" aria-label="Espessura da linha"></label>
+ <label class="quickColorLabel" for="strokePattern">Linha <select id="strokePattern" aria-label="Estilo de linha"><option value="solid">Contínua</option><option value="dash">Tracejada</option><option value="dot">Pontilhada</option><option value="dashdot">Traço-ponto</option></select></label>
+ <button id="deleteObject" class="danger" title="Excluir objeto selecionado (pode desfazer)">🗑 Excluir</button>
+</div><div class="stageScroll" id="stageScroll"><div class="artboard" id="artboard"><div id="svgHost" class="svgHost"></div><div id="selectionBox" class="selectionBox" hidden>
+ <div class="resizeHandle resizeNW" data-resize="nw" title="Redimensionar" aria-label="Redimensionar canto superior esquerdo"></div>
+ <div class="resizeHandle resizeNE" data-resize="ne" title="Redimensionar" aria-label="Redimensionar canto superior direito"></div>
+ <div class="resizeHandle resizeSW" data-resize="sw" title="Redimensionar" aria-label="Redimensionar canto inferior esquerdo"></div>
+ <div class="resizeHandle resizeSE" data-resize="se" title="Redimensionar e espelhar" aria-label="Redimensionar canto inferior direito"></div>
+ <div class="rotateHandle" data-rotate="true" title="Arrastar para girar o objeto" aria-label="Girar objeto"></div>
+ </div></div></div><div class="statusline"><span>Área do desenho: <b>1280 × 720</b></span><span id="xyInfo">x: — · y: —</span></div></section>
  <aside class="panel inspector" id="inspectorPanel"><div class="panelHead"><strong>Propriedades</strong><button id="deleteSelection" title="Excluir objeto selecionado">Excluir</button></div><div id="inspectorContent" class="inspectorContent"><p>Selecione um objeto para editar.</p></div><div class="inspectorBottom"><button id="sendBack">↓ Recuar</button><button id="bringFront">↑ Avançar</button></div></aside>
 </div>
 <nav class="mobileNav" aria-label="Painéis"><button data-panel="layers" class="">Camadas</button><button data-panel="canvas" class="active">Desenho</button><button data-panel="inspector">Propriedades</button></nav>
 <input hidden type="file" id="svgUpload" accept=".svg,image/svg+xml"><input hidden type="file" id="imageUpload" accept=".png,.jpg,.jpeg,.webp,.gif,.bmp,image/*">
 <dialog id="codeDialog"><div class="dialogHead"><strong>Editar código SVG</strong><button id="closeCode">✕</button></div><p class="dialogHelp">O código será validado localmente e sanitizado pelo servidor ao salvar. Faça cópia se usa extensões SVG não suportadas.</p><textarea spellcheck="false" id="codeText"></textarea><div class="dialogActions"><button id="applyCode" class="primary">Aplicar código</button><button id="cancelCode">Cancelar</button></div></dialog>
-<script type="module" src="/vetor.js?v=2.6.1"></script></body></html>
+<script type="module" src="/vetor.js?v=2.7.2"></script></body></html>
