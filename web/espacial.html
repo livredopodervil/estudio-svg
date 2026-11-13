@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#142330"><title>Estúdio SVG V3 · Espacial (experimental)</title>
+<link rel="stylesheet" href="/espacial.css">
+</head><body>
+<header><a id="back" href="/">← Estúdio SVG</a><strong>◈ Compositor espacial <small>V3 Alpha 4 · timeline experimental</small></strong><button id="save" class="primary">Salvar</button></header>
+<main>
+<section class="viewer">
+<div class="vhead"><span id="sceneTitle">Cena espacial</span><span id="status" role="status">Abrindo…</span></div>
+<div id="viewport"><div id="frame" aria-label="Prévia espacial"></div></div>
+<div class="timeline"><button id="play" title="Reproduzir animação">▶</button><input id="seek" type="range" min="0" max="1000" value="0" aria-label="Posição na cena"><output id="time">0%</output></div>
+<p class="hint">A prévia e o MP4 são gerados pela mesma projeção 3D. Sólidos simples, hierarquias e órbitas de câmera com projeção determinística. A engine Three.js/PBR original do SpatialSeed ainda não foi integrada.</p>
+</section>
+<aside>
+<section><h2>Objetos</h2>
+<div class="tools"><button data-create="cubo">+ Cubo</button><button data-create="esfera">+ Esfera</button><button data-create="piramide">+ Pirâmide</button><button data-create="cilindro">+ Cilindro</button><button data-create="cone">+ Cone</button><button data-create="grupo">+ Grupo</button></div>
+<div class="tools"><select id="objects" aria-label="Selecionar objeto"></select><button id="duplicate">Duplicar</button><button id="delete">Excluir</button></div></section>
+<section><h2>Transformar</h2><div id="inspector"></div></section>
+<section><h2>Câmera</h2><div class="three"><label>Azimute <input id="yaw" type="number" step="1"></label><label>Elevação <input id="pitch" type="number" step="1"></label><label>Distância <input id="distance" type="number" step=".5" min="3" max="40"></label></div><div id="cameraTracks" class="track"></div><button id="clearCameraTracks" type="button">Remover animações da câmera</button></section>
+<section><h2>Animação</h2><p class="hint">O tempo é normalizado: 0 representa o início e 1 o fim da cena.</p><div id="tracks"></div><div class="tools"><button id="spin">+ Giro de 360°</button><button id="pulse">+ Pulsar (yoyo)</button><button id="bounce">+ Pulo (bounce)</button><button id="orbit">+ Órbita de câmera</button><button id="clearTracks">Remover animações do objeto</button></div></section>
+<section><h2>Comandos JSON</h2><p class="hint">Operações permitidas: adicionar, alterar, excluir e animar. Não executa JavaScript livre.</p>
+<textarea id="commands" spellcheck="false" aria-label="Comandos JSON">{"operacoes":[{"op":"adicionar","id":"novo_bloco","tipo":"cubo","posicao":[0,0,0]}]}</textarea>
+<div class="tools"><button id="apply">Validar e aplicar comandos</button><button id="undo">Desfazer</button></div></section>
+</aside>
+</main><script src="/espacial.js?v=3.0.0-alpha.4"></script></body></html>

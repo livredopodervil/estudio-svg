@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import lru_cache
 from PIL import Image, ImageOps
 from svg_engine_legacy import safe_fragment
+from spatial_scene import render_spatial
 from svg_graphic import render_fragment
 from scene_animation import animate_svg_fragment, animate_image_markup, animate_markup
 
@@ -186,6 +187,8 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
                 grow(xx,yy,a0+.42,L*.73,level-1)
                 grow(xx,yy,a0-.51,L*.73,level-1)
         grow(cx,cy,math.pi/2,160 if not tall else 245,6)
+    elif ty=='espacial':
+        a.append(render_spatial(c['espacial'],p,height_v))
     elif ty=='svg':
         fragment=render_fragment(c.get('svg',''),str(media_dir or Path('.')))
         fragment=animate_svg_fragment(fragment,c.get('animacoes',[]),p)

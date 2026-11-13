@@ -1,0 +1,30 @@
+{
+  "titulo": "Primeiro teste espacial 3D · V3 experimental",
+  "video": {"width": 720, "height": 1280, "fps": 24, "draw_fps": 4, "background": "#111925"},
+  "trilha_continua": false,
+  "cenas": [
+    {
+      "id": "orbita_demo",
+      "tipo": "espacial",
+      "duracao": 5,
+      "titulo": "GEOMETRIA EM MOVIMENTO",
+      "subtitulo": "Câmera espacial e animação por keyframes",
+      "categoria": "ESTÚDIO SVG · V3 ALPHA",
+      "fonte": "Demonstração de geometria procedural local",
+      "cores": {"fundo": "#141f30", "destaque": "#67bfe9", "texto": "#f0f7ff"},
+      "espacial": {
+        "camera": {"azimute": 30, "elevacao": 22, "distancia": 10, "alvo": [0, 0, 0]},
+        "objetos": [
+          {"id": "terra", "tipo": "esfera", "cor": "#3b9cce", "posicao": [-1.6, 0, 0], "rotacao": [0, 0, 0], "escala": 1.2},
+          {"id": "cubo", "tipo": "cubo", "cor": "#e8a96e", "posicao": [1.5, 0.2, 0], "rotacao": [10, 0, 0], "escala": 1},
+          {"id": "piramide", "tipo": "piramide", "cor": "#b596f5", "posicao": [0, -0.8, -2], "escala": 0.7}
+        ],
+        "animacoes": [
+          {"alvo": "cubo", "propriedade": "rotacao_y", "inicio": 0, "fim": 1, "de": 0, "ate": 360, "easing": "linear"},
+          {"alvo": "terra", "propriedade": "posicao_y", "inicio": 0, "fim": 1, "de": -0.8, "ate": 0.8, "easing": "suave"}
+        ]
+      },
+      "audio": {"voice_text": "", "voice_enabled": false}
+    }
+  ]
+}

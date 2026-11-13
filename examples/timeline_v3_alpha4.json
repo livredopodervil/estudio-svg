@@ -1,0 +1,292 @@
+{
+  "versao": "3.0.0-alpha.4",
+  "titulo": "Ritmo e movimento — V3 Alpha 4",
+  "video": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "draw_fps": 6,
+    "background": "#18212C"
+  },
+  "voz": "pt-BR-AntonioNeural",
+  "velocidade_voz": "+0%",
+  "motor_voz": "edge-tts",
+  "modelo_piper": "",
+  "voz_espeak": "pt-br",
+  "velocidade_espeak": 165,
+  "encaixe_voz": "estender",
+  "trilha": "",
+  "trilha_continua": false,
+  "volume_musica": 0.16,
+  "volume_voz": 1.35,
+  "cenas": [
+    {
+      "id": "abertura",
+      "tipo": "svg",
+      "duracao": 5.0,
+      "titulo": "ANIMAÇÃO EM CAMADAS",
+      "subtitulo": "",
+      "fala": "Objetos entram em sequência, com aceleração e recuo controlados.",
+      "fonte": "",
+      "categoria": "COMPOSIÇÃO",
+      "movimento": "suave",
+      "dados": [],
+      "itens": [],
+      "valor": "",
+      "unidade": "",
+      "sufixo": "",
+      "destaque": "",
+      "svg": "<g><circle id=\"bola_1\" cx=\"360\" cy=\"390\" r=\"70\" fill=\"#EAA567\"/><circle id=\"bola_2\" cx=\"360\" cy=\"610\" r=\"54\" fill=\"#78BECC\"/><circle id=\"bola_3\" cx=\"360\" cy=\"800\" r=\"44\" fill=\"#D6BD87\"/></g>",
+      "animacoes": [
+        {
+          "alvo": "bola_1",
+          "tipo": "translacao",
+          "inicio": 0.0,
+          "fim": 0.2,
+          "easing": "back.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0.0,
+          "ate": 0.0,
+          "de_x": -200.0,
+          "de_y": 0.0,
+          "ate_x": 0.0,
+          "ate_y": 0.0
+        },
+        {
+          "alvo": "bola_2",
+          "tipo": "translacao",
+          "inicio": 0.1,
+          "fim": 0.30000000000000004,
+          "easing": "back.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0.0,
+          "ate": 0.0,
+          "de_x": -200.0,
+          "de_y": 0.0,
+          "ate_x": 0.0,
+          "ate_y": 0.0
+        },
+        {
+          "alvo": "bola_3",
+          "tipo": "translacao",
+          "inicio": 0.2,
+          "fim": 0.4,
+          "easing": "back.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0.0,
+          "ate": 0.0,
+          "de_x": -200.0,
+          "de_y": 0.0,
+          "ate_x": 0.0,
+          "ate_y": 0.0
+        },
+        {
+          "alvo": "__titulo__",
+          "tipo": "fade",
+          "inicio": 0,
+          "fim": 0.15,
+          "easing": "power2.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 1,
+          "de_x": 0.0,
+          "de_y": 0.0,
+          "ate_x": 0.0,
+          "ate_y": 0.0
+        }
+      ],
+      "video_clipe": {
+        "arquivo": "",
+        "x": 0.5,
+        "y": 0.56,
+        "w": 0.7,
+        "h": 0.4,
+        "fit": "cover",
+        "inicio": 0,
+        "repetir": true,
+        "opacidade": 1
+      },
+      "imagem": {
+        "arquivo": "",
+        "fit": "cover",
+        "align_x": 0.5,
+        "align_y": 0.5,
+        "bg": "#241b1a",
+        "crop": [],
+        "modo": "quadro",
+        "x": 0.5,
+        "y": 0.52,
+        "w": 0.82,
+        "h": 0.34,
+        "frame": true
+      },
+      "cores": {
+        "fundo": "#241b1a",
+        "destaque": "#d99a62",
+        "texto": "#fff1da"
+      },
+      "audio": {
+        "voice_text": "Objetos entram em sequência, com aceleração e recuo controlados.",
+        "voice_enabled": true,
+        "voice_file": "",
+        "voice_volume": 1.0,
+        "voice_delay": 0.12,
+        "music_file": "",
+        "music_volume": 0.16,
+        "duck_music": false,
+        "muted": false,
+        "tracks": []
+      }
+    },
+    {
+      "id": "pulso_3d",
+      "tipo": "espacial",
+      "duracao": 5.0,
+      "titulo": "OBJETOS E CÂMERA",
+      "subtitulo": "",
+      "fala": "O mesmo relógio anima a câmera e os objetos três dimensionais.",
+      "fonte": "",
+      "categoria": "ESPAÇO",
+      "movimento": "suave",
+      "dados": [],
+      "itens": [],
+      "valor": "",
+      "unidade": "",
+      "sufixo": "",
+      "destaque": "",
+      "svg": "",
+      "animacoes": [],
+      "video_clipe": {
+        "arquivo": "",
+        "x": 0.5,
+        "y": 0.56,
+        "w": 0.7,
+        "h": 0.4,
+        "fit": "cover",
+        "inicio": 0,
+        "repetir": true,
+        "opacidade": 1
+      },
+      "imagem": {
+        "arquivo": "",
+        "fit": "cover",
+        "align_x": 0.5,
+        "align_y": 0.5,
+        "bg": "#241b1a",
+        "crop": [],
+        "modo": "quadro",
+        "x": 0.5,
+        "y": 0.52,
+        "w": 0.82,
+        "h": 0.34,
+        "frame": true
+      },
+      "cores": {
+        "fundo": "#241b1a",
+        "destaque": "#d99a62",
+        "texto": "#fff1da"
+      },
+      "audio": {
+        "voice_text": "O mesmo relógio anima a câmera e os objetos três dimensionais.",
+        "voice_enabled": true,
+        "voice_file": "",
+        "voice_volume": 1.0,
+        "voice_delay": 0.12,
+        "music_file": "",
+        "music_volume": 0.16,
+        "duck_music": false,
+        "muted": false,
+        "tracks": []
+      },
+      "espacial": {
+        "camera": {
+          "azimute": 22.0,
+          "elevacao": 16.0,
+          "distancia": 9.0,
+          "alvo": [
+            0,
+            0,
+            0
+          ]
+        },
+        "objetos": [
+          {
+            "id": "centro",
+            "tipo": "esfera",
+            "posicao": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotacao": [
+              0,
+              0,
+              0
+            ],
+            "escala": 1,
+            "cor": "#7CB6DC",
+            "visivel": true,
+            "pai": ""
+          },
+          {
+            "id": "sat",
+            "tipo": "cubo",
+            "posicao": [
+              2.0,
+              0.0,
+              0.0
+            ],
+            "rotacao": [
+              0,
+              0,
+              0
+            ],
+            "escala": 1,
+            "cor": "#E9AA65",
+            "visivel": true,
+            "pai": ""
+          }
+        ],
+        "animacoes": [
+          {
+            "alvo": "sat",
+            "propriedade": "rotacao_y",
+            "inicio": 0,
+            "fim": 1,
+            "de": 0.0,
+            "ate": 360.0,
+            "easing": "linear",
+            "repeticoes": 0,
+            "yoyo": false
+          },
+          {
+            "alvo": "centro",
+            "propriedade": "escala",
+            "inicio": 0,
+            "fim": 1,
+            "de": 0.8,
+            "ate": 1.2,
+            "easing": "sine.inOut",
+            "repeticoes": 3,
+            "yoyo": true
+          },
+          {
+            "alvo": "__camera__",
+            "propriedade": "azimute",
+            "inicio": 0,
+            "fim": 1,
+            "de": 22.0,
+            "ate": 140.0,
+            "easing": "power1.inOut",
+            "repeticoes": 0,
+            "yoyo": false
+          }
+        ]
+      }
+    }
+  ]
+}

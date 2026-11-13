@@ -1,0 +1,191 @@
+{
+  "versao": "3.0.0-alpha.2",
+  "titulo": "V3 Alpha 2 · objetos hierárquicos e câmera animada",
+  "video": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "draw_fps": 6,
+    "background": "#102039"
+  },
+  "voz": "pt-BR-AntonioNeural",
+  "velocidade_voz": "+0%",
+  "motor_voz": "edge-tts",
+  "modelo_piper": "",
+  "voz_espeak": "pt-br",
+  "velocidade_espeak": 165,
+  "encaixe_voz": "estender",
+  "trilha": "",
+  "trilha_continua": false,
+  "volume_musica": 0.16,
+  "volume_voz": 1.35,
+  "cenas": [
+    {
+      "id": "demonstracao_3d",
+      "tipo": "espacial",
+      "duracao": 5.0,
+      "titulo": "HIERARQUIA E CÂMERA",
+      "subtitulo": "Grupos e animação determinística",
+      "fala": "",
+      "fonte": "",
+      "categoria": "ESTÚDIO SVG V3 EXPERIMENTAL",
+      "movimento": "suave",
+      "dados": [],
+      "itens": [],
+      "valor": "",
+      "unidade": "",
+      "sufixo": "",
+      "destaque": "",
+      "svg": "",
+      "animacoes": [],
+      "video_clipe": {
+        "arquivo": "",
+        "x": 0.5,
+        "y": 0.56,
+        "w": 0.7,
+        "h": 0.4,
+        "fit": "cover",
+        "inicio": 0,
+        "repetir": true,
+        "opacidade": 1
+      },
+      "imagem": {
+        "arquivo": "",
+        "fit": "cover",
+        "align_x": 0.5,
+        "align_y": 0.5,
+        "bg": "#241b1a",
+        "crop": [],
+        "modo": "quadro",
+        "x": 0.5,
+        "y": 0.52,
+        "w": 0.82,
+        "h": 0.34,
+        "frame": true
+      },
+      "cores": {
+        "fundo": "#241b1a",
+        "destaque": "#d99a62",
+        "texto": "#fff1da"
+      },
+      "audio": {
+        "voice_text": "",
+        "voice_enabled": false,
+        "voice_file": "",
+        "voice_volume": 1.0,
+        "voice_delay": 0.12,
+        "music_file": "",
+        "music_volume": 0.16,
+        "duck_music": false,
+        "muted": true,
+        "tracks": []
+      },
+      "espacial": {
+        "camera": {
+          "azimute": -30.0,
+          "elevacao": 18.0,
+          "distancia": 12.0,
+          "alvo": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "objetos": [
+          {
+            "id": "sistema",
+            "tipo": "grupo",
+            "posicao": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotacao": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "escala": 1.0,
+            "cor": "#64bcdb",
+            "visivel": true,
+            "pai": ""
+          },
+          {
+            "id": "centro",
+            "tipo": "esfera",
+            "posicao": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "rotacao": [
+              0,
+              0,
+              0
+            ],
+            "escala": 1.1,
+            "cor": "#efa258",
+            "visivel": true,
+            "pai": "sistema"
+          },
+          {
+            "id": "pilar",
+            "tipo": "cilindro",
+            "posicao": [
+              -2.0,
+              0.0,
+              0.0
+            ],
+            "rotacao": [
+              0,
+              0,
+              0
+            ],
+            "escala": 0.62,
+            "cor": "#5596ce",
+            "visivel": true,
+            "pai": "sistema"
+          },
+          {
+            "id": "ponta",
+            "tipo": "cone",
+            "posicao": [
+              2.0,
+              0.0,
+              0.0
+            ],
+            "rotacao": [
+              0,
+              0,
+              0
+            ],
+            "escala": 0.7,
+            "cor": "#9ed587",
+            "visivel": true,
+            "pai": "sistema"
+          }
+        ],
+        "animacoes": [
+          {
+            "alvo": "sistema",
+            "propriedade": "rotacao_y",
+            "inicio": 0,
+            "fim": 1,
+            "de": 0.0,
+            "ate": 180.0,
+            "easing": "linear"
+          },
+          {
+            "alvo": "__camera__",
+            "propriedade": "azimute",
+            "inicio": 0,
+            "fim": 1,
+            "de": -30.0,
+            "ate": 180.0,
+            "easing": "linear"
+          }
+        ]
+      }
+    }
+  ]
+}

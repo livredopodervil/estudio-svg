@@ -139,3 +139,14 @@ A V2.7.2 deve ser aplicada somente após pré-validação do instalador de patch
 A partir de uma cena, use **Importar vídeo** (MP4/WebM/MOV/MKV/M4V) ou **Gravar câmera**. Em Áudio, escolha **Gravar narração**; a gravação exige permissão explícita. O JSON da cena possui `video_clipe`, cujo arquivo está em `midia/`. Vídeos são sobrepostos no quadro SVG e seu áudio é opcional, vinculado por `audio.voice_file`.
 
 Abra uma cena SVG pelo editor para adaptar a prancheta ao 9:16. A conversão de viewBox só se torna permanente ao salvar. Use **Animações → Inspecionar animação no tempo** e o botão de exemplo para visualizar fade e translação.
+
+
+## V3 Alpha 4 — timeline declarativa (experimental)
+
+Os efeitos `power`, `sine`, `expo`, `back` e `bounce`, repetição, yoyo e
+sequenciamento por grupo são implementados localmente em `timeline_easing.py`;
+**GSAP não é distribuído nem executado neste projeto** devido à necessidade
+de esclarecer as restrições de sua licença para editores visuais. Consulte
+`docs/LLM_GUIA_VIDEO_V3_ALPHA4.md` e `docs/LICENCAS_GSAP.md`.
+
+A versão estável continua sendo a V2.7.4.1 em `main` (`b6f3b3e`).

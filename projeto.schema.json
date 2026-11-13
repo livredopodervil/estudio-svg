@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Estúdio SVG V2.7.3 — projeto audiovisual",
+  "title": "Estúdio SVG V3 Alpha 4 — contrato audiovisual experimental",
   "description": "Formato das cenas, animações, imagens, vídeo local e gravação de áudio.",
   "type": "object",
   "required": [
@@ -138,14 +138,15 @@
         },
         "tipo": {
           "enum": [
+            "arvore",
+            "barras",
+            "cartoes",
+            "espacial",
+            "foto",
             "globo",
             "linha",
-            "barras",
             "numero",
-            "cartoes",
-            "arvore",
-            "svg",
-            "foto"
+            "svg"
           ]
         },
         "duracao": {
@@ -286,10 +287,6 @@
           "description": "Animações por elemento SVG, imagem, título, subtítulo ou conteúdo gráfico da cena",
           "items": {
             "type": "object",
-            "required": [
-              "alvo",
-              "tipo"
-            ],
             "properties": {
               "alvo": {
                 "type": "string"
@@ -314,8 +311,21 @@
               },
               "easing": {
                 "enum": [
+                  "linear",
                   "suave",
-                  "linear"
+                  "power1.in",
+                  "power1.out",
+                  "power1.inOut",
+                  "power2.in",
+                  "power2.out",
+                  "power2.inOut",
+                  "power3.inOut",
+                  "sine.in",
+                  "sine.out",
+                  "sine.inOut",
+                  "expo.out",
+                  "back.out",
+                  "bounce.out"
                 ]
               },
               "de": {
@@ -335,8 +345,44 @@
               },
               "ate_y": {
                 "type": "number"
+              },
+              "repeticoes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20
+              },
+              "yoyo": {
+                "type": "boolean"
+              },
+              "alvos": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 16,
+                "items": {
+                  "type": "string"
+                }
+              },
+              "intervalo": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.5
               }
-            }
+            },
+            "required": [
+              "tipo"
+            ],
+            "anyOf": [
+              {
+                "required": [
+                  "alvo"
+                ]
+              },
+              {
+                "required": [
+                  "alvos"
+                ]
+              }
+            ]
           }
         },
         "video_clipe": {
@@ -385,6 +431,159 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1
+            }
+          }
+        },
+        "espacial": {
+          "type": "object",
+          "description": "Motor espacial experimental sem WebGL",
+          "properties": {
+            "camera": {
+              "type": "object",
+              "properties": {
+                "azimute": {
+                  "type": "number"
+                },
+                "elevacao": {
+                  "type": "number"
+                },
+                "distancia": {
+                  "type": "number",
+                  "minimum": 3,
+                  "maximum": 40
+                },
+                "alvo": {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              }
+            },
+            "objetos": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "tipo": {
+                    "enum": [
+                      "cubo",
+                      "esfera",
+                      "piramide",
+                      "cilindro",
+                      "cone",
+                      "grupo"
+                    ]
+                  },
+                  "posicao": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "rotacao": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  "escala": {
+                    "type": "number"
+                  },
+                  "pai": {
+                    "type": "string"
+                  },
+                  "cor": {
+                    "$ref": "#/$defs/color"
+                  },
+                  "visivel": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "animacoes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "required": [
+                  "alvo",
+                  "propriedade"
+                ],
+                "properties": {
+                  "alvo": {
+                    "type": "string"
+                  },
+                  "propriedade": {
+                    "enum": [
+                      "rotacao_x",
+                      "rotacao_y",
+                      "rotacao_z",
+                      "posicao_x",
+                      "posicao_y",
+                      "posicao_z",
+                      "escala",
+                      "azimute",
+                      "elevacao",
+                      "distancia"
+                    ]
+                  },
+                  "inicio": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "fim": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "de": {
+                    "type": "number"
+                  },
+                  "ate": {
+                    "type": "number"
+                  },
+                  "easing": {
+                    "enum": [
+                      "linear",
+                      "suave",
+                      "power1.in",
+                      "power1.out",
+                      "power1.inOut",
+                      "power2.in",
+                      "power2.out",
+                      "power2.inOut",
+                      "power3.inOut",
+                      "sine.in",
+                      "sine.out",
+                      "sine.inOut",
+                      "expo.out",
+                      "back.out",
+                      "bounce.out"
+                    ]
+                  },
+                  "repeticoes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20
+                  },
+                  "yoyo": {
+                    "type": "boolean"
+                  }
+                }
+              }
             }
           }
         }

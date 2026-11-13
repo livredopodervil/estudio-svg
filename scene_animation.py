@@ -2,17 +2,15 @@
 from __future__ import annotations
 import math
 import xml.etree.ElementTree as ET
+from timeline_easing import ease as _ease, progress as _progress
 
 
 def ease(progress, mode):
-    t = max(0., min(1., progress))
-    return t if mode == 'linear' else t*t*(3-2*t)
+    return _ease(progress, mode)
 
 
 def progress_at(animation, position):
-    start = animation['inicio']
-    end = animation['fim']
-    return ease((position-start)/max(1e-6, end-start), animation['easing'])
+    return _progress(animation, position)
 
 
 def pivot(element):

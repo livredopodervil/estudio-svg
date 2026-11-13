@@ -76,7 +76,7 @@ def tts_key(scene,pr):
 
 def voice_source(scene,pr,required=True):
     au=scene['audio']
-    if not au['voice_enabled']:return None
+    if au.get('muted') or not au['voice_enabled']:return None
     if au['voice_file']:
         if not required and not (MEDIA/au['voice_file']).is_file():return None
         return media_file(au['voice_file'])
@@ -110,6 +110,9 @@ def batch_audio(pr,progress=lambda *_:None):
     voices=[];counts=len(pr['cenas'])
     for i,scene in enumerate(pr['cenas']):
         au=scene['audio']
+        if au.get('muted'):
+            progress((i+1)/counts,f'Cena {i+1}: áudio desativado')
+            continue
         if au['voice_enabled'] and au['voice_file']:
             f=media_file(au['voice_file'])
             if duration(f)<=0:raise StudioError(f'Áudio manual inválido na cena {i+1}')
@@ -248,15 +251,17 @@ def make_scene_audio(scene,pr,seconds,voice_path):
         if fade_out>0:f+=f',afade=t=out:st={max(0,usable-fade_out):.3f}:d={min(fade_out,usable):.3f}'
         f+=f',atrim=0:{usable:.5f},adelay={round(start*1000)}:all=1[{tag}]'
         filters.append(f);mixed.append('['+tag+']');index+=1
+    if au.get('muted'):voice_path=None
     if voice_path:
         add(voice_path,pr['volume_voz']*au['voice_volume'],au['voice_delay'])
     # Per-scene music is unchanged; global music is added *once* after scene concatenation.
     music=au['music_file'] or ('' if pr.get('trilha_continua',False) else pr['trilha'])
+    if au.get('muted'):music=''
     if music:
         vol=au['music_volume'] if au['music_file'] else pr['volume_musica']
         if au['duck_music'] and voice_path:vol*=.33
         add(media_file(music),vol,loop=True)
-    for t in au['tracks']:
+    for t in ([] if au.get('muted') else au['tracks']):
         add(media_file(t['file']),t['volume'],t['start'],t['loop'],t['fade_in'],t['fade_out'])
     tmp=out.with_suffix('.partial.wav')
     if not mixed:
@@ -303,7 +308,17 @@ def continuous_duck_intervals(pr, scene_audios):
     return intervals
 
 
-def apply_continuous_music(dry_path, target, pr, start_seconds=0, duck_intervals=()):
+def continuous_mute_intervals(pr, scene_audios):
+    intervals=[];offset=0.
+    for scene,audio in zip(pr['cenas'],scene_audios):
+        with wave.open(str(audio),'rb') as src:
+            seconds=src.getnframes()/src.getframerate()
+        if scene['audio'].get('muted'):intervals.append((offset,offset+seconds))
+        offset+=seconds
+    return intervals
+
+
+def apply_continuous_music(dry_path, target, pr, start_seconds=0, duck_intervals=(), mute_intervals=()):
     """Overlay one uninterrupted music stream on the already concatenated scene mix."""
     track=pr.get('trilha')
     volume=pr['volume_musica']
@@ -316,9 +331,11 @@ def apply_continuous_music(dry_path, target, pr, start_seconds=0, duck_intervals
     # Use a continuously looped music source; offset only matters for scene previews.
     duck=''.join(f",volume=0.33:enable='between(t,{begin:.5f},{end:.5f})'"
                  for begin,end in duck_intervals)
+    mute=''.join(f",volume=0:enable='between(t,{begin:.5f},{end:.5f})'"
+                 for begin,end in mute_intervals)
     f=(f'[1:a]aresample=48000,aformat=channel_layouts=stereo,'
        f'atrim=start={max(0,start_seconds):.5f}:duration={total:.5f},asetpts=PTS-STARTPTS,'
-       f'volume={volume:.5f}{duck},apad=whole_dur={total:.5f}[music];'
+       f'volume={volume:.5f}{duck}{mute},apad=whole_dur={total:.5f}[music];'
        f'[0:a]aresample=48000,aformat=channel_layouts=stereo[dry];'
        f'[dry][music]amix=inputs=2:normalize=0:duration=first,'
        f'alimiter=limit=0.93,atrim=0:{total:.5f}[a]')
@@ -335,7 +352,8 @@ def concat_audio(paths,out,pr=None):
         with tempfile.TemporaryDirectory(dir=str(CACHE)) as directory:
             dry=Path(directory)/'dry.wav'
             concat_audio(paths,dry)
-            apply_continuous_music(dry,out,pr,duck_intervals=continuous_duck_intervals(pr,paths))
+            apply_continuous_music(dry,out,pr,duck_intervals=continuous_duck_intervals(pr,paths),
+                mute_intervals=continuous_mute_intervals(pr,paths))
         return
     with wave.open(str(out),'wb') as dst:
         dst.setnchannels(2);dst.setsampwidth(2);dst.setframerate(48000)

@@ -1,9 +1,11 @@
 """Projeto JSON V2.2 e compatibilidade V1/V2.1. Sem dependências externas."""
 from __future__ import annotations
 import json, re, copy, math
+from spatial_scene import normalize_spatial, default_spatial
+from timeline_easing import EASINGS
 
-VERSION='2.7.3'
-MODES={'globo','linha','barras','numero','cartoes','arvore','svg','foto'}
+VERSION='3.0.0-alpha.4'
+MODES={'globo','linha','barras','numero','cartoes','arvore','svg','foto','espacial'}
 PRESETS={'16:9':(1280,720),'9:16':(720,1280),'1:1':(800,800),'4:5':(800,1000),'21:9':(1260,540)}
 COLORS={'fundo':'#241b1a','destaque':'#d99a62','texto':'#fff1da'}
 NAME=re.compile(r'^[A-Za-z0-9_-]{1,64}$')
@@ -44,7 +46,7 @@ def audio_dict(v,legacy_fala=''):
             'voice_file':asset(v.get('voice_file','')),'voice_volume':n(v.get('voice_volume',1),1,0,3),
             'voice_delay':n(v.get('voice_delay',.12),.12,0,30),
             'music_file':asset(v.get('music_file','')),'music_volume':n(v.get('music_volume',.16),.16,0,2),
-            'duck_music':bool(v.get('duck_music',False)),'tracks':tracks}
+            'duck_music':bool(v.get('duck_music',False)),'muted':bool(v.get('muted',False)),'tracks':tracks}
 
 def image_dict(v, portrait=False, photo=False):
     if isinstance(v,str):v={'arquivo':v}
@@ -82,27 +84,37 @@ def image_crop(raw):
     return [x,y,min(w,1-x),min(h,1-y)] if x<1 and y<1 else []
 
 def animation_dict(raw):
-    """Validate animation ranges before using any values as SVG attributes."""
+    """Normaliza timelines SVG; grupos alvos+intervalo geram faixas escalonadas."""
     if not isinstance(raw,list):return []
     result=[]
     for a in raw[:32]:
         if not isinstance(a,dict):continue
-        target=str(a.get('alvo',''))[:85]
-        if not (target=='__imagem__' or re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.:-]{0,80}',target)):
-            continue
         kind=a.get('tipo')
         if kind not in ('translacao','rotacao','escala','fade'):continue
+        targets=a.get('alvos')
+        if not isinstance(targets,list): targets=[a.get('alvo','')]
+        if not 1<=len(targets)<=16:continue
         start=n(a.get('inicio',0),0,0,1)
         finish=n(a.get('fim',1),1,0,1)
         if finish<=start:finish=min(1,start+.01)
         if finish<=start:continue
+        stagger=n(a.get('intervalo',0),0,0,.5)
         lo,hi= ((0,1) if kind=='fade' else ((-8,8) if kind=='escala' else (-3600,3600)))
-        result.append({'alvo':target,'tipo':kind,'inicio':start,'fim':finish,
-            'easing':a.get('easing') if a.get('easing') in ('linear','suave') else 'suave',
-            'de':n(a.get('de',1 if kind=='escala' else 0),1 if kind=='escala' else 0,lo,hi),
-            'ate':n(a.get('ate',1 if kind=='escala' else (1 if kind=='fade' else 0)),1 if kind=='escala' else (1 if kind=='fade' else 0),lo,hi),
-            'de_x':n(a.get('de_x',0),0,-3500,3500),'de_y':n(a.get('de_y',0),0,-3500,3500),
-            'ate_x':n(a.get('ate_x',0),0,-3500,3500),'ate_y':n(a.get('ate_y',0),0,-3500,3500)})
+        easing=a.get('easing') if a.get('easing') in EASINGS else 'suave'
+        for i,raw_target in enumerate(targets):
+            target=str(raw_target)[:85]
+            if not (target=='__imagem__' or re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.:-]{0,80}',target)):continue
+            this_start=min(1.,start+i*stagger)
+            this_finish=min(1.,finish+i*stagger)
+            if this_finish <= this_start:continue
+            result.append({'alvo':target,'tipo':kind,'inicio':this_start,'fim':this_finish,
+                'easing':easing,'repeticoes':int(n(a.get('repeticoes',0),0,0,20)),
+                'yoyo':bool(a.get('yoyo',False)),
+                'de':n(a.get('de',1 if kind=='escala' else 0),1 if kind=='escala' else 0,lo,hi),
+                'ate':n(a.get('ate',1 if kind=='escala' else (1 if kind=='fade' else 0)),1 if kind=='escala' else (1 if kind=='fade' else 0),lo,hi),
+                'de_x':n(a.get('de_x',0),0,-3500,3500),'de_y':n(a.get('de_y',0),0,-3500,3500),
+                'ate_x':n(a.get('ate_x',0),0,-3500,3500),'ate_y':n(a.get('ate_y',0),0,-3500,3500)})
+            if len(result)>=32:return result
     return result
 
 
@@ -150,6 +162,7 @@ def normalize(data):
             'imagem':image_dict(image,h>w,typ=='foto'),
             'cores':{k:color(cs.get(k),COLORS[k]) for k in COLORS},
             'audio':audio_dict(r.get('audio'),r.get('fala',''))}
+        if typ=='espacial': c['espacial']=normalize_spatial(r.get('espacial',default_spatial()))
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.
         c['fala']=c['audio']['voice_text']
         out['cenas'].append(c)

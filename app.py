@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Estúdio SVG V2.7: editor de imagens e apresentação vetorial."""
 from __future__ import annotations
-import argparse, binascii, base64, io, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, traceback, uuid, hashlib
+import argparse, binascii, base64, io, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, traceback, uuid, hashlib, zipfile
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs,urlsplit
 from PIL import Image, ImageOps
+from project_bundle import bundle_to_file
+from project_import import import_zip
 from schema import VERSION, normalize,default_project,name,asset
 from studio_core import (StudioError,ROOT,PROJECTS,MEDIA,CACHE,OUTPUT,project_render,cache_status,
                          clear_scene_cache,duration,scene_cached_media,scene_preview)
 from graphics import visualize
 from svg_graphic import clean_svg
 
+BUNDLE_IMPORT_LOCK=threading.RLock()
 JOBS={};JOB_LOCK=threading.RLock();ENGINE_LOCK=threading.Lock();PREVIEW_LOCK=threading.Lock();SVG_LOCK=threading.RLock()
 
 def project_path(project):return PROJECTS/(name(project)+'.json')
@@ -51,7 +54,11 @@ def work(job,project,mode,scene,no_voice):
                 now=time.monotonic()
                 if now-job.get('lastlog',0)>2 or q>=1 or msg.startswith('MP4'):
                     job['lastlog']=now;log_job(job,msg)
-            if mode in ('audio-mp3','audio-opus','voz-mp3'):
+            if mode in ('export-html','export-html-silent'):
+                from standalone_html import export_html
+                from studio_core import MEDIA as app_media, OUTPUT as app_output
+                res=export_html(actual_name,pr,app_media,app_output,progress,with_audio=(mode=='export-html'))
+            elif mode in ('audio-mp3','audio-opus','voz-mp3'):
                 from audio_export import export_project_audio, export_scene_voice
                 if mode=='voz-mp3':
                     res=export_scene_voice(actual_name,pr,scene,progress)
@@ -70,7 +77,7 @@ def work(job,project,mode,scene,no_voice):
 
 def queue_job(project,mode,scene=None,no_voice=False):
     name(project);read_project(project)
-    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3'):raise StudioError('Modo inválido')
+    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','export-html','export-html-silent'):raise StudioError('Modo inválido')
     if mode in ('cena','voz-mp3'):
         try:scene=int(scene)
         except (ValueError,TypeError):raise StudioError('Informe o número da cena')
@@ -141,6 +148,20 @@ def store_media_bytes(raw,kind,ext):
     finally:temp.unlink(missing_ok=True)
 
 
+def image_alias(raw):
+    """Convert a user label to a safe JPEG basename; never overwrite existing media."""
+    label = str(raw or '').strip()
+    stem = re.sub(r'[^A-Za-z0-9_-]+', '_', Path(label).stem).strip('_')[:70]
+    if not stem:raise StudioError('Escolha um nome com letras ou números')
+    candidate = stem + '.jpg'
+    i = 2
+    while (MEDIA/candidate).exists():
+        candidate = f'{stem}_{i}.jpg'
+        i += 1
+        if i > 10000:raise StudioError('Não foi possível encontrar nome livre')
+    return candidate
+
+
 def presentation_mix_status(project_name, project):
     """Return scene durations and the current mix, never a stale audio file.
 
@@ -167,7 +188,7 @@ def presentation_mix_status(project_name, project):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='EstudioSVG/2.7.3'
+    server_version='EstudioSVG/3.0-alpha'
     def log_message(self,fmt,*args):print('HTTP: '+fmt%args,flush=True)
     def response(self,status,data,mime='application/json; charset=utf-8'):
         if isinstance(data,(dict,list)):data=json.dumps(data,ensure_ascii=False).encode('utf8')
@@ -225,10 +246,10 @@ class Handler(BaseHTTPRequestHandler):
             if action=='start':
                 kind=str(v.get('kind',''))
                 ext=Path(str(v.get('filename',''))).suffix.lower()
-                if kind not in ('audio','video') or ext not in (AUDIO_EXT if kind=='audio' else VIDEO_EXT):
+                if kind not in ('audio','video','bundle') or ext not in ({'.zip'} if kind=='bundle' else AUDIO_EXT if kind=='audio' else VIDEO_EXT):
                     raise StudioError('Formato de mídia não permitido')
                 size=int(v.get('size',0))
-                if not 0<size<=MAX_MEDIA_BYTES:raise StudioError('Mídia maior que 250 MB')
+                if not 0<size<=MAX_MEDIA_BYTES:raise StudioError('Arquivo maior que 250 MB')
                 token=uuid.uuid4().hex
                 path=CACHE/(token+'.upload')
                 path.touch(exist_ok=False)
@@ -253,6 +274,10 @@ class Handler(BaseHTTPRequestHandler):
             if action=='finish':
                 if rec['count']!=rec['size']:raise StudioError('Envio incompleto')
                 try:
+                    if rec['kind']=='bundle':
+                        with BUNDLE_IMPORT_LOCK:
+                            result=import_zip(rec['path'],v.get('name',''),PROJECTS,MEDIA,CACHE,inspect_media)
+                        return self.response(200,result)
                     inspect_media(rec['path'],rec['kind'])
                     fn=uuid.uuid4().hex[:12]+rec['ext']
                     rec['path'].replace(MEDIA/fn)
@@ -331,6 +356,42 @@ class Handler(BaseHTTPRequestHandler):
                     save_project(n,pr)
                     revision=hashlib.sha256(doc.encode('utf8')).hexdigest()
                 return self.response(200,{'ok':True,'revision':revision,'scene':idx+1})
+            if route=='/api/project/bundle' and method=='GET':
+                identifier=name(q('name'))
+                pr=read_project(identifier)
+                # Unique temporary file avoids collisions between concurrent requests.
+                temporary=CACHE/('bundle-'+uuid.uuid4().hex+'.zip')
+                try:
+                    bundle_to_file(identifier,pr,MEDIA,temporary)
+                    self.send_response(200)
+                    self.send_header('Content-Type','application/zip')
+                    self.send_header('Content-Disposition',f'attachment; filename="{identifier}-com-midia.zip"')
+                    self.send_header('Content-Length',str(temporary.stat().st_size))
+                    self.send_header('Cache-Control','no-store')
+                    self.end_headers()
+                    with temporary.open('rb') as src:shutil.copyfileobj(src,self.wfile,256*1024)
+                finally:temporary.unlink(missing_ok=True)
+                return
+            if route=='/api/media/image/alias' and method=='POST':
+                v=self.payload()
+                old=asset(v.get('file',''))
+                if not old or Path(old).suffix.lower() not in ('.jpg','.jpeg','.png','.webp'):
+                    raise StudioError('Imagem de origem inválida')
+                src=MEDIA/old
+                if not src.is_file() or src.is_symlink():raise StudioError('Imagem original não encontrada')
+                fresh=image_alias(v.get('new_name',''))
+                # New alias is a copy. Other scenes keep the original basename.
+                with (MEDIA/fresh).open('xb') as target:
+                    try:
+                        if src.suffix.lower() in ('.jpg','.jpeg'):
+                            with src.open('rb') as original:shutil.copyfileobj(original,target,256*1024)
+                        else:
+                            with Image.open(src) as picture:
+                                ImageOps.exif_transpose(picture).convert('RGB').save(target,'JPEG',quality=90)
+                    except Exception:
+                        (MEDIA/fresh).unlink(missing_ok=True)
+                        raise
+                return self.response(200,{'filename':fresh,'original':old})
             if route=='/api/project/validate' and method=='POST':
                 # Validation is read-only: no project file is created or overwritten.
                 data=self.payload(6_000_000)
@@ -421,7 +482,8 @@ class Handler(BaseHTTPRequestHandler):
                 if typ=='image':
                     with Image.open(io.BytesIO(raw)) as im:
                         im=ImageOps.exif_transpose(im).convert('RGB');im.thumbnail((1920,1920))
-                        fn=uuid.uuid4().hex[:12]+'.jpg';im.save(MEDIA/fn,'JPEG',quality=90)
+                        fn=image_alias(inp.get('preferred_name')) if inp.get('preferred_name') else uuid.uuid4().hex[:12]+'.jpg'
+                        with (MEDIA/fn).open('xb') as target:im.save(target,'JPEG',quality=90)
                 elif typ in ('audio','video'):
                     ext=Path(str(inp.get('filename','audio.mp3'))).suffix.lower()
                     fn=store_media_bytes(raw,typ,ext)
@@ -433,14 +495,14 @@ class Handler(BaseHTTPRequestHandler):
                 if not re.fullmatch('[a-zA-Z0-9_.-]+',fname):raise StudioError('Nome de arquivo inválido')
                 f=OUTPUT/fname
                 if not f.is_file():return self.response(404,{'error':'Arquivo não encontrado'})
-                content='video/mp4' if fname.endswith('.mp4') else ('audio/wav' if fname.endswith('.wav') else ('audio/mpeg' if fname.endswith('.mp3') else ('audio/ogg' if fname.endswith('.opus') else ('application/zip' if fname.endswith('.zip') else 'text/plain'))))
+                content='video/mp4' if fname.endswith('.mp4') else ('audio/wav' if fname.endswith('.wav') else ('audio/mpeg' if fname.endswith('.mp3') else ('audio/ogg' if fname.endswith('.opus') else ('application/zip' if fname.endswith('.zip') else ('text/html; charset=utf-8' if fname.endswith('.html') else 'text/plain')))))
                 self.send_response(200);self.send_header('Content-Type',content)
                 self.send_header('Content-Length',str(f.stat().st_size));self.send_header('Content-Disposition',f'attachment; filename="{fname}"')
                 self.end_headers()
                 with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,256*1024)
                 return
             return self.response(404,{'error':'Rota não encontrada'})
-        except (ValueError,TypeError,StudioError,KeyError,OverflowError,binascii.Error,json.JSONDecodeError) as e:
+        except (ValueError,TypeError,StudioError,KeyError,OverflowError,binascii.Error,json.JSONDecodeError,zipfile.BadZipFile,UnicodeError) as e:
             return self.response(400,{'error':str(e)})
         except Exception as e:
             traceback.print_exc();return self.response(500,{'error':'Erro interno: '+str(e)})
@@ -463,7 +525,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,128*1024)
             return
-        filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
+        filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/espacial':'espacial.html','/espacial.html':'espacial.html','/espacial.js':'espacial.js','/espacial.css':'espacial.css','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
         if r not in filemap:return self.response(404,'Não encontrado','text/plain')
         fn=ROOT/'web'/filemap[r];mime=('.js' if r.endswith('js') else '.css' if r.endswith('css') else '.html')
         types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'}
@@ -489,7 +551,7 @@ def migrate(old):
     print(f'Migração concluída: {count} projetos novos, mídias copiadas sem sobrescrever.')
 
 def cli():
-    p=argparse.ArgumentParser(description='Estúdio SVG V2.7.3 para Termux')
+    p=argparse.ArgumentParser(description='Estúdio SVG V3 experimental para Termux')
     p.add_argument('acao',nargs='?',default='servir',choices=['servir','verificar','quadros','audio','mix','render','render-leve','cena','cache-status','cache-clear','migrar'])
     p.add_argument('--projeto',default='demo_organico');p.add_argument('--port',type=int,default=8771)
     p.add_argument('--scene',type=int);p.add_argument('--sem-voz',action='store_true')
@@ -502,7 +564,7 @@ def cli():
         print('Projetos:',*[f.stem for f in PROJECTS.glob('*.json')])
     elif args.acao=='migrar':migrate(args.origem)
     elif args.acao=='servir':
-        print('Estúdio SVG V2.7.3: http://127.0.0.1:'+str(args.port),flush=True)
+        print('Estúdio SVG V3 alpha: http://127.0.0.1:'+str(args.port),flush=True)
         server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
         try:server.serve_forever()
         except KeyboardInterrupt:print('\nServidor encerrado')
