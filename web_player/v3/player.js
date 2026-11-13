@@ -9,6 +9,7 @@ const pivotStoreKey='estudio-svg-vetorial-pivos:'+slug;
 let pivotOverrides={};
 try { pivotOverrides=JSON.parse(localStorage.getItem(pivotStoreKey)||'{}')||{}; } catch (_) { pivotOverrides={}; }
 /* ESTUDIO_SVG_VETORIAL_AUDIO_PIVO_V2 */
+/* ESTUDIO_V3_MEDIA_PATCH_2026_11 */
 const out=s=>{$('status').textContent=s};
 const sec=t=>`${Math.floor(t/60).toString().padStart(2,'0')}:${Math.floor(t%60).toString().padStart(2,'0')}`;
 function pick(t){let i=0; while(i<durations.length-1 && t>=starts[i]+durations[i])i++;return i;}
@@ -16,7 +17,7 @@ function source(c){const x=c.audio||{};return (x.voice_file||'').trim();}
 function voiceText(c){return String(c.audio?.voice_text || c.fala || '').trim();}
 function stopVoice(){
   ++voiceEpoch; voiceBusy=false; waitingVoice=false;
-  if(voiceEl){voiceEl.pause();voiceEl.onended=null;voiceEl.onerror=null;voiceEl.removeAttribute('src');voiceEl.load();voiceEl=null;}
+  if(voiceEl){voiceEl.pause();voiceEl.onended=null;voiceEl.onerror=null;voiceEl.removeAttribute('src');voiceEl.load();}
   if('speechSynthesis' in window) speechSynthesis.cancel();
   voiceScene=-1;
 }
@@ -26,14 +27,15 @@ function nativeVoice(scene){
   const c=project.cenas[scene];
   if(c.audio?.muted || c.audio?.voice_enabled===false)return;
   const path=source(c),rate=Number($('rate').value),known=window.__voiceFiles||{};
+  const sceneFile=window.__voiceSceneFiles?.[scene];
   const epoch=voiceEpoch;
   const done=()=>{if(epoch===voiceEpoch)voiceBusy=false;};
-  if(path && known[path]){
-    voiceEl=new Audio(known[path]); voiceEl.playbackRate=rate;
+  if(sceneFile || (path && known[path])){
+    voiceEl=voiceEl||new Audio();voiceEl.src=sceneFile || known[path]; voiceEl.playbackRate=rate;
     voiceEl.onended=done;
     voiceEl.onerror=()=>{out('Arquivo de voz indisponível na cena '+(scene+1));done();};
     voiceBusy=true;
-    voiceEl.play().catch(e=>{out('Narração bloqueada: '+e.message);done();});
+    voiceEl.play().catch(e=>{out('Áudio bloqueado neste navegador. Toque em Reproduzir ou abra no navegador externo: '+e.message);done();});
     return;
   }
   const txt=voiceText(c);
@@ -81,6 +83,7 @@ async function loadScene(i,token){
   picker.hidden=!targets.length;
   picker.value=targets.find(t=>/ponteiro|agulha|hand|segund|minut|hora/i.test(t))||targets[0]||'';
   calibration=false;$('calibrate').textContent='⊙ Ajustar eixo';
+  window.StudioMedia?.scene(i,project.cenas[i],project.video,current-starts[i],playing);
   if(playing)nativeVoice(i);
 }
 function val(a,k,defaultValue=0){const n=Number(a[k]);return Number.isFinite(n)?n:defaultValue;}
@@ -180,7 +183,7 @@ function loop(now){
   raf=requestAnimationFrame(loop);
 }
 function pause(){
-  playing=false;cancelAnimationFrame(raf);
+  playing=false;cancelAnimationFrame(raf);window.StudioMedia?.pause();
   if(voiceEl)voiceEl.pause();
   if('speechSynthesis' in window)speechSynthesis.pause();
   $('play').textContent='▶ Reproduzir';
@@ -189,7 +192,7 @@ $('play').onclick=()=>{
   if(!project)return;
   if(playing){pause();return;}
   if(current>=total){current=0;stopVoice();}
-  playing=true;origin=performance.now()-current*1000;$('play').textContent='Ⅱ Pausar';
+  playing=true;window.StudioMedia?.play();origin=performance.now()-current*1000;$('play').textContent='Ⅱ Pausar';
   if(index>=0&&index===pick(current)){
     if(voiceBusy&&voiceScene===index){
       if(voiceEl)voiceEl.play().catch(e=>out('Áudio não retomado: '+e.message));
@@ -200,7 +203,7 @@ $('play').onclick=()=>{
 };
 $('seek').oninput=()=>{const t=total*Number($('seek').value)/1000;
   if(playing)origin=performance.now()-t*1000;
-  stopVoice();
+  stopVoice();window.StudioMedia?.seek(pick(t),t-starts[pick(t)]);
   show(t).then(()=>{if(playing)nativeVoice(index)}).catch(e=>out(e.message));
 };
 $('rate').oninput=()=>{$('rateOut').textContent=Number($('rate').value).toFixed(2)+'×';

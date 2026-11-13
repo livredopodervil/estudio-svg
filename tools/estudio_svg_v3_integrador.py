@@ -563,6 +563,10 @@ def main():
     new_js=exact_replace(old_js_text,JS_CHANGES,'player.js V2')
     new_html=banner(exact_replace(old_html_text,HTML_CHANGES,'index.html V2'))
     new_html=new_html.replace('Player vetorial experimental</title>','Player vetorial V3</title>',1)
+    # ESTUDIO_V3_MEDIA_PATCH_2026_11 — aplica recursos também aos novos exports
+    from player_v3_compat import patch_player, patch_html
+    new_js=patch_player(new_js)
+    new_html=patch_html(new_html)
     sys.path.insert(0,str(repo));sys.dont_write_bytecode=True
     graphics=importlib.import_module('graphics')
     sig=inspect.signature(graphics.visualize)
@@ -587,7 +591,7 @@ def main():
         im=c.get('imagem') or {}
         filename=im.get('arquivo') if isinstance(im,dict) else None
         if filename and not source_asset(repo,stage,pub,filename):warnings.append(f'Cena {i+1}: imagem original não encontrada: {filename}')
-    audios=[]
+    audios=[];clips=[]
     for c in scenes:
         data=c.get('audio') or {};name=data.get('voice_file','') if isinstance(data,dict) else ''
         if not name:continue
@@ -597,6 +601,15 @@ def main():
             if base.is_absolute() or '..' in base.parts:raise RuntimeError('Nome de áudio inválido')
             audios.append((src,base))
         else:warnings.append('Voz em arquivo ausente, síntese no browser será utilizada: '+str(name))
+    for c in scenes:
+        cfg=c.get('video_clipe') or {}
+        name=cfg.get('arquivo','') if isinstance(cfg,dict) else ''
+        if not name:continue
+        if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,140}\.(?:mp4|webm|ogv)',name) or '..' in name:
+            raise RuntimeError('Nome de clipe inseguro: '+str(name))
+        src=source_asset(repo,stage,pub,name)
+        if src:clips.append((src,Path(name)))
+        else:warnings.append('Clipe sobreposto original ausente: '+name)
     print('Cenas:',len(svgs),'| Espaciais:',sum(c.get('tipo')=='espacial' for c in scenes))
     print('Mídia base:',media_dir)
     print('Narrações copiadas:',len(audios))
@@ -613,12 +626,17 @@ def main():
         (temp/'index.html').write_text(new_html,'utf-8')
         (temp/'player.js').write_text(new_js,'utf-8')
         (temp/'runtime.js').write_text(RUNTIME_JS,'utf-8')
+        shutil.copy2(repo/'web_player'/'v3'/'media_layer.js',temp/'media_layer.js')
         for i,svg in enumerate(svgs,1):(temp/'cenas'/f'cena-{i:03d}.svg').write_text(svg,'utf-8')
         for src,basename in audios:
             path=temp/'midia'/basename
             if not within(path,temp):raise RuntimeError('Mídia fora do stage')
             path.parent.mkdir(parents=True,exist_ok=True)
             if not path.exists():shutil.copy2(src,path)
+        for src,basename in clips:
+            dest_clip=temp/'midia'/basename
+            dest_clip.parent.mkdir(parents=True,exist_ok=True)
+            if not dest_clip.exists():shutil.copy2(src,dest_clip)
         report={
             'estado':'experimental; sem teste no Android real',
             'projeto':args.slug,'cenas':len(svgs),
@@ -628,7 +646,7 @@ def main():
               'easings e repeticoes/yoyo','alvos SVG e alvos especiais',
               'animações procedurais: globo, linha, barras, numero, cartoes, arvore, svg',
               'voz e pivô do Player V2 preservados'],
-            'limites':['vídeos sobrepostos e trilhas musicais não integrados',
+            'limites':['trilhas musicais não integradas',
               'paridade pixel-a-pixel não comprovada','cenas SVG com SMIL/CSS podem ter timeline própria',
               'HTML público externo não alterado']
         }
