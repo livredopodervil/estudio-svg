@@ -15,41 +15,36 @@ const sec=t=>`${Math.floor(t/60).toString().padStart(2,'0')}:${Math.floor(t%60).
 function pick(t){let i=0; while(i<durations.length-1 && t>=starts[i]+durations[i])i++;return i;}
 function source(c){const x=c.audio||{};return (x.voice_file||'').trim();}
 function voiceText(c){return String(c.audio?.voice_text || c.fala || '').trim();}
+// ESTUDIO_SVG_V34_VOICE_LOCALE
+
+const voiceRuntime=new window.StudioV34.Narrator({
+  synth:('speechSynthesis' in window)?window.speechSynthesis:null,
+  createAudio:()=>new Audio(), status:out
+});
 function stopVoice(){
-  ++voiceEpoch; voiceBusy=false; waitingVoice=false;
-  if(voiceEl){voiceEl.pause();voiceEl.onended=null;voiceEl.onerror=null;voiceEl.removeAttribute('src');voiceEl.load();}
-  if('speechSynthesis' in window) speechSynthesis.cancel();
-  voiceScene=-1;
+  ++voiceEpoch;voiceRuntime.stop();voiceBusy=false;waitingVoice=false;voiceScene=-1;
 }
 function nativeVoice(scene){
   if(!$('narrate').checked || voiceScene===scene)return;
-  stopVoice(); voiceScene=scene;
+  stopVoice();voiceScene=scene;
   const c=project.cenas[scene];
-  if(c.audio?.muted || c.audio?.voice_enabled===false)return;
-  const path=source(c),rate=Number($('rate').value),known=window.__voiceFiles||{};
-  const sceneFile=window.__voiceSceneFiles?.[scene];
-  const epoch=voiceEpoch;
-  const done=()=>{if(epoch===voiceEpoch)voiceBusy=false;};
-  if(sceneFile || (path && known[path])){
-    voiceEl=voiceEl||new Audio();voiceEl.src=sceneFile || known[path]; voiceEl.playbackRate=rate;
-    voiceEl.onended=done;
-    voiceEl.onerror=()=>{out('Arquivo de voz indisponível na cena '+(scene+1));done();};
-    voiceBusy=true;
-    voiceEl.play().catch(e=>{out('Áudio bloqueado neste navegador. Toque em Reproduzir ou abra no navegador externo: '+e.message);done();});
-    return;
-  }
-  const txt=voiceText(c);
-  if(txt && 'speechSynthesis' in window){
-    const u=new SpeechSynthesisUtterance(txt);
-    u.lang=$('lang').value;u.rate=rate;
-    const voices=speechSynthesis.getVoices(),lang=u.lang.toLowerCase();
-    u.voice=voices.find(v=>v.lang.toLowerCase()===lang) ||
-      voices.find(v=>v.lang.toLowerCase().startsWith(lang.split('-')[0])) || null;
-    u.onend=done;
-    u.onerror=e=>{if(e.error!=='interrupted' && e.error!=='canceled')out('Erro de síntese: '+e.error);done();};
-    voiceBusy=true;
-    try{speechSynthesis.speak(u);}catch(e){out('Falha na narração: '+e.message);done();}
-  }
+  if(c.audio?.muted||c.audio?.voice_enabled===false)return;
+  const originalLang=String(project.idioma||project.language||'pt-BR');
+  const lang=$('lang').value;
+  const localeText=window.StudioV34.localeText(c,scene,lang,window.__localePacks||{},originalLang);
+  if(localeText.lang!==lang)out('Tradução '+lang+' indisponível; usando fala em '+originalLang+'.');
+  const basePath=String(c.audio?.voice_file||'').trim();
+  const nativeMap=window.__voiceSceneFiles||{},legacy=window.__voiceFiles||{};
+  const perLang=window.__voiceSceneLocaleFiles?.[lang]||{};
+  const file=perLang[scene]||(lang===originalLang?(nativeMap[scene]||legacy[basePath]||''):'');
+  voiceRuntime.setMode($('voiceSource').value);
+  voiceRuntime.setRate(Number($('rate').value));
+  voiceRuntime.setVolume(1);
+  voiceRuntime.speak({text:localeText.text,lang:localeText.lang,file,
+    voices:window.speechSynthesis?.getVoices?.()||[],
+    voiceName:$('voiceName').value,
+    onDone:()=>{voiceBusy=false;}});
+  voiceBusy=voiceRuntime.busy;
 }
 function sanitize(root){
   root.querySelectorAll('script,foreignObject,iframe,object,embed').forEach(n=>n.remove());
@@ -184,8 +179,7 @@ function loop(now){
 }
 function pause(){
   playing=false;cancelAnimationFrame(raf);window.StudioMedia?.pause();
-  if(voiceEl)voiceEl.pause();
-  if('speechSynthesis' in window)speechSynthesis.pause();
+  voiceRuntime.pause();
   $('play').textContent='▶ Reproduzir';
 }
 $('play').onclick=()=>{
@@ -194,10 +188,7 @@ $('play').onclick=()=>{
   if(current>=total){current=0;stopVoice();}
   playing=true;window.StudioMedia?.play();origin=performance.now()-current*1000;$('play').textContent='Ⅱ Pausar';
   if(index>=0&&index===pick(current)){
-    if(voiceBusy&&voiceScene===index){
-      if(voiceEl)voiceEl.play().catch(e=>out('Áudio não retomado: '+e.message));
-      if('speechSynthesis' in window)speechSynthesis.resume();
-    }else nativeVoice(index);
+    if(voiceBusy&&voiceScene===index){voiceRuntime.resume();}else nativeVoice(index);
   }
   raf=requestAnimationFrame(loop);
 };
@@ -207,7 +198,7 @@ $('seek').oninput=()=>{const t=total*Number($('seek').value)/1000;
   show(t).then(()=>{if(playing)nativeVoice(index)}).catch(e=>out(e.message));
 };
 $('rate').oninput=()=>{$('rateOut').textContent=Number($('rate').value).toFixed(2)+'×';
-  if(voiceEl)voiceEl.playbackRate=Number($('rate').value);
+  voiceRuntime.setRate(Number($('rate').value));
   // Web Speech API não permite alterar a velocidade durante uma fala em curso.
 };
 $('narrate').onchange=()=>{if(!$('narrate').checked)stopVoice();else if(playing&&index>=0)nativeVoice(index);};
@@ -234,11 +225,32 @@ $('stage').addEventListener('click',e=>{
     out('Eixo de '+target+' definido em ('+at.x.toFixed(1)+', '+at.y.toFixed(1)+').');
   }catch(err){out('Não foi possível definir o eixo: '+err.message);}
 });
-$('lang').onchange=()=>{document.documentElement.lang=$('lang').value;};
+$('lang').onchange=async()=>{
+  const lang=$('lang').value;
+  document.documentElement.lang=lang;
+  window.__localePacks=window.__localePacks||{};
+  if(!window.__localePacks[lang]){
+    try{const p=await window.StudioV34.fetchPack(lang);if(p)window.__localePacks[lang]=p;}
+    catch(e){out('Locale '+lang+': '+e.message);}
+  }
+  stopVoice();if(playing&&index>=0)nativeVoice(index);
+};
+$('voiceSource').onchange=()=>{stopVoice();if(playing&&index>=0)nativeVoice(index);};
+$('voiceName').onchange=()=>{stopVoice();if(playing&&index>=0)nativeVoice(index);};
+function refreshVoices(){
+  const select=$('voiceName'),keep=select.value;
+  const voices=window.speechSynthesis?.getVoices?.()||[];
+  select.replaceChildren(new Option('Automática',''),...voices.map(v=>new Option(v.name+' ('+v.lang+')',v.voiceURI)));
+  select.value=[...select.options].some(o=>o.value===keep)?keep:'';
+}
+refreshVoices();window.speechSynthesis?.addEventListener?.('voiceschanged',refreshVoices);
+
 $('full').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();else $('stageShell').requestFullscreen?.();};
 window.addEventListener('pagehide',()=>{pause();stopVoice();});
 (async()=>{
   try{
+    const requested=new URLSearchParams(location.search).get('project');
+    if(requested && requested!==slug)throw Error('Esta apresentação inclui SVGs de '+slug+'. Publique os SVGs e JSON de '+requested+' em um pacote próprio; não é possível trocar apenas o JSON.');
     const r=await fetch('../apresentacoes/'+encodeURIComponent(slug)+'/projeto.json',{cache:'no-store'});
     if(!r.ok)throw Error('projeto.json HTTP '+r.status);
     project=await r.json();if(!Array.isArray(project.cenas)||!project.cenas.length)throw Error('Projeto sem cenas');
@@ -247,6 +259,7 @@ window.addEventListener('pagehide',()=>{pause();stopVoice();});
     const lang=String(project.idioma||project.language||'pt-BR');
     $('lang').value=[...$('lang').options].some(o=>o.value===lang)?lang:'pt-BR';
     document.documentElement.lang=$('lang').value;
+    $('loadedProject').textContent='Projeto: '+String(project.titulo||slug)+' · '+slug;
     await show(0);
     out('Player Web vetorial V3 · '+project.cenas.length+' cenas · projeção espacial e timeline no navegador.');
   }catch(e){out('Falha: '+e.message);console.error(e);}

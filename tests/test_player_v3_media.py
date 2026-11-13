@@ -10,7 +10,17 @@ from player_v3_compat import patch_player,patch_html
 class PlayerMediaContract(unittest.TestCase):
     def test_audio_and_clip_hooks(self):
         js=(ROOT/'web_player/v3/player.js').read_text('utf-8')
-        self.assertIn('sceneFile=window.__voiceSceneFiles?.[scene]',js)
+        # V3.4: arquivos de cena passam pelo controlador de voz.
+        self.assertIn(
+            'const nativeMap=window.__voiceSceneFiles||{}', js
+        )
+        self.assertIn('nativeMap[scene]', js)
+        self.assertIn('window.StudioV34.Narrator', js)
+        self.assertIn('voiceRuntime.speak({', js)
+        self.assertIn('voiceRuntime.stop()', js)
+        self.assertIn(
+            "voiceRuntime.setMode($('voiceSource').value)", js
+        )
         self.assertIn('window.StudioMedia?.scene',js)
         self.assertIn('window.StudioMedia?.pause()',js)
         self.assertIn('window.StudioMedia?.seek(',js)
@@ -20,6 +30,12 @@ class PlayerMediaContract(unittest.TestCase):
         page=(ROOT/'web_player/v3/index.html').read_text('utf-8')
         self.assertLess(page.index('media_layer.js?v=4'),page.index('player.js?v=4'))
         self.assertIn('window.__voiceSceneFiles={}',page)
+        self.assertIn('id="voiceSource"', page)
+        self.assertIn('./v34/voice_locale.js', page)
+        self.assertLess(
+            page.index('./v34/voice_locale.js'),
+            page.index('player.js?v=4')
+        )
 
     def test_media_runtime_is_independent(self):
         runtime=(ROOT/'web_player/v3/media_layer.js').read_text('utf-8')
