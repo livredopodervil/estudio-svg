@@ -16,7 +16,7 @@ def start(args,cwd):
     child=subprocess.Popen([sys.executable,*args],cwd=cwd,start_new_session=True);children.append(child)
 try:
     start([str(root/'rdstudio/server.py'),'--repo',str(site),'--port','8875','--preview-port','8876'],root/'rdstudio')
-    start(['-m','http.server','8791','--bind','127.0.0.1','--directory',str(root/'gil')],root/'gil')
+    start([str(root/'gil/tools/local_server.py'),'--port','8791'],root/'gil')
     if video:start(['app.py','servir','--port','8784'],video)
     print('RD Studio: http://127.0.0.1:8875/\nPrévia: http://127.0.0.1:8876/\nGIL: http://127.0.0.1:8791/\nEstúdio SVG: http://127.0.0.1:8784/ (se iniciado)\nCtrl+C encerra somente os serviços iniciados por este comando.',flush=True)
     while all(c.poll() is None for c in children):time.sleep(.5)

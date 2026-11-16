@@ -1,5 +1,7 @@
-# RD Studio 5 / GIL Timeline 0.1.1 (experimental)
+# RD Studio 5 / GIL Timeline 0.2.0 (experimental)
 Autoria principal: Rogério Duarte. Assistência: OpenAI GPT. A partir do RD Studio 4.4.2 recuperado em 14/11/2026 e do laboratório GIL 0.1. Nenhum motor original substituído. O nome RD Studio 5 é provisório; a numeração GIL permanece compatível com a DSL 0.1.
+
+**Versão atual:** siga [docs/AUTHORING_V020.md](docs/AUTHORING_V020.md). As descrições abaixo da 0.1.1/0.1.2 registram marcos históricos, não substituem o novo fluxo de exportação e publicação.
 
 ## Rodar (Termux)
 Extraia o ZIP em um diretório novo, execute a partir da pasta `rd_studio_gil_v01`:

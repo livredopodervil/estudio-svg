@@ -1,1 +1,38 @@
-{"schema":1,"examples":[{"id":"orbit","source":"orbit.gil","title":"Órbitas — original","duration":30},{"id":"kinetic","source":"kinetic.gil","description":"kinetic.md","title":"Máquina cinética","duration":24,"tags":["hierarquia","camera","animacao","telemetria","audio"]}]}
+{
+  "schema": 1,
+  "examples": [
+    {
+      "id": "orbit",
+      "source": "orbit.gil",
+      "title": "Órbitas — original",
+      "duration": 30
+    },
+    {
+      "id": "kinetic",
+      "source": "kinetic.gil",
+      "description": "kinetic.md",
+      "title": "Máquina cinética",
+      "duration": 24,
+      "tags": [
+        "hierarquia",
+        "camera",
+        "animacao",
+        "telemetria",
+        "audio"
+      ]
+    },
+    {
+      "id": "wave",
+      "source": "wave.gil",
+      "title": "Superposição de ondas",
+      "duration": 18,
+      "tags": [
+        "camera",
+        "ondas",
+        "keyframes",
+        "expressao",
+        "audio"
+      ]
+    }
+  ]
+}

@@ -26,9 +26,9 @@ def module(path):
     return cache[path]
 html=(root/'index.html').read_text('utf-8')
 # The legacy portable authoring preview has no package composer (HTTP assets).
-html=re.sub(r'<section class="panel source" id="publish-page">.*?</section>', '', html, flags=re.S)
+html=re.sub(r'<section class="panel source" id="(?:publish-page|render-panel)">.*?</section>', '', html, flags=re.S)
 html=re.sub(r'<div class="buttons" id="example-selector">.*?</div>', '', html, flags=re.S)
-html=html.replace('<script type="module" src="src/page-ui.mjs"></script>', '')
+html=html.replace('<script type="module" src="src/page-ui.mjs"></script>', '').replace('<script type="module" src="src/render-ui.mjs"></script>', '')
 html=html.replace('<link rel="stylesheet" href="style.css">','<style>'+(root/'style.css').read_text('utf-8')+'</style>')
 html=html.replace('<script type="module" src="src/ui.mjs"></script>','<script type="module">import "'+module(root/'src/ui.mjs')+'";</script>')
 out=Path(sys.argv[1]) if len(sys.argv)>1 else root/'gil_portatil.html'

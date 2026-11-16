@@ -1,4 +1,6 @@
-# GIL Timeline 0.1 — RD Studio Lab
+# GIL Timeline 0.2 — RD Studio Lab
+
+Versão atual de autoria e exportação: [../docs/AUTHORING_V020.md](../docs/AUTHORING_V020.md). O restante registra o laboratório 0.1 e suas limitações originais; o novo servidor é `python tools/local_server.py --port 8791`.
 
 Protótipo executável para consolidar a autoria declarativa GIL3 e o runtime procedural do SpatialSeed. Autoria principal: Rogério Duarte. Assistência: OpenAI GPT. Não é uma nova versão dos editores originais. Nenhuma dependência externa, instalação npm ou publicação Git necessária.
 

@@ -21,3 +21,6 @@ A `main` do site contém alterações automáticas de `data/social-latest.json`;
 ## Prévia espacial
 
 A aba espacial agora solicita `/laboratorio/` automaticamente após receber o estado, informa estado do iframe e oferece nova aba; isso não prova que WebGL/CDN carregaram. O site de teste deve conter `laboratorio/index.html` e módulos/dependências completos. Não alterar o portal para corrigir comportamento ainda não reproduzido. Se o quadro continuar vazio, testar URL direta e recolher erro do console. A miniatura e o navegador são superfícies distintas.
+
+## Evolução 0.2.0
+O fluxo atual está em [AUTHORING_V020.md](AUTHORING_V020.md). O servidor GIL pode renderizar e transferir MP4 por HTTP local; as unidades novas registram o hash da fonte renderizada. A implementação de catálogo global e WebGL permanece pendente.

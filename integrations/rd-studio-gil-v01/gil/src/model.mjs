@@ -1,5 +1,6 @@
 import {PropertyRegistry, RuntimeCapabilities, createOccurrenceRef, childOccurrenceRef, compileAffineExpression, evaluateCompiledAffineExpression, compileAffineProgram, evaluateAffineProgram, createAffineEvaluationContext, composeTransform, eulerQuaternion, multiplyMatrices, invertAffineMatrix, identityMatrix} from './spatialseed.mjs';
 import {parse,serialize,LANGUAGE} from './language.mjs';
+import {planEdit,EDIT_OPERATIONS} from './authoring.mjs';
 const BASE=Object.freeze({x:0,y:0,z:0,rx:0,ry:0,rz:0,sx:1,sy:1,sz:1,opacity:1,layer:0});
 const ID=/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;
@@ -34,7 +35,7 @@ export function compile(sourceOrSpec){
   return deepFreeze({target:a.target,property:k,start,end,keys,ease:v.ease??'linear'});
  });
  const cues=spec.cues.map(c=>{const n=resolved.get(c.target),v=c.timing;ensure(n?.kind==='audio.tone'&&plain(v)&&number(v.start)&&number(v.duration)&&v.start>=0&&v.duration>0&&v.start+v.duration<=st.duration,'Cue de áudio inválido');return deepFreeze({target:c.target,start:v.start,duration:v.duration});});
- const capabilities=new RuntimeCapabilities();capabilities.register('gil.language',{version:LANGUAGE,math:'spatialseed-math-v1',commands:['set','move','undo','redo'],resourceKinds:[...new Set(nodes.map(n=>n.kind))]});capabilities.register('gil.properties',()=>registry.describe());
+ const capabilities=new RuntimeCapabilities();capabilities.register('gil.language',{version:LANGUAGE,math:'spatialseed-math-v1',commands:['set','move','undo','redo','edit'],editOperations:[...EDIT_OPERATIONS],resourceKinds:[...new Set(nodes.map(n=>n.kind))]});capabilities.register('gil.properties',()=>registry.describe());
  return Object.freeze({spec:deepFreeze(spec),nodes:Object.freeze(nodes),tracks:Object.freeze(tracks),cues:Object.freeze(cues),registry,capabilities});
 }
 // Autoridade editorial do laboratório: todos os caminhos passam por compile, commit único.
@@ -48,7 +49,8 @@ export class DocumentService{
  // Compatibilidade semântica com selection.translate: deslocamento mundial
  // da seleção única no documento-base; não usa a pose efêmera da prévia.
  moveWorld(id,delta){const doc=this.#doc,o=doc.nodes.find(n=>n.id===id);ensure(o&&Array.isArray(delta)&&delta.length===3&&delta.every(number),'move: vetor mundial inválido');const byId=new Map(doc.nodes.map(n=>[n.id,n]));function matrix(id){if(!id)return identityMatrix();const n=byId.get(id),p=n.props;return multiplyMatrices(matrix(n.parent),composeTransform({position:[p.x,p.y,p.z],rotation:eulerQuaternion([p.rx,p.ry,p.rz]),scale:[p.sx,p.sy,p.sz]}));}const inv=invertAffineMatrix(matrix(o.parent));const local=[0,1,2].map(row=>inv[row]*delta[0]+inv[4+row]*delta[1]+inv[8+row]*delta[2]);return this.move(id,local);}
+ edit(command){return this.replace(planEdit(this.#doc,command));}
  undo(){if(!this.#undo.length)return false;this.#redo.push(this.#doc);this.#doc=this.#undo.pop();this.#revision++;return true;}
  redo(){if(!this.#redo.length)return false;this.#undo.push(this.#doc);this.#doc=this.#redo.pop();this.#revision++;return true;}
- execute(line){let m;if(line==='undo')return this.undo();if(line==='redo')return this.redo();if((m=/^set\s+(\S+)\s+(\S+)\s+(.+)$/.exec(line)))return this.set(m[1],m[2],JSON.parse(m[3]));if((m=/^move\s+(\S+)\s+(.+)$/.exec(line)))return this.move(m[1],JSON.parse(m[2]));throw Error('Comandos: set ID PROPRIEDADE JSON | move ID [dx,dy,dz] | undo | redo');}
+ execute(line){let m;if((m=/^edit\s+(.+)$/.exec(line)))return this.edit(JSON.parse(m[1]));if(line==='undo')return this.undo();if(line==='redo')return this.redo();if((m=/^set\s+(\S+)\s+(\S+)\s+(.+)$/.exec(line)))return this.set(m[1],m[2],JSON.parse(m[3]));if((m=/^move\s+(\S+)\s+(.+)$/.exec(line)))return this.move(m[1],JSON.parse(m[2]));throw Error('Comandos: set ID PROPRIEDADE JSON | move ID [dx,dy,dz] | edit JSON | undo | redo');}
 }

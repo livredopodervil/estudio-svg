@@ -41,19 +41,19 @@ def payload(mode):
             result[SOURCE_PREFIX+name]=b
         result[SOURCE_PREFIX+'PACKAGE.json']=(ROOT/'PACKAGE.json').read_bytes()
         return result
-    archives=list((ROOT/'demo').glob('gil-gil-maquina-cinetica-*.rdpatch.zip'))
-    if len(archives)!=1:stop('Pacote da demonstração cinética ausente ou ambíguo.')
+    archives=list((ROOT/'demo').glob('gil-gil-superposicao-ondas-*.rdpatch.zip'))
+    if len(archives)!=1:stop('Pacote da demonstração de ondas ausente ou ambíguo.')
     archive=archives[0]
     # Use original patch-manager validation, including ftyp/signatures and SHA256.
     sys.path.insert(0,str(ROOT/'rdstudio'));from patches import PatchManager
     with tempfile.TemporaryDirectory() as d,zipfile.ZipFile(archive) as z:
         m=PatchManager(Path(d))._manifest(z)
-        if not all(i['operation']=='add' and i['path'].startswith('projetos/gil-maquina-cinetica/') for i in m['files']):stop('Demo fora do escopo')
+        if not all(i['operation']=='add' and i['path'].startswith('projetos/gil-superposicao-ondas/') for i in m['files']):stop('Demo fora do escopo')
         return {i['path']:z.read('files/'+i['path']) for i in m['files']}
 def prepare(mode,repo):
     expected=SOURCE_ORIGIN if mode=='source' else SITE_ORIGIN; origin(repo,expected)
     base_branch=SOURCE_BASE if mode=='source' else SITE_BRANCH; dest_branch=SOURCE_BRANCH if mode=='source' else SITE_BRANCH
-    if mode=='source' and remote(repo,dest_branch):stop('Branch de integração já existe. Não sobrescreva; próxima atualização deve partir dela.')
+    if mode=='source':stop('Use tools/publish_update.py --prepare para atualizar a branch de integração existente.')
     run(repo,'fetch','--no-tags','origin','refs/heads/'+base_branch);base=run(repo,'rev-parse','FETCH_HEAD')
     if remote(repo,base_branch)!=base:stop('Remoto avançou; execute novamente.')
     if mode=='source':
@@ -90,12 +90,12 @@ def publish(wt):
     # Explicitly include only manifest-reviewed new files even if the base ignores ZIPs.
     run(wt,'add','-f','--',*meta['files']);run(wt,'diff','--cached','--check')
     if set(run(wt,'diff','--cached','--name-only').splitlines())!=set(meta['files']):stop('Stage divergente.')
-    msg='feat(integration): RD Studio e GIL Timeline v0.1.2' if mode=='source' else 'feat(site): máquina cinética GIL com vídeo e manifesto'
+    msg='feat(integration): RD Studio e GIL Timeline v0.1.2' if mode=='source' else 'feat(site): superposicao de ondas GIL com video e manifesto'
     run(wt,'commit','-m',msg);head=run(wt,'rev-parse','HEAD');print('COMMIT LOCAL:',head,flush=True)
     run(wt,'push','origin','HEAD:refs/heads/'+meta['branch'])
     if remote(wt,meta['branch'])!=head:stop('Remoto não coincide com commit: confira antes de repetir.')
     print('PUBLICADO:',head)
-    if mode=='demo':print('URL esperada após deploy: https://rogerioduarte.org/projetos/gil-maquina-cinetica/')
+    if mode=='demo':print('URL esperada após deploy: https://rogerioduarte.org/projetos/gil-superposicao-ondas/')
 if __name__=='__main__':
     ap=argparse.ArgumentParser();g=ap.add_mutually_exclusive_group(required=True);g.add_argument('--prepare-source',type=Path);g.add_argument('--prepare-demo',type=Path);g.add_argument('--publish',type=Path);ap.add_argument('--confirm-rights',action='store_true');a=ap.parse_args()
     if a.publish:
