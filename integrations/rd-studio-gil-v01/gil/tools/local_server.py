@@ -60,7 +60,11 @@ class Server(ThreadingHTTPServer):
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self,*args,**kwargs):super().__init__(*args,directory=str(ROOT),**kwargs)
     def end_headers(self):
-        self.send_header('X-Content-Type-Options','nosniff');self.send_header('Cross-Origin-Resource-Policy','same-origin');self.send_header('Cache-Control','no-store');self.send_header('X-Frame-Options','DENY');super().end_headers()
+        self.send_header('X-Content-Type-Options','nosniff');self.send_header('Cross-Origin-Resource-Policy','same-origin');self.send_header('Cache-Control','no-store');
+        if os.environ.get('RD_WORKSPACE_PARENT') == 'http://127.0.0.1:8877':
+            self.send_header('Content-Security-Policy','frame-ancestors http://127.0.0.1:8877')
+        else:self.send_header('X-Frame-Options','DENY')
+        super().end_headers()
     def safe(self):
         if self.headers.get('Host')!=self.server.origin.removeprefix('http://') or self.headers.get('Sec-Fetch-Site')=='cross-site':self.send_error(403);return False
         return True
@@ -71,7 +75,7 @@ class Handler(SimpleHTTPRequestHandler):
         p=unquote(path);parts=Path(p.lstrip('/')).parts
         if p=='/':return True
         if not parts or any(x.startswith('.') for x in parts):return False
-        if len(parts)==1:return parts[0] in ('index.html','style.css','player-template.html')
+        if len(parts)==1:return parts[0] in ('index.html','style.css','player-template.html','native-template.js')
         allowed={'src':{'.mjs'},'vendor':{'.js','.mjs','.json'},'assets':{'.svg'},'examples':{'.gil','.json','.md'}}
         target=ROOT.joinpath(*parts)
         return parts[0] in allowed and target.suffix in allowed[parts[0]] and target.is_file() and target.resolve().is_relative_to(ROOT) and not any(q.is_symlink() for q in [target,*target.parents] if q.is_relative_to(ROOT))
@@ -89,12 +93,15 @@ class Handler(SimpleHTTPRequestHandler):
         else:super().do_GET()
     def do_POST(self):
         if not self.safe():return
-        if self.path!='/api/render':self.send_error(404);return
+        if self.path not in ('/api/render','/api/convert-spatialseed'):self.send_error(404);return
         if self.headers.get('Origin')!=self.server.origin or not secrets.compare_digest(self.headers.get('X-GIL-Token',''),self.server.token):self.send_error(403);return
         try:
             n=int(self.headers.get('Content-Length','0'))
             if not 0<n<=300000 or self.headers.get_content_type()!='application/json':raise ValueError('Requisição inválida ou excessiva')
-            data=json.loads(self.rfile.read(n));job=self.server.state.submit(data);self.reply({'job':job},202)
+            data=json.loads(self.rfile.read(n))
+            if self.path=='/api/convert-spatialseed':
+                return self.reply({'source':convert_spatialseed(data)})
+            job=self.server.state.submit(data);self.reply({'job':job},202)
         except (ValueError,TypeError) as e:self.reply({'error':str(e)},400)
         except RuntimeError as e:self.reply({'error':str(e)},409)
     def video(self,jid,download):
@@ -127,6 +134,18 @@ class Handler(SimpleHTTPRequestHandler):
                     self.wfile.write(b);remaining-=len(b)
             except (BrokenPipeError,ConnectionResetError):pass
     def log_message(self,fmt,*args):pass # never log source or session token
+
+def convert_spatialseed(data):
+    source=data.get('source') if isinstance(data,dict) else None
+    if not isinstance(source,str) or not 0<len(source.encode('utf8'))<=250000:raise ValueError('Fonte SpatialSeed vazia ou acima de 250 kB')
+    root=os.environ.get('RD_SPATIALSEED_ROOT')
+    if not root:raise ValueError('Inicie o RD Studio com --spatial')
+    with tempfile.TemporaryDirectory(prefix='gil-spatial-import-') as d:
+        p=Path(d);original=p/'source.spatialseed';out=p/'converted.gil';original.write_text(source,encoding='utf8')
+        try:r=subprocess.run(['node','--max-old-space-size=256',str(ROOT/'tools/import_spatialseed.mjs'),str(original),str(out),root],capture_output=True,timeout=60)
+        except (OSError,subprocess.TimeoutExpired) as e:raise ValueError('Conversor indisponível ou tempo excedido') from e
+        if r.returncode:raise ValueError('Conversão recusada: '+r.stderr.decode('utf8','replace')[-1500:])
+        return out.read_text('utf8')
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--port',type=int,default=8791);a=p.parse_args()

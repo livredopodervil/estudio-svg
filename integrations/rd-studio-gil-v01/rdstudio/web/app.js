@@ -321,3 +321,6 @@
   loadState().catch(()=>{});
   loadPreview();
 })();
+
+// Primary workspace navigation. Legacy direct entrypoints remain available.
+if(window.parent!==window&&location.origin==='http://127.0.0.1:8875')document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a)return;const dest=new URL(a.href);const map={'http://127.0.0.1:8791':'gil','http://127.0.0.1:8784':'video'};if(map[dest.origin]){e.preventDefault();window.parent.postMessage({protocol:'rd-workspace-1',type:'navigate',to:map[dest.origin]},'http://127.0.0.1:8877');}});

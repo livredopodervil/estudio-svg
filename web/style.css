@@ -68,3 +68,23 @@
  border-radius:6px;background:#f0b678;border:3px solid #34251b;touch-action:none;cursor:nwse-resize}
 #stageShell.clip-editing #stageClip{outline:2px solid #f0b678}
 #toggleClipEdit[hidden]{display:none}
+
+/* V3.8: shared workbench controls, inline drawers (no modal required). */
+.workspaceTools{display:flex;gap:7px;flex-wrap:wrap;padding:8px 12px;background:#29211e;border-bottom:1px solid var(--line)}
+.workspaceTools button{flex:1 1 135px;min-width:0;min-height:42px}
+.workspaceDrawer{margin:8px auto;padding:12px 16px;max-width:min(1100px,98vw);border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow-wrap:anywhere}
+.workspaceDrawer[hidden],.workspaceDrawer [hidden]{display:none!important}
+.drawerHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.drawerHead h3{margin:0;font-size:17px}
+.workspaceList{max-height:270px;overflow:auto;display:grid;gap:4px}.workspaceList>div{padding:8px;background:var(--field);border-radius:5px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:5px}.workspaceList small{display:block;color:var(--muted);width:100%}
+.libraryGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:7px}.libraryGrid button{display:flex;flex-direction:column;gap:4px;align-items:center;min-width:0;text-align:center;padding:5px;font-size:12px}.libraryGrid svg{width:100%;height:76px;display:block;background:#182630;border-radius:7px}
+#timingDialog .inline{margin:8px 0}#timingDialog .formField{max-width:360px}
+@media(max-width:760px){.workspaceTools{padding:6px;gap:4px}.workspaceTools button{flex-basis:44%;font-size:12px;min-height:42px;padding:5px}.workspaceDrawer{margin:5px;padding:10px}.libraryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.projectRow{min-width:0}.projectRow select{min-width:0;max-width:80vw}}
+
+@media(max-width:760px){.workspaceDrawer{scroll-margin-top:58px}.drawerHead button{flex:0 0 auto;white-space:nowrap}.drawerHead h3{min-width:0}.workspaceDrawer .inline select{min-width:0}}
+
+/* Timeline visual V3.9 */
+.timeline-controls,.transport-options{margin:6px 10px;font-size:12px}.timeline-controls label{display:flex;align-items:center;gap:6px}.timeline .sceneStrip{flex:0 0 auto;position:relative;min-width:42px;border:1px solid #8c7360;border-radius:5px;background:#382f32;padding:0 9px 0 0;overflow:hidden}.timeline .sceneStrip.active{background:#594638;border-color:#dfb27b}.timeline .sceneStrip>button:first-child{width:100%;min-width:0;max-width:none;border:0;border-radius:0;background:transparent;padding:5px 7px;display:grid;gap:3px}.sceneStrip b,.sceneStrip small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sceneStrip small{font-size:10px}.timeline .sceneStrip .trimHandle{position:absolute;right:0;top:0;bottom:0;width:12px;min-width:0;padding:0;border:0;border-left:1px solid #ae9276;border-radius:0;background:#8a6c4e;cursor:ew-resize;touch-action:none}.timeline .sceneStrip .trimHandle:before{content:'⋮';color:white}.timeline{gap:3px;padding:5px 10px}
+
+#videoTimelinePanel{grid-area:timeline;background:#302824;border:1px solid #554036;border-radius:8px;min-width:0;overflow:hidden}.workspace{grid-template-areas:'scenes preview edit' 'timeline timeline timeline' 'work work work'}@media(max-width:1250px){.workspace{grid-template-areas:'scenes preview' 'edit preview' 'timeline timeline' 'work work'}}@media(max-width:760px),(max-height:600px){#videoTimelinePanel{position:sticky;bottom:0;z-index:2;box-shadow:0 -3px 15px #17110e99}.panel.mobileActive{min-height:0}.workspace .timeline-controls{margin:4px 8px}.timeline-controls input{max-width:90px}.timeline .sceneStrip>button:first-child{font-size:11px}.timeline .sceneStrip{max-height:60px}}
+
+#previewFullExit{display:none}#previewFullHost:fullscreen{display:grid;place-items:center;background:#000;width:100vw;height:100dvh}#previewFullHost:fullscreen #stageShell{width:min(100vw,calc(100dvh * var(--preview-aspect,1.77778)))!important;max-width:none!important;margin:0;border:0;border-radius:0}#previewFullHost:fullscreen #previewFullExit{display:block;position:absolute;right:12px;bottom:12px;z-index:10;opacity:.9}

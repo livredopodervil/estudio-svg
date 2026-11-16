@@ -14,6 +14,9 @@ def module(path):
     source=path.read_text('utf-8')
     if path.name=='ui.mjs':
         source=source.replace("fetch('examples/orbit.gil')", "fetch('"+data('text/plain',(root/'examples/orbit.gil').read_bytes())+"')")
+    if path.name=='roteiro-ui.mjs':
+        for name in ('roteiro-demo.json','roteiro-datacenter.json'):
+            source=source.replace("'examples/"+name+"'", "'"+data('application/json',(root/'examples'/name).read_bytes())+"'")
     if path.name=='render-svg.mjs':
         for name in ('helix.svg','snowflake.svg'):
             source=source.replace("'assets/"+name+"'", "'"+data('image/svg+xml',(root/'assets'/name).read_bytes())+"'")
@@ -29,8 +32,12 @@ html=(root/'index.html').read_text('utf-8')
 html=re.sub(r'<section class="panel source" id="(?:publish-page|render-panel)">.*?</section>', '', html, flags=re.S)
 html=re.sub(r'<div class="buttons" id="example-selector">.*?</div>', '', html, flags=re.S)
 html=html.replace('<script type="module" src="src/page-ui.mjs"></script>', '').replace('<script type="module" src="src/render-ui.mjs"></script>', '')
+html=html.replace('<script type="module" src="src/native-ui.mjs"></script>','').replace('<script type="module" src="src/spatial-import-ui.mjs"></script>','')
+html=html.replace('<label class="file">Importar SpatialSeed<input id="open-spatial" type="file" accept=".spatialseed,.json"></label>','')
 html=html.replace('<link rel="stylesheet" href="style.css">','<style>'+(root/'style.css').read_text('utf-8')+'</style>')
+html=html.replace('<script type="module" src="src/workspace-layout.mjs"></script>','<script type="module">import "'+module(root/'src/workspace-layout.mjs')+'";</script>')
 html=html.replace('<script type="module" src="src/ui.mjs"></script>','<script type="module">import "'+module(root/'src/ui.mjs')+'";</script>')
+html=html.replace('<script type="module" src="src/roteiro-ui.mjs"></script>','<script type="module">import "'+module(root/'src/roteiro-ui.mjs')+'";</script>')
 out=Path(sys.argv[1]) if len(sys.argv)>1 else root/'gil_portatil.html'
 with out.open('x',encoding='utf-8') as f:f.write(html)
 print(out, out.stat().st_size)

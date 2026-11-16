@@ -832,7 +832,10 @@ class ApiHandler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Referrer-Policy', 'no-referrer')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('X-Frame-Options', 'DENY')
+        if os.environ.get('RD_WORKSPACE_PARENT') == 'http://127.0.0.1:8877':
+            self.send_header('Content-Security-Policy', 'frame-ancestors http://127.0.0.1:8877')
+        else:
+            self.send_header('X-Frame-Options', 'DENY')
         self.end_headers()
         self.wfile.write(content)
 

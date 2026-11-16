@@ -33,6 +33,19 @@
         "expressao",
         "audio"
       ]
+    },
+    {
+      "id": "datacenter",
+      "source": "datacenter.gil",
+      "title": "Implantação de um data center",
+      "duration": 36,
+      "tags": [
+        "cortes",
+        "fluxo",
+        "montagem",
+        "rede",
+        "eventos"
+      ]
     }
   ]
 }

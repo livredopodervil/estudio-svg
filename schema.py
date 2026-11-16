@@ -1,6 +1,6 @@
 """Projeto JSON V2.2 e compatibilidade V1/V2.1. Sem dependências externas."""
 from __future__ import annotations
-import json, re, copy, math
+import json, re, copy, math, hashlib
 from spatial_scene import normalize_spatial, default_spatial
 from timeline_easing import EASINGS
 
@@ -62,6 +62,16 @@ def image_dict(v, portrait=False, photo=False):
        'w':n(v.get('w',.82 if portrait else .41),.82 if portrait else .41,.08,1),
        'h':n(v.get('h',.34 if portrait else .65),.34 if portrait else .65,.08,1),
        'frame':bool(v.get('frame',True))}
+
+
+def gil_component_dict(raw):
+    if not isinstance(raw,dict):return None
+    source=raw.get('source'); digest=raw.get('source_sha256'); original=raw.get('origin_sha256')
+    if raw.get('format')!='gil-timeline-0.1' or raw.get('origin') not in ('gil','spatialseed') or not isinstance(source,str) or not 0<len(source.encode('utf8'))<=250000:return None
+    if digest!=hashlib.sha256(source.encode('utf8')).hexdigest() or not isinstance(original,str) or not re.fullmatch('[0-9a-f]{64}',original):return None
+    duration=raw.get('duration')
+    if type(duration) not in (int,float) or not math.isfinite(duration) or not .5<=duration<=61:return None
+    return {'format':'gil-timeline-0.1','origin':raw['origin'],'origin_sha256':original,'source':source,'source_sha256':digest,'duration':duration}
 
 
 def video_clip_dict(raw):
@@ -179,6 +189,8 @@ def normalize(data):
             'audio':audio_dict(r.get('audio'),r.get('fala',''))}
         camadas=layers_dict(r.get('camadas'),c['imagem']['modo'])
         if camadas:c['camadas']=camadas
+        component=gil_component_dict(r.get('componente_gil'))
+        if component and c['video_clipe']['arquivo']:c['componente_gil']=component
         if typ=='espacial': c['espacial']=normalize_spatial(r.get('espacial',default_spatial()))
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.
         c['fala']=c['audio']['voice_text']

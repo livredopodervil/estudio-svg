@@ -1,0 +1,49 @@
+gil timeline 0.1 {
+// Rede em duas coroas: uma fonte editável para vídeo e HTML nativo.
+stage {"width":960,"height":540,"duration":12,"background":"#0d1729","camera":"cam"}
+resource camera camera {"z":14,"fov":46}
+resource lamp light.directional {"x":-5,"y":6,"z":8,"intensity":1}
+resource group group {}
+resource rotor mesh.box {"size":0.55,"color":"#79d5dc","layer":1}
+resource relay mesh.box {"size":0.38,"color":"#edb575","layer":1}
+resource core mesh.box {"size":1.6,"color":"#d8e6ff","layer":1}
+resource dot shape.circle {"size":0.09,"color":"#a0e4e7","layer":2}
+resource fade overlay.fade {"color":"#0d1729","opacity":0,"layer":30}
+resource tone audio.tone {"frequency":440,"gain":0.055,"wave":"triangle"}
+resource data arbitrary.telemetry {"value":0,"unit":"phase"}
+object cam camera - {}
+object sun lamp - {}
+object world group - {"rx":30}
+object outer group world {}
+object inner group world {"rz":55}
+object nucleus core world {}
+object decor group - {}
+object transition fade - {}
+object click tone - {}
+object reading data - {}
+repeat outerNode rotor outer 24 {"x":{"expr":"4.1*cos(tau*i/count)"},"z":{"expr":"4.1*sin(tau*i/count)"},"ry":{"expr":"360*i/count"},"sy":1.4}
+repeat innerNode relay inner 16 {"x":{"expr":"2.75*cos(tau*i/count)"},"z":{"expr":"2.75*sin(tau*i/count)"},"ry":{"expr":"360*i/count"},"sy":1.45}
+repeat point dot decor 52 {"x":{"expr":"6*cos(tau*i/count)"},"y":{"expr":"3.1*sin(tau*i/count)"},"opacity":0.42}
+animate outer ry {"expr":"72*t"}
+animate outer rx {"expr":"22*sin(t*1.5)"}
+animate inner ry {"expr":"-93*t"}
+animate inner rz {"expr":"55+22*sin(2*t)"}
+animate world ry {"expr":"35*sin(t*0.7)"}
+animate nucleus ry {"expr":"120*t"}
+animate nucleus rx {"expr":"45*t"}
+animate nucleus sx {"expr":"1+0.24*sin(t*4)"}
+animate nucleus sy {"expr":"1+0.24*sin(t*4)"}
+animate nucleus sz {"expr":"1+0.24*sin(t*4)"}
+animate cam z {"keys":[[0,17],[2.5,12],[6,16],[9,13],[12,17]],"ease":"smooth"}
+animate cam x {"expr":"1.4*sin(t*0.8)"}
+animate sun intensity {"expr":"1+0.3*sin(t*2)"}
+animate decor rz {"expr":"-24*t"}
+animate reading value {"expr":"sin(t*4)"}
+animate transition opacity {"keys":[[0,1],[0.65,0],[11.35,0],[12,1]],"ease":"smooth"}
+cue click {"start":1,"duration":0.15}
+cue click {"start":3,"duration":0.15}
+cue click {"start":5,"duration":0.15}
+cue click {"start":7,"duration":0.15}
+cue click {"start":9,"duration":0.15}
+cue click {"start":11,"duration":0.15}
+}

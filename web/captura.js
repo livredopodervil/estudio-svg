@@ -18,7 +18,7 @@
 
   const say = message => { $('msg').textContent = message; };
   const narrator = new window.StudioV34.Narrator({synth:window.speechSynthesis||null,status:say});
-  let mode='browser',spoken=-1,elapsed=0;
+  let mode='browser',spoken=-1,elapsed=0,speed=1;
   const chosen=()=> $('captureSource').value;
   const durations=()=> (mode==='mix'?data.durations:data.project.cenas.map(c=>Number(c.duracao)));
   function voices(){const el=$('captureVoice'),keep=el.value;el.replaceChildren(new Option('Automática',''),...(window.speechSynthesis?.getVoices?.()||[]).map(v=>new Option(v.name+' ('+v.lang+')',v.voiceURI)));if([...el.options].some(o=>o.value===keep))el.value=keep;}
@@ -30,7 +30,7 @@
     const base=data.project.idioma||data.project.language||'pt-BR',lang=$('captureLang').value;
     const loc=window.StudioV34.localeText(c,i,lang,data.project.locale_packs||{},base);
     if(loc.lang!==lang)say('Tradução indisponível; texto original em '+base+'.');
-    narrator.setMode('browser');narrator.setRate(Number($('captureRate').value));
+    narrator.setMode('browser');narrator.setRate(Number($('captureRate').value)*speed);
     narrator.speak({text:loc.text,lang:loc.lang,voices:window.speechSynthesis?.getVoices?.()||[],voiceName:$('captureVoice').value});
   }
   const api = async (url, options = {}) => {
@@ -93,7 +93,7 @@
       opacity: String(clip.opacidade ?? 1)
     });
     video.muted = true; // A trilha da apresentação é reproduzida pelo mix de áudio.
-    video.loop = !!clip.repetir;
+    video.loop = !!clip.repetir;video.playbackRate=speed;
     const clipTime = Number(clip.inicio || 0) + Math.max(0, sceneTime);
     const length = video.duration;
     if (!clip.repetir && Number.isFinite(length) && length > 0 && clipTime >= length) {
@@ -187,13 +187,13 @@
       say('Falha ao reproduzir áudio. Verifique as permissões e o navegador.');
       return;
     }
-    let t = withAudio ? audio.currentTime : (now - epoch) / 1000;
+    let t = withAudio ? audio.currentTime : (now - epoch) / 1000*speed;
     if(mode==='browser'&&spoken>=0){
       const end=durations().slice(0,spoken+1).reduce((a,b)=>a+b,0);
       if(t>=end&&(narrator.busy||framePending)){
-        t=end-.0001;epoch=now-t*1000;
+        t=end-.0001;epoch=now-t*1000/speed;
       }else if(t>=end&&spoken+1<durations().length){
-        t=end;epoch=now-t*1000;narrate(spoken+1);
+        t=end;epoch=now-t*1000/speed;narrate(spoken+1);
       }
     }
     elapsed=t;
@@ -207,7 +207,7 @@
 
   async function start() {
     if (!data || playing || preparing) return;
-    mode=chosen();
+    mode=chosen();speed=Number($('captureSpeed').value)||1;
     const withAudio = mode==='mix';
     if (withAudio) {
       if (!data.mix_ready) {
@@ -216,7 +216,7 @@
       }
       audio.pause();
       audio.src = data.audio_url || '/api/presentation/audio?name=' + encodeURIComponent(name);
-      audio.currentTime = 0;
+      audio.currentTime = 0;audio.playbackRate=speed;
       try {
         // Called from the user's tap, not automatically after an asynchronous job.
         await audio.play();
@@ -227,7 +227,7 @@
     } else {
       audio.pause();
     }
-    playing = true;spoken=-1;elapsed=0;
+    playing = true;spoken=-1;elapsed=0;$('captureSpeed').disabled=true;
     if(mode==='browser')narrate(0);
     epoch = performance.now();
     lastUpdate = 0;
@@ -239,7 +239,7 @@
   }
 
   function stop() {
-    playing = false;narrator.stop();spoken=-1;
+    playing = false;narrator.stop();spoken=-1;$('captureSpeed').disabled=false;
     cancelAnimationFrame(raf);
     audio.pause();
     video.pause();
@@ -251,16 +251,16 @@
   audio.addEventListener('ended', () => { if (playing) stop(); });
   $('captureSource').onchange=()=>{if(playing)stop();mode=chosen();if(data)frame(0);};
   $('captureLang').onchange=$('captureVoice').onchange=()=>{if(playing&&mode==='browser'){const i=spoken;spoken=-1;narrate(i);}};
-  $('captureRate').onchange=()=>narrator.setRate(Number($('captureRate').value));
+  $('captureRate').onchange=()=>narrator.setRate(Number($('captureRate').value)*speed);
   window.addEventListener('pagehide',stop);
   $('prepare').onclick = prepareAudio;
   $('start').onclick = start;
   $('stop').onclick = stop;
-  $('full').onclick = () => {
-    const element = document.documentElement;
-    if (!document.fullscreenElement) element.requestFullscreen?.().catch(error => say(error.message));
-    else document.exitFullscreen?.();
+  if(window!==parent){$('separate').href=location.href;$('separate').hidden=false;}
+  $('full').onclick = async () => {
+    try{if(document.fullscreenElement)await document.exitFullscreen();else if(document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();else throw Error('Tela cheia não suportada');}catch(error){say(error.message+' — abra a apresentação em uma aba independente do Chrome.');}
   };
+  document.addEventListener('fullscreenchange',()=>{$('full').textContent=document.fullscreenElement?'⛶ Sair da tela cheia':'⛶ Tela cheia';fitFrame();});
   $('screen').addEventListener('click', () => {
     if (!playing) return;
     // Ocultos durante toda a apresentação, salvo pedido explícito por toque.

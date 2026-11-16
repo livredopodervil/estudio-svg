@@ -390,6 +390,20 @@
             ]
           }
         },
+        "componente_gil": {
+          "type": "object",
+          "description": "Fonte editável da composição renderizada como clipe; não executada pelo Estúdio.",
+          "required": ["format", "origin", "origin_sha256", "source", "source_sha256", "duration"],
+          "properties": {
+            "format": {"const": "gil-timeline-0.1"},
+            "origin": {"enum": ["gil", "spatialseed"]},
+            "source": {"type": "string", "maxLength": 250000},
+            "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "origin_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "duration": {"type": "number", "minimum": 0.5, "maximum": 61}
+          },
+          "additionalProperties": false
+        },
         "video_clipe": {
           "type": "object",
           "description": "Clipe local sobreposto ao SVG. Arquivo importado pela interface.",

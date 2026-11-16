@@ -1,0 +1,11 @@
+// Move original controls, never clone or recreate their editing state.
+const $=id=>document.getElementById(id),el=(tag,id,cls)=>{const e=document.createElement(tag);if(id)e.id=id;if(cls)e.className=cls;return e;};
+const main=document.querySelector('main'),view=document.querySelector('.preview-pane'),inspector=document.querySelector('.inspector'),source=document.querySelector('.source'),tree=$('au-tree').closest('details');
+const left=el('section','hierarchy-pane','panel'),tools=el('div','composition-tools','workspace-toolbar'),timeline=el('section','timeline-pane','panel'),dock=el('section','author-dock','panel'),heading=el('h2');heading.textContent='Hierarquia';left.append(heading,tree);tree.open=true;
+const modes=el('div','author-modes','workspace-toolbar');const panels=[['Programa / roteiro',source],['Renderizar',$('render-panel')],['Publicar HTML',$('publish-page')]].filter(([,p])=>p);
+function button(label,fn){const b=el('button');b.type='button';b.textContent=label;b.onclick=fn;return b;}
+for(const [name,panel] of panels){panel.classList.add('dock-content');panel.hidden=true;modes.append(button(name,()=>{let show=panel.hidden;for(const [,p] of panels)p.hidden=true;panel.hidden=!show;if(show){dock.hidden=false;panel.scrollIntoView({block:'nearest'});}else dock.hidden=true;}));dock.append(panel);}
+dock.hidden=true;const add=$('au-id').closest('details');add.open=false;left.append(add);
+const head=el('div',null,'panel-heading'),title=el('h2');title.textContent='Timeline';const filter=el('label');filter.innerHTML='<input type="checkbox" id="timeline-selected"> Seleção';head.append(title,filter);timeline.append(head,$('timeline'));
+const motions=el('div','motion-presets','workspace-toolbar'),label=el('label');label.innerHTML='Duração <input id="motion-duration" type="number" min="0.1" max="60" step="0.1" value="1.2"> s';tools.append(label,motions);timeline.insertBefore(tools,$('timeline'));const send=button('Enviar à cena de vídeo',()=>{});send.id='send-video';send.hidden=true;view.append(send);const props=$('properties');props.before($('undo').parentElement);
+main.classList.add('unified-layout');main.prepend(modes,left);main.append(timeline,dock);document.body.classList.add('workspace-editor');
