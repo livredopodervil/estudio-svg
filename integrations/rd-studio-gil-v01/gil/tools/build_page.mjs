@@ -1,0 +1,3 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';import {join} from 'node:path';import {buildPage} from '../src/page-export.mjs';
+const [source,output,slug,title,descriptionFile,video]=process.argv.slice(2);if(!source||!output||!slug||!title||!descriptionFile)throw Error('Uso: node tools/build_page.mjs FONTE DIR ID TITULO TEXTO.md [VIDEO.mp4]');
+const result=await buildPage({source:await readFile(source,'utf8'),template:await readFile(new URL('../player-template.html',import.meta.url),'utf8'),title,slug,description:await readFile(descriptionFile,'utf8'),video:video?new Uint8Array(await readFile(video)):null});await mkdir(output,{recursive:true});await writeFile(join(output,result.name),result.zip,{flag:'wx'});console.log(join(output,result.name));

@@ -1,0 +1,87 @@
+gil3 3.0 {
+
+stage {
+  size 800 800
+  viewbox 0 0 800 800
+  background bg
+}
+
+palette {
+  bg      #08142b
+  blade   #8ec5ff
+  hub     #ffd34d
+}
+
+style "bladeFill" {
+  fill solid blade
+}
+
+style "hubFill" {
+  fill solid hub
+}
+
+shape "circle01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive circle 0.5 0.5 0.5
+}
+
+shape "blade" {
+  bbox 1 1
+  anchors {
+    base   0.5 0.80
+    center 0.5 0.5
+    tip    0.5 0.08
+  }
+  path {
+    M (0.5 0.05)
+    C (0.75 0.12) (0.82 0.65) (0.5 0.95)
+    C (0.18 0.65) (0.25 0.12) (0.5 0.05)
+    Z
+  }
+}
+
+object "propeller" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  repeat radial "blades" {
+    count 6
+    source "blade"
+    style "bladeFill"
+    origin center
+    radius 0.18
+    start-angle 0
+    step-angle 60
+    fit { box 0.14 0.30 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  use "circle01" as "hub" {
+    style "hubFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.14 0.14 }
+    rotate 0
+    pivot center
+  }
+}
+
+scene "main" {
+  layer "test" z 0 {
+    place "propeller" as "p1" {
+      center 0.5 0.5
+      size 0.60 0.60
+      rotate 0
+    }
+  }
+}
+
+}

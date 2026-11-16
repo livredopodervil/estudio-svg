@@ -1,0 +1,70 @@
+gil timeline 0.1 {
+// Máquina cinética: três anéis, orbital 3D, câmera, transições e cues.
+stage {"width":960,"height":540,"duration":24,"background":"#101c2a","camera":"cam"}
+resource camera camera {"z":15,"fov":44}
+resource lamp light.directional {"x":-4,"y":6,"z":8,"intensity":1}
+resource group group {}
+resource blue mesh.box {"size":0.9,"color":"#60c9d4","layer":1}
+resource gold mesh.box {"size":0.75,"color":"#f1aa57","layer":1}
+resource center mesh.box {"size":2.1,"color":"#e7f5ff","layer":1}
+resource dot shape.circle {"size":0.09,"color":"#75adb9","layer":2}
+resource bar shape.rect {"width":4.5,"height":0.055,"color":"#48bcc2","layer":4}
+resource panel shape.rect {"width":14,"height":1.13,"color":"#101c2a","layer":3,"opacity":0.94}
+resource text text {"text":"","fontSize":25,"color":"#d7ecff","layer":5}
+resource fade overlay.fade {"color":"#101c2a","opacity":0,"layer":20}
+resource low audio.tone {"frequency":110,"gain":0.055,"wave":"sine"}
+resource high audio.tone {"frequency":660,"gain":0.095,"wave":"triangle"}
+resource sensor arbitrary.telemetry {"value":0,"unit":"rpm"}
+object cam camera - {}
+object sun lamp - {}
+object machine group - {"y":0.45,"rx":18}
+object ringA group machine {}
+object ringB group machine {"rx":72}
+object ringC group machine {"rz":64}
+object nucleus center machine {}
+repeat rotorA blue ringA 18 {"x":{"expr":"3.5*cos(tau*i/count)"},"z":{"expr":"3.5*sin(tau*i/count)"},"ry":{"expr":"360*i/count"}}
+repeat rotorB gold ringB 14 {"x":{"expr":"2.7*cos(tau*i/count)"},"z":{"expr":"2.7*sin(tau*i/count)"},"ry":{"expr":"360*i/count"},"sy":1.35}
+repeat rotorC blue ringC 20 {"x":{"expr":"4.1*cos(tau*i/count)"},"z":{"expr":"4.1*sin(tau*i/count)"},"ry":{"expr":"360*i/count"},"sx":0.45,"sy":0.45,"sz":0.45}
+object dial group - {"x":-5.6,"y":0.7,"opacity":0.65}
+repeat marks dot dial 40 {"x":{"expr":"0.8*cos(tau*i/count)"},"y":{"expr":"0.8*sin(tau*i/count)"}}
+object strip panel - {"y":-3.43}
+object title text - {"text":"MÁQUINA CINÉTICA","y":3.45,"fontSize":33}
+object subtitle text - {"text":"Três referenciais · movimento composto","y":-3.45,"fontSize":19}
+object progress bar - {"y":-3.88,"x":0,"sx":0.001}
+object transition fade - {}
+object pulse low - {}
+object bell high - {}
+object reading sensor - {}
+animate machine ry {"expr":"10*t+14*sin(t*0.45)"}
+animate machine rx {"expr":"18+12*sin(t*0.6)"}
+animate ringA ry {"expr":"t*48"}
+animate ringB ry {"expr":"-t*66"}
+animate ringC ry {"expr":"t*31"}
+animate ringC rz {"expr":"64+18*sin(t*0.6)"}
+animate nucleus ry {"expr":"t*95"}
+animate nucleus rx {"expr":"t*41"}
+animate nucleus sx {"expr":"1+0.19*sin(t*2)"}
+animate nucleus sy {"expr":"1+0.19*sin(t*2)"}
+animate nucleus sz {"expr":"1+0.19*sin(t*2)"}
+animate cam x {"keys":[[0,0],[6,1.5],[12,0],[18,-1.5],[24,0]],"ease":"smooth"}
+animate cam z {"keys":[[0,17],[6,14],[12,18],[18,14],[24,17]],"ease":"smooth"}
+animate cam ry {"expr":"5*sin(t*pi/12)"}
+animate sun x {"expr":"-4*cos(t*0.4)"}
+animate sun intensity {"expr":"1+0.3*sin(t*1.2)"}
+animate dial rz {"expr":"-90*t"}
+animate progress sx {"expr":"0.001+0.999*t/24"}
+animate transition opacity {"keys":[[0,1],[1.2,0],[7.6,0],[8,0.85],[8.5,0],[15.6,0],[16,0.85],[16.5,0],[22.5,0],[24,1]],"ease":"smooth"}
+animate reading value {"expr":"120+40*sin(t*2)"}
+cue pulse {"start":0.8,"duration":1.5}
+cue bell {"start":2,"duration":0.18}
+cue bell {"start":4,"duration":0.18}
+cue bell {"start":6,"duration":0.18}
+cue pulse {"start":7.7,"duration":1.2}
+cue bell {"start":10,"duration":0.18}
+cue bell {"start":12,"duration":0.18}
+cue bell {"start":14,"duration":0.18}
+cue pulse {"start":15.7,"duration":1.2}
+cue bell {"start":18,"duration":0.18}
+cue bell {"start":20,"duration":0.18}
+cue pulse {"start":22.4,"duration":1.5}
+}

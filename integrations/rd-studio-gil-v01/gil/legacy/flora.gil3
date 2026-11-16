@@ -1,0 +1,126 @@
+gil3 3.0 {
+
+stage {
+  size 900 900
+  viewbox 0 0 900 900
+  background bg
+}
+
+palette {
+  bg        #09122c
+  petalA    #9b8cff
+  petalB    #c77dff
+  petalC    #7b9cff
+  core      #f4d35e
+}
+
+style "petalAFill" {
+  fill solid petalA
+}
+
+style "petalBFill" {
+  fill solid petalB
+}
+
+style "petalCFill" {
+  fill solid petalC
+}
+
+style "coreFill" {
+  fill solid core
+}
+
+shape "circle01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive circle 0.5 0.5 0.5
+}
+
+shape "petalLong" {
+  bbox 1 1
+  anchors {
+    base   0.5 0.84
+    center 0.5 0.5
+    tip    0.5 0.04
+  }
+  path {
+    M (0.5 0.04)
+    C (0.80 0.20) (0.88 0.66) (0.5 0.96)
+    C (0.12 0.66) (0.20 0.20) (0.5 0.04)
+    Z
+  }
+}
+
+shape "petalWide" {
+  bbox 1 1
+  anchors {
+    base   0.5 0.78
+    center 0.5 0.5
+    tip    0.5 0.08
+  }
+  path {
+    M (0.5 0.08)
+    C (0.92 0.20) (0.96 0.62) (0.5 0.92)
+    C (0.04 0.62) (0.08 0.20) (0.5 0.08)
+    Z
+  }
+}
+
+object "flowerMixed" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  repeat radial "outer" {
+    count 6
+    source "petalLong"
+    style "petalAFill"
+    origin center
+    radius 0.22
+    start-angle 0
+    step-angle 60
+    fit { box 0.16 0.28 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "inner" {
+    count 6
+    source "petalWide"
+    style "petalBFill"
+    origin center
+    radius 0.13
+    start-angle 30
+    step-angle 60
+    fit { box 0.14 0.18 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  use "circle01" as "core" {
+    style "coreFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.16 0.16 }
+    rotate 0
+    pivot center
+  }
+}
+
+scene "main" {
+  layer "flower" z 0 {
+    place "flowerMixed" as "f1" {
+      center 0.5 0.5
+      size 0.60 0.60
+      rotate 0
+    }
+  }
+}
+
+}

@@ -1,0 +1,266 @@
+gil3 3.0 {
+
+stage {
+  size 1200 1200
+  viewbox 0 0 1200 1200
+  background bg
+}
+
+palette {
+  bg #101b3a
+  core #cfe8ff
+  ice1 #f2fdff
+  ice2 #a9def9
+  ice3 #8dd8ff
+  accent #f7ffff
+}
+
+style "coreFill" {
+  fill solid core
+}
+
+style "armFill" {
+  fill solid ice2
+}
+
+style "branchFill" {
+  fill solid ice3
+}
+
+style "ornamentFill" {
+  fill solid ice1
+}
+
+style "sparkFill" {
+  fill solid accent
+}
+
+shape "circle01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive circle 0.5 0.5 0.5
+}
+
+shape "barThin" {
+  bbox 1 1
+  anchors {
+    top 0.5 0.0
+    center 0.5 0.5
+    base 0.5 1.0
+  }
+  primitive rect 0.45 0.0 0.10 1.0
+}
+
+shape "diamondRay" {
+  bbox 1 1
+  anchors {
+    base 0.5 0.86
+    center 0.5 0.5
+    tip 0.5 0.04
+  }
+  path {
+    M (0.5 0.04)
+    L (0.84 0.50)
+    L (0.5 0.96)
+    L (0.16 0.50)
+    Z
+  }
+}
+
+shape "needle" {
+  bbox 1 1
+  anchors {
+    base 0.5 0.88
+    center 0.5 0.5
+    tip 0.5 0.03
+  }
+  path {
+    M (0.5 0.03)
+    L (0.70 0.88)
+    L (0.30 0.88)
+    Z
+  }
+}
+
+shape "petalIce" {
+  bbox 1 1
+  anchors {
+    base 0.5 0.84
+    center 0.5 0.5
+    tip 0.5 0.05
+  }
+  path {
+    M (0.5 0.05)
+    C (0.78 0.18) (0.86 0.60) (0.5 0.96)
+    C (0.14 0.60) (0.22 0.18) (0.5 0.05)
+    Z
+  }
+}
+
+object "snowflake" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  repeat radial "mainArm" {
+    count 6
+    source "barThin"
+    style "armFill"
+    origin center
+    radius 0.129643
+    start-angle 0
+    step-angle 60
+    fit { box 0.064465 0.426766 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "branchL_0" {
+    count 6
+    source "needle"
+    style "branchFill"
+    origin center
+    radius 0.192187
+    start-angle -39.143716
+    step-angle 60
+    fit { box 0.056747 0.103177 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "branchR_0" {
+    count 6
+    source "needle"
+    style "branchFill"
+    origin center
+    radius 0.192187
+    start-angle 39.143716
+    step-angle 60
+    fit { box 0.056747 0.103177 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "branchL_1" {
+    count 6
+    source "needle"
+    style "branchFill"
+    origin center
+    radius 0.400402
+    start-angle -34.293654
+    step-angle 60
+    fit { box 0.111142 0.202076 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "branchR_1" {
+    count 6
+    source "needle"
+    style "branchFill"
+    origin center
+    radius 0.400402
+    start-angle 34.293654
+    step-angle 60
+    fit { box 0.111142 0.202076 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "branchL_2" {
+    count 6
+    source "needle"
+    style "branchFill"
+    origin center
+    radius 0.443261
+    start-angle -31.597089
+    step-angle 60
+    fit { box 0.104119 0.189308 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "branchR_2" {
+    count 6
+    source "needle"
+    style "branchFill"
+    origin center
+    radius 0.443261
+    start-angle 31.597089
+    step-angle 60
+    fit { box 0.104119 0.189308 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  repeat radial "innerRing" {
+    count 10
+    source "diamondRay"
+    style "ornamentFill"
+    origin center
+    radius 0.123959
+    start-angle 0
+    step-angle 36
+    fit { box 0.072762 0.087314 }
+    child-anchor center
+    orient radial-out
+    pivot center
+  }
+
+  repeat radial "outerRing" {
+    count 6
+    source "diamondRay"
+    style "sparkFill"
+    origin center
+    radius 0.221955
+    start-angle 4.468195
+    step-angle 60
+    fit { box 0.055865 0.078211 }
+    child-anchor center
+    orient radial-out
+    pivot center
+  }
+
+  use "circle01" as "coreOuter" {
+    style "coreFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.083642 0.083642 }
+    rotate 0
+    pivot center
+  }
+
+  use "circle01" as "coreInner" {
+    style "sparkFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.029288 0.029288 }
+    rotate 0
+    pivot center
+  }
+}
+
+scene "main" {
+  layer "snowflake" z 0 {
+    place "snowflake" as "flake_1" {
+      center 0.5 0.5
+      size 0.79221 0.79221
+      rotate 22.943884
+    }
+  }
+}
+
+}

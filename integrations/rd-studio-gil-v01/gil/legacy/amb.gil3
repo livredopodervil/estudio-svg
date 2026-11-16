@@ -1,0 +1,417 @@
+gil3 3.0 {
+
+stage {
+  size 1800 1200
+  viewbox 0 0 1800 1200
+  background bg
+}
+
+palette {
+  bg        #eef3f8
+  plaza     #f6d78c
+  path      #d0c1a0
+  park      #bfe2b7
+  water     #9dd2f1
+  room      #ffffff
+  roof      #c8d3e0
+  glass     #a6d7f4
+  dark      #415264
+  accent    #d66b6b
+  tech      #7fa8d6
+}
+
+style "roomFill" {
+  fill solid room
+}
+
+style "roofFill" {
+  fill solid roof
+}
+
+style "plazaFill" {
+  fill solid plaza
+}
+
+style "parkFill" {
+  fill solid park
+}
+
+style "waterFill" {
+  fill solid water
+}
+
+style "pathFill" {
+  fill solid path
+}
+
+style "glassFill" {
+  fill solid glass
+}
+
+style "darkFill" {
+  fill solid dark
+}
+
+style "accentFill" {
+  fill solid accent
+}
+
+style "techFill" {
+  fill solid tech
+}
+
+shape "rect01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    top 0.5 0
+    base 0.5 1
+    left 0 0.5
+    right 1 0.5
+  }
+  primitive rect 0 0 1 1
+}
+
+shape "circle01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive circle 0.5 0.5 0.5
+}
+
+shape "ellipse01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive ellipse 0.5 0.5 0.5 0.3
+}
+
+shape "pathCorridor" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  path {
+    M (0.0 0.40)
+    L (1.0 0.40)
+    L (1.0 0.60)
+    L (0.0 0.60)
+    Z
+  }
+}
+
+shape "roomShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive rect 0.1 0.1 0.8 0.8
+}
+
+shape "roofShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive rect 0.0 0.0 1.0 0.3
+}
+
+shape "domeShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  path {
+    M (0.1 0.6)
+    C (0.2 0.2) (0.8 0.2) (0.9 0.6)
+    Z
+  }
+}
+
+shape "towerShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive rect 0.40 0.0 0.20 1.0
+}
+
+object "building" {
+
+  anchors {
+    center 0.5 0.5
+    top 0.5 0.1
+    base 0.5 0.9
+  }
+
+  use "roomShape" as "body" {
+    style "roomFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+  use "roofShape" as "roof" {
+    style "roofFill"
+    attach {
+      child-anchor center
+      parent-anchor top
+    }
+    fit { box 1.0 0.3 }
+    rotate 0
+    pivot base
+  }
+
+}
+
+object "glassBuilding" {
+
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "roomShape" as "body" {
+    style "glassFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+}
+
+object "tower" {
+
+  anchors {
+    center 0.5 0.5
+    top 0.5 0.0
+    base 0.5 1.0
+  }
+
+  use "towerShape" as "tower" {
+    style "darkFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.6 1.0 }
+  }
+
+  use "circle01" as "top" {
+    style "accentFill"
+    attach {
+      child-anchor center
+      parent-anchor top
+    }
+    fit { box 0.4 0.4 }
+    rotate 0
+    pivot center
+  }
+
+}
+
+object "domeHall" {
+
+  anchors {
+    center 0.5 0.5
+    top 0.5 0.18
+    base 0.5 0.82
+  }
+
+  use "circle01" as "base" {
+    style "roomFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+  use "domeShape" as "dome" {
+    style "roofFill"
+    attach {
+      child-anchor center
+      parent-anchor top
+    }
+    fit { box 1.0 0.7 }
+    rotate 0
+    pivot center
+  }
+
+}
+
+object "parkArea" {
+
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "ellipse01" as "grass" {
+    style "parkFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+}
+
+object "waterArea" {
+
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "ellipse01" as "water" {
+    style "waterFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+}
+
+object "plazaCenter" {
+
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "circle01" as "plaza" {
+    style "plazaFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+}
+
+object "pathway" {
+
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "pathCorridor" as "path" {
+    style "pathFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+  }
+
+}
+
+scene "virtual_environment" {
+
+  layer "ground" z 0 {
+
+    place "parkArea" as "park1" {
+      center 0.2 0.2
+      size 0.25 0.18
+    }
+
+    place "parkArea" as "park2" {
+      center 0.8 0.25
+      size 0.20 0.15
+    }
+
+    place "waterArea" as "lake" {
+      center 0.75 0.75
+      size 0.25 0.18
+    }
+
+  }
+
+  layer "plaza" z 1 {
+
+    place "plazaCenter" as "mainPlaza" {
+      center 0.5 0.5
+      size 0.18 0.18
+    }
+
+  }
+
+  layer "paths" z 2 {
+
+    place "pathway" as "northPath" {
+      center 0.5 0.32
+      size 0.10 0.35
+      rotate 90
+    }
+
+    place "pathway" as "southPath" {
+      center 0.5 0.68
+      size 0.10 0.35
+      rotate 90
+    }
+
+    place "pathway" as "westPath" {
+      center 0.32 0.5
+      size 0.35 0.10
+    }
+
+    place "pathway" as "eastPath" {
+      center 0.68 0.5
+      size 0.35 0.10
+    }
+
+  }
+
+  layer "buildings" z 3 {
+
+    place "building" as "library" {
+      center 0.25 0.5
+      size 0.10 0.10
+    }
+
+    place "glassBuilding" as "gallery" {
+      center 0.75 0.5
+      size 0.10 0.10
+    }
+
+    place "domeHall" as "auditorium" {
+      center 0.5 0.25
+      size 0.12 0.12
+    }
+
+    place "tower" as "adminTower" {
+      center 0.5 0.75
+      size 0.10 0.18
+    }
+
+    place "building" as "labA" {
+      center 0.35 0.75
+      size 0.08 0.08
+    }
+
+    place "building" as "labB" {
+      center 0.65 0.75
+      size 0.08 0.08
+    }
+
+    place "glassBuilding" as "meetingRoom1" {
+      center 0.30 0.30
+      size 0.07 0.07
+    }
+
+    place "glassBuilding" as "meetingRoom2" {
+      center 0.70 0.30
+      size 0.07 0.07
+    }
+
+  }
+
+}
+}

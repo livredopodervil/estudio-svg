@@ -1,0 +1,671 @@
+gil3 3.0 {
+
+stage {
+  size 1600 1000
+  viewbox 0 0 1600 1000
+  background sky
+}
+
+palette {
+  sky         #cfe9ff
+  lake        #7ec8e3
+  land        #efe2b9
+  avenue      #cdbb8b
+  grass       #a8cf7d
+  white       #f7f7f7
+  lightgray   #d8dde3
+  gray        #9aa5b1
+  dark        #40505f
+  shadow      #7f8c96
+  blueglass   #9fd6f2
+  green       #6ea96d
+  red         #d66b6b
+  yellow      #e5c76b
+  orange      #d99b5f
+}
+
+style "skyFill" {
+  fill solid sky
+}
+
+style "lakeFill" {
+  fill solid lake
+}
+
+style "landFill" {
+  fill solid land
+}
+
+style "avenueFill" {
+  fill solid avenue
+}
+
+style "grassFill" {
+  fill solid grass
+}
+
+style "whiteFill" {
+  fill solid white
+}
+
+style "lightgrayFill" {
+  fill solid lightgray
+}
+
+style "grayFill" {
+  fill solid gray
+}
+
+style "darkFill" {
+  fill solid dark
+}
+
+style "shadowFill" {
+  fill solid shadow
+}
+
+style "glassFill" {
+  fill solid blueglass
+}
+
+style "greenFill" {
+  fill solid green
+}
+
+style "redFill" {
+  fill solid red
+}
+
+style "yellowFill" {
+  fill solid yellow
+}
+
+style "orangeFill" {
+  fill solid orange
+}
+
+shape "rect01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    top 0.5 0.0
+    base 0.5 1.0
+    left 0.0 0.5
+    right 1.0 0.5
+  }
+  primitive rect 0 0 1 1
+}
+
+shape "circle01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  primitive circle 0.5 0.5 0.5
+}
+
+shape "triangle01" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    base 0.5 1.0
+    tip 0.5 0.0
+  }
+  path {
+    M (0.5 0.0)
+    L (1 1)
+    L (0 1)
+    Z
+  }
+}
+
+shape "bowlShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    top 0.5 0.12
+    base 0.5 0.92
+  }
+  path {
+    M (0.10 0.72)
+    C (0.12 0.28) (0.88 0.28) (0.90 0.72)
+    C (0.82 0.90) (0.18 0.90) (0.10 0.72)
+    Z
+  }
+}
+
+shape "cathedralPetal" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    base 0.5 0.92
+    tip 0.5 0.04
+  }
+  path {
+    M (0.5 0.04)
+    C (0.72 0.24) (0.78 0.64) (0.58 0.96)
+    C (0.54 0.92) (0.46 0.92) (0.42 0.96)
+    C (0.22 0.64) (0.28 0.24) (0.5 0.04)
+    Z
+  }
+}
+
+shape "bridgeArc" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    left 0.0 0.6
+    right 1.0 0.6
+  }
+  path {
+    M (0.00 0.62)
+    C (0.18 0.15) (0.82 0.15) (1.00 0.62)
+    L (1.00 0.78)
+    C (0.82 0.34) (0.18 0.34) (0.00 0.78)
+    Z
+  }
+}
+
+shape "roadCurve" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+  }
+  path {
+    M (0.00 0.55)
+    C (0.18 0.40) (0.34 0.40) (0.50 0.50)
+    C (0.66 0.60) (0.82 0.60) (1.00 0.45)
+    L (1.00 0.72)
+    C (0.82 0.84) (0.66 0.84) (0.50 0.74)
+    C (0.34 0.64) (0.18 0.64) (0.00 0.78)
+    Z
+  }
+}
+
+shape "wingShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    left 0.0 0.5
+    right 1.0 0.5
+  }
+  path {
+    M (0.00 0.60)
+    C (0.18 0.20) (0.80 0.20) (1.00 0.50)
+    C (0.80 0.82) (0.18 0.82) (0.00 0.60)
+    Z
+  }
+}
+
+shape "towerShape" {
+  bbox 1 1
+  anchors {
+    center 0.5 0.5
+    top 0.5 0.0
+    base 0.5 1.0
+  }
+  primitive rect 0.32 0.0 0.36 1.0
+}
+
+object "axisRoad" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "roadCurve" as "road" {
+    style "avenueFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 1.0 1.0 }
+    rotate 0
+    pivot center
+  }
+}
+
+object "congresso" {
+  anchors {
+    center 0.5 0.5
+    plaza 0.5 0.76
+  }
+
+  use "rect01" as "plaza" {
+    style "lightgrayFill"
+    attach {
+      child-anchor center
+      parent-anchor plaza
+    }
+    fit { box 0.88 0.18 }
+    rotate 0
+    pivot center
+  }
+
+  use "towerShape" as "towerL" {
+    style "grayFill"
+    attach {
+      child-anchor base
+      parent-anchor center
+    }
+    fit { box 0.18 0.58 }
+    rotate 0
+    pivot base
+  }
+
+  use "towerShape" as "towerR" {
+    style "darkFill"
+    attach {
+      child-anchor base
+      parent-anchor center
+    }
+    fit { box 0.18 0.58 }
+    rotate 0
+    pivot base
+  }
+
+  use "bowlShape" as "bowlUp" {
+    style "whiteFill"
+    attach {
+      child-anchor base
+      parent-anchor plaza
+    }
+    fit { box 0.24 0.18 }
+    rotate 180
+    pivot base
+  }
+
+  use "bowlShape" as "bowlDown" {
+    style "whiteFill"
+    attach {
+      child-anchor base
+      parent-anchor plaza
+    }
+    fit { box 0.24 0.18 }
+    rotate 0
+    pivot base
+  }
+}
+
+object "cathedral" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  repeat radial "petals" {
+    count 12
+    source "cathedralPetal"
+    style "whiteFill"
+    origin center
+    radius 0.10
+    start-angle 0
+    step-angle 30
+    fit { box 0.12 0.30 }
+    child-anchor base
+    orient radial-out
+    pivot base
+  }
+
+  use "circle01" as "core" {
+    style "glassFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.14 0.14 }
+    rotate 0
+    pivot center
+  }
+}
+
+object "planalto" {
+  anchors {
+    center 0.5 0.5
+    roof 0.5 0.34
+    base 0.5 0.74
+  }
+
+  use "rect01" as "body" {
+    style "whiteFill"
+    attach {
+      child-anchor center
+      parent-anchor base
+    }
+    fit { box 0.76 0.22 }
+    rotate 0
+    pivot center
+  }
+
+  use "rect01" as "roof" {
+    style "lightgrayFill"
+    attach {
+      child-anchor center
+      parent-anchor roof
+    }
+    fit { box 0.88 0.08 }
+    rotate 0
+    pivot center
+  }
+
+  use "towerShape" as "flagTower" {
+    style "grayFill"
+    attach {
+      child-anchor base
+      parent-anchor roof
+    }
+    fit { box 0.10 0.28 }
+    rotate 0
+    pivot base
+  }
+}
+
+object "itamaraty" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "rect01" as "glassBox" {
+    style "glassFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.68 0.28 }
+    rotate 0
+    pivot center
+  }
+
+  repeat radial "arches" {
+    count 8
+    source "bridgeArc"
+    style "whiteFill"
+    origin center
+    radius 0.24
+    start-angle 180
+    step-angle 0
+    fit { box 0.12 0.22 }
+    child-anchor center
+    orient radial-out
+    pivot center
+  }
+}
+
+object "tvTower" {
+  anchors {
+    center 0.5 0.5
+    base 0.5 0.84
+  }
+
+  use "towerShape" as "mast" {
+    style "darkFill"
+    attach {
+      child-anchor base
+      parent-anchor base
+    }
+    fit { box 0.10 0.72 }
+    rotate 0
+    pivot base
+  }
+
+  use "circle01" as "deck" {
+    style "redFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.18 0.18 }
+    rotate 0
+    pivot center
+  }
+}
+
+object "jkBridge" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "rect01" as "deck" {
+    style "lightgrayFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.88 0.10 }
+    rotate 0
+    pivot center
+  }
+
+  use "bridgeArc" as "arc1" {
+    style "whiteFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.24 0.34 }
+    rotate 0
+    pivot center
+  }
+
+  use "bridgeArc" as "arc2" {
+    style "whiteFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.24 0.34 }
+    rotate 0
+    pivot center
+  }
+
+  use "bridgeArc" as "arc3" {
+    style "whiteFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.24 0.34 }
+    rotate 0
+    pivot center
+  }
+}
+
+object "cityBlock" {
+  anchors {
+    center 0.5 0.5
+  }
+
+  use "rect01" as "block1" {
+    style "yellowFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.28 0.18 }
+    rotate 0
+    pivot center
+  }
+
+  use "rect01" as "block2" {
+    style "orangeFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.18 0.12 }
+    rotate 0
+    pivot center
+  }
+
+  use "rect01" as "block3" {
+    style "grayFill"
+    attach {
+      child-anchor center
+      parent-anchor center
+    }
+    fit { box 0.12 0.24 }
+    rotate 0
+    pivot center
+  }
+}
+
+scene "brasilia_caricature" {
+
+  layer "sky" z 0 {
+    place "rect01" as "bg" {
+      center 0.5 0.5
+      size 1 1
+      style "skyFill"
+      rotate 0
+    }
+  }
+
+  layer "lake" z 1 {
+    place "rect01" as "lake1" {
+      center 0.82 0.62
+      size 0.34 0.32
+      style "lakeFill"
+      rotate 0
+    }
+  }
+
+  layer "land" z 2 {
+    place "rect01" as "landBase" {
+      center 0.50 0.66
+      size 1.00 0.68
+      style "landFill"
+      rotate 0
+    }
+  }
+
+  layer "green_areas" z 3 {
+    place "circle01" as "park1" {
+      center 0.24 0.63
+      size 0.12 0.12
+      style "grassFill"
+      rotate 0
+    }
+
+    place "circle01" as "park2" {
+      center 0.72 0.46
+      size 0.10 0.10
+      style "grassFill"
+      rotate 0
+    }
+
+    place "circle01" as "park3" {
+      center 0.58 0.78
+      size 0.08 0.08
+      style "grassFill"
+      rotate 0
+    }
+  }
+
+  layer "axis" z 4 {
+    place "axisRoad" as "eixao" {
+      center 0.50 0.56
+      size 0.86 0.28
+      style "avenueFill"
+      rotate 0
+    }
+
+    place "rect01" as "monumental" {
+      center 0.50 0.56
+      size 0.62 0.08
+      style "avenueFill"
+      rotate 0
+    }
+  }
+
+  layer "superquadras" z 5 {
+    place "cityBlock" as "sq1" {
+      center 0.24 0.49
+      size 0.10 0.10
+      rotate -8
+    }
+    place "cityBlock" as "sq2" {
+      center 0.32 0.52
+      size 0.09 0.09
+      rotate -4
+    }
+    place "cityBlock" as "sq3" {
+      center 0.68 0.51
+      size 0.10 0.10
+      rotate 6
+    }
+    place "cityBlock" as "sq4" {
+      center 0.76 0.54
+      size 0.09 0.09
+      rotate 10
+    }
+    place "cityBlock" as "sq5" {
+      center 0.40 0.70
+      size 0.08 0.08
+      rotate -6
+    }
+    place "cityBlock" as "sq6" {
+      center 0.60 0.72
+      size 0.08 0.08
+      rotate 5
+    }
+  }
+
+  layer "icons_main" z 6 {
+    place "congresso" as "cn" {
+      center 0.50 0.54
+      size 0.20 0.28
+      rotate 0
+    }
+
+    place "cathedral" as "cat" {
+      center 0.40 0.60
+      size 0.14 0.20
+      rotate -6
+    }
+
+    place "planalto" as "pla" {
+      center 0.30 0.56
+      size 0.16 0.18
+      rotate -2
+    }
+
+    place "itamaraty" as "ita" {
+      center 0.62 0.58
+      size 0.18 0.18
+      rotate 4
+    }
+
+    place "tvTower" as "tv" {
+      center 0.46 0.36
+      size 0.12 0.20
+      rotate 0
+    }
+
+    place "jkBridge" as "jk" {
+      center 0.82 0.70
+      size 0.22 0.12
+      rotate 6
+    }
+  }
+
+  layer "decorative_markers" z 7 {
+    place "circle01" as "marker1" {
+      center 0.50 0.54
+      size 0.02 0.02
+      style "redFill"
+      rotate 0
+    }
+    place "circle01" as "marker2" {
+      center 0.40 0.60
+      size 0.02 0.02
+      style "glassFill"
+      rotate 0
+    }
+    place "circle01" as "marker3" {
+      center 0.82 0.70
+      size 0.02 0.02
+      style "yellowFill"
+      rotate 0
+    }
+  }
+
+}
+}

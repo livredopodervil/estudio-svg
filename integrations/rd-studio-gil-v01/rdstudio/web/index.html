@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <title>RD Studio 5 · Autoria multimídia 0.1.2</title>
+  <link rel="stylesheet" href="/style.css">
+  <script>window.STUDIO_TOKEN=__STUDIO_TOKEN__;window.PREVIEW_PORT=__PREVIEW_PORT__;</script>
+  <script src="/app.js" defer></script>
+  <script src="/discover.js" defer></script>
+  <script src="/spatial.js" defer></script>
+  <script src="/patches.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" aria-label="Navegação do editor">
+      <a class="brand" href="/" aria-label="RD Studio início"><span class="mark">RD</span><span><strong>RD Studio</strong><small>ATLAS · ADMINISTRAÇÃO LOCAL</small></span></a>
+      <p class="sidebar-label">AMBIENTE</p>
+      <nav class="main-nav">
+        <button data-tab="dashboard" class="active"><span class="nav-icon">▦</span> Visão geral</button>
+        <button data-tab="structure"><span class="nav-icon">◎</span> Mapa do site</button>
+        <button data-tab="discover"><span class="nav-icon">⌕</span> Descobrir apps</button>
+        <button data-tab="spatial"><span class="nav-icon">⬡</span> Editor 3D e publicação</button>
+        <button data-tab="multimedia"><span class="nav-icon">▶</span> Multimídia</button>
+        <button data-tab="patches"><span class="nav-icon">⬇</span> Pacotes IA</button>
+        <button data-tab="files"><span class="nav-icon">▤</span> Arquivos</button>
+        <button data-tab="catalog"><span class="nav-icon">◈</span> Catálogo</button>
+        <button data-tab="preview"><span class="nav-icon">▣</span> Prévia</button>
+        <button data-tab="checks"><span class="nav-icon">✓</span> Vistoria</button>
+        <button data-tab="git"><span class="nav-icon">⑂</span> Git</button>
+        <button data-tab="history"><span class="nav-icon">↺</span> Histórico</button>
+      </nav>
+      <div class="sidebar-bottom"><span class="dot"></span><span>Serviço local · 127.0.0.1</span><small>Não publica no GitHub</small></div>
+    </aside>
+    <div class="workarea">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>rogerioduarte.org</span><span class="sep">/</span><strong id="current-section">Visão geral</strong></div>
+        <div class="top-actions"><span id="git-branch" class="branch">—</span><a id="header-preview" href="http://127.0.0.1:8766/" target="_blank" rel="noopener" class="button ghost">Abrir site ↗</a></div>
+      </header>
+      <main>
+        <section class="tab active" id="tab-dashboard" aria-label="Visão geral">
+          <div class="page-title"><div><p class="eyebrow">GERENCIAMENTO DO PORTFÓLIO</p><h1>Seu site, por partes.</h1><p>Edite e teste localmente. Cada arquivo pode ser versionado sem substituir o projeto inteiro.</p></div></div>
+          <article class="panel" id="studio-workbench"><div class="panel-head"><h2>Área de trabalho · RD Studio 5</h2><span class="pill">0.1.2</span></div><div class="actions"><button class="button primary" data-go="multimedia">Criação multimídia</button><a class="button primary" href="http://127.0.0.1:8784/" target="_blank" rel="noopener noreferrer">Editor de vídeo ↗</a><a class="button subtle" href="http://127.0.0.1:8791/" target="_blank" rel="noopener noreferrer">GIL · criar animação ↗</a><button class="button subtle" data-go="files">Editor de páginas</button><button class="button subtle" data-go="spatial">Navegação espacial</button></div><p class="hint">Vídeo e GIL são serviços independentes; inicie todos com tools/launch.py. O catálogo de páginas e Pacotes IA administram a instalação no site.</p></article><div class="metric-grid">
+            <div class="metric"><span>Arquivos modificados</span><strong id="metric-changed">—</strong><small>Alterações na cópia de trabalho</small></div>
+            <div class="metric"><span>Projetos cadastrados</span><strong id="metric-projects">—</strong><small>Catálogo modular</small></div>
+            <div class="metric"><span>Ramo Git</span><strong id="metric-branch" class="metric-branch">—</strong><small>Sem publicação automática</small></div>
+          </div>
+          <div class="two-col">
+            <article class="panel"><div class="panel-head"><h2>Começar</h2><span class="pill">FLUXO LOCAL</span></div><ol class="steps"><li><b>Editar</b><span>Modifique textos, arquivos ou registros do catálogo.</span></li><li><b>Pré-visualizar</b><span>Abra o site original na porta isolada de prévia.</span></li><li><b>Vistoriar</b><span>Verifique módulos, rotas, documentos e links.</span></li><li><b>Versionar</b><span>Selecione arquivos, prepare o stage e crie um commit local.</span></li></ol><div class="actions"><button class="button primary" data-go="structure">Explorar estrutura</button><button class="button subtle" data-go="files">Editar arquivos</button><button class="button subtle" data-go="checks">Executar vistoria</button></div></article>
+            <article class="panel"><div class="panel-head"><h2>Ambiente ativo</h2><span class="pill green">PRIVADO</span></div><dl class="details"><dt>Diretório do site</dt><dd id="info-root">—</dd><dt>Prévia HTTP</dt><dd id="info-preview">—</dd><dt>Último commit</dt><dd id="info-head">—</dd></dl><p class="hint">O servidor de edição só aceita conexões do próprio dispositivo. A prévia usa outra porta para isolar o código do site do painel de administração.</p></article>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-multimedia" aria-label="Multimídia">
+          <div class="page-title"><div><p class="eyebrow">RD STUDIO · AUTORIA INTEGRADA</p><h1>Criação multimídia</h1><p>Produza composições procedurais e vídeos. Os módulos usam serviços locais independentes do servidor administrativo.</p></div></div>
+          <div class="two-col"><article class="panel"><div class="panel-head"><h2>GIL Timeline</h2><span class="pill">EXPERIMENTAL</span></div><p>Objetos 2D/3D, console, propriedades, animação e efeitos sonoros. Exporte uma página como pacote RD Patch.</p><a class="button primary" href="http://127.0.0.1:8791/" target="_blank" rel="noopener noreferrer">Abrir GIL e gerador de páginas ↗</a></article>
+          <article class="panel"><div class="panel-head"><h2>Estúdio SVG</h2></div><p>Edite cenas, grave voz, produza apresentações e exporte MP4. Inclua o arquivo final no gerador de páginas GIL.</p><a class="button primary" href="http://127.0.0.1:8784/" target="_blank" rel="noopener noreferrer">Abrir Estúdio SVG ↗</a></article></div>
+          <article class="panel"><h2>Instalar e publicar</h2><ol class="steps"><li><b>Produzir</b><span>Crie a composição e, se desejar, exporte um MP4 no Estúdio SVG.</span></li><li><b>Gerar página</b><span>Escolha título, ID e texto no gerador GIL; baixe o arquivo .rdpatch.zip.</span></li><li><b>Examinar</b><span>Em Pacotes IA, confira o conteúdo e aplique no worktree correto.</span></li><li><b>Vistoriar e publicar</b><span>Use a prévia isolada, os testes e o assistente Git já existentes. Nenhum push automático.</span></li></ol><div class="actions"><button class="button primary" data-go="patches">Pacotes IA</button><button class="button subtle" data-go="checks">Vistoria</button></div><p class="hint">O GIL não recebe o token administrativo. As portas 8791 e 8784 são fixadas pelo inicializador experimental.</p><h3>Organização dos componentes</h3><p>Fonte GIL → composição validada → player HTML e vídeo MP4 → pacote RD Patch → página e catálogo do site. A fonte do projeto deve acompanhar os derivados. Consulte README.md e docs/WORKSPACE.md na instalação.</p><div class="actions"><button class="button subtle" data-go="catalog">Catálogo de projetos</button><button class="button subtle" data-go="preview">Prévia do site</button></div></article>
+        </section>
+        <section class="tab" id="tab-structure" aria-label="Mapa do site">
+          <div class="page-title"><div><p class="eyebrow">MAPA ESTRUTURAL DO SITE</p><h1>Conheça cada parte.</h1><p>Estrutura construída a partir dos arquivos reais, do manifesto dos dodecaedros e do catálogo. Selecione um nó para abrir sua página ou editar seu arquivo.</p></div><button id="structure-refresh" class="button subtle">Recarregar mapa</button></div>
+          <div id="structure-counts" class="structure-counts" aria-live="polite"></div>
+          <div class="panel"><div class="structure-controls"><label for="structure-search">Filtrar nós</label><input id="structure-search" type="search" placeholder="telemedicina, laboratório, projetos…"><label class="check-inline"><input id="structure-spatial" type="checkbox" checked> Mostrar relações espaciais</label></div><div class="map-scroll"><svg id="structure-svg" viewBox="0 0 1100 680" role="img" aria-label="Mapa navegável do portal"></svg></div><div class="hint">As linhas tracejadas representam conexões do atlas 3D; linhas contínuas representam a hierarquia de páginas. O mapa não é uma prévia WebGL.</div></div>
+          <div class="structure-bottom"><div class="panel"><div class="panel-head"><h2>Navegador de pastas</h2><span class="pill">ARQUIVOS REAIS</span></div><div id="structure-tree" class="structure-tree"></div></div><div class="panel"><div class="panel-head"><h2>Elemento selecionado</h2><span class="pill" id="structure-kind">—</span></div><strong id="structure-selected">Selecione um nó</strong><p class="muted" id="structure-desc">Ao selecionar um elemento você poderá inspecionar sua origem, editar o arquivo ou abrir a prévia local.</p><div class="actions"><button id="structure-edit" class="button subtle" disabled>Editar arquivo</button><button id="structure-preview" class="button primary" disabled>Abrir prévia</button></div></div></div>
+        </section>
+
+
+        <section class="tab" id="tab-discover" aria-label="Explorador Termux">
+          <div class="page-title"><div><p class="eyebrow">EXPLORADOR E INVENTÁRIO LOCAL</p><h1>Encontrar, comparar e publicar.</h1><p>Navegue nas pastas do Termux, descubra projetos e versões, gere mídias e importe apenas o aplicativo escolhido. Não modifica as pastas de origem.</p></div></div>
+          <div class="panel discover-pathbar"><div class="panel-head"><h2>Navegar em $HOME</h2><span class="pill green">LEITURA SEGURA</span></div>
+            <div class="field-row"><input id="discover-folder" aria-label="Diretório Termux" placeholder="~/meus-projetos"><button class="button subtle" id="discover-open-path">Abrir</button><button class="button subtle" id="discover-up">Subir</button><button class="button quiet" id="discover-home">HOME</button></div>
+            <p id="discover-path" class="mono muted"></p><p id="discover-counts" class="hint"></p>
+            <div id="discover-folders" class="discover-browser"></div>
+          </div>
+          <div class="panel"><div class="panel-head"><h2>Localizar projetos e versões</h2><span class="pill">SEM EXECUTAR CÓDIGO</span></div>
+            <div class="actions"><label class="inline-label">Profundidade <select id="discover-depth"><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label><button class="button primary" id="discover-scan">Buscar aplicativos nesta pasta</button></div>
+            <p id="discover-summary" class="hint">Navegue até uma pasta e inicie a busca. Pastas ocultas, credenciais e dependências são ignoradas.</p>
+            <div id="discover-results" class="discover-results"></div>
+          </div>
+          <div class="two-col">
+            <div class="panel"><div class="panel-head"><h2>Aplicativo selecionado</h2></div><strong id="discover-selected">Nenhum</strong><pre id="discover-inspect" class="code-output small">Selecione um resultado acima.</pre>
+              <label>ID para importar <input id="discover-id" placeholder="nome-do-projeto" autocomplete="off"></label>
+              <input id="discover-source" type="hidden"><p id="discover-import-hint" class="hint"></p>
+              <button id="discover-import" class="button primary" disabled>Importar versão nova + registrar</button>
+              <p class="hint">Importa somente sites com index.html. Projetos com servidor Python/Node precisam ser adaptados ou exportados como site estático.</p>
+            </div>
+            <div class="panel"><div class="panel-head"><h2>Comparar versões locais</h2></div>
+              <label>Versão A <select id="compare-a"></select></label><label>Versão B <select id="compare-b"></select></label>
+              <button id="discover-compare" class="button subtle">Comparar arquivos e conteúdo</button><p id="discover-diff-summary" class="hint"></p>
+              <pre id="discover-diff" class="code-output small">Escolha duas versões para ver os arquivos adicionados, removidos e modificados.</pre>
+            </div>
+          </div>
+          <div class="two-col">
+            <div class="panel"><div class="panel-head"><h2>Miniatura e ícone</h2><span class="pill green">GERAÇÃO LOCAL</span></div>
+              <label>ID importado <input id="discover-visual-id" placeholder="meu-projeto"></label>
+              <button id="discover-visual-plan" class="button subtle">Detectar imagens do projeto</button>
+              <p id="discover-visual-mode" class="hint"></p>
+              <label>Imagem de origem <select id="discover-assets"></select></label>
+              <label>Título na arte tipográfica <input id="discover-visual-title" placeholder="Título"></label>
+              <button id="discover-generate" class="button primary" disabled>Gerar / atualizar imagens</button>
+              <div class="actions"><button id="discover-capture-plan" class="button subtle">Detectar captura real</button><button id="discover-capture" class="button subtle" disabled>Capturar página no Chromium</button></div>
+              <div id="discover-visual-result" class="hint"></div>
+              <p class="hint">Seleciona imagens já existentes e produz 1200 × 675 e 400 × 400. Sem imagem, cria arte de identificação (não captura real de tela). Com Pillow instalado, exporta WebP e PNG; caso contrário, SVG editável.</p>
+            </div>
+            <div class="panel"><div class="panel-head"><h2>Substituir uma versão instalada</h2><span class="pill">BACKUP OBRIGATÓRIO</span></div>
+              <label>Projeto instalado no site <select id="discover-installed"></select></label>
+              <p class="hint">A origem é o projeto selecionado na busca. Inspecione diferenças antes de substituir; a operação só altera o worktree local.</p>
+              <button id="discover-replace-plan" class="button subtle">Planejar substituição</button>
+              <pre id="discover-replace-report" class="code-output small">Nenhuma substituição preparada.</pre>
+              <button id="discover-replace" class="button danger-button" disabled>Substituir após confirmação</button>
+            </div>
+          </div>
+          <div class="panel"><div class="panel-head"><h2>Publicar o catálogo na cópia de teste</h2><span class="pill green">ATUALIZAÇÃO SELETIVA</span></div>
+            <p>Gere uma página estática em <code>/projetos/</code>, usando apenas projetos cadastrados como <b>demonstração</b> ou <b>publicado</b>. Pode criar um link no menu da página inicial após confirmação.</p>
+            <label class="check-inline"><input id="discover-link-home" type="checkbox" checked> Adicionar link «Portfólio» no menu inicial, se compatível</label>
+            <div class="actions"><button id="discover-portfolio" class="button primary">Gerar / atualizar o portfólio</button><a class="button subtle" id="discover-portfolio-link" target="_blank" rel="noopener" href="#">Ver prévia</a></div>
+            <p class="hint">Não altera o atlas 3D. A incorporação automática como nó espacial requer uma etapa separada de integração ao motor.</p>
+          </div>
+          <div class="panel"><div class="panel-head"><h2>Aplicativos e servidores em execução</h2><button id="discover-running-refresh" class="button subtle">Atualizar</button></div>
+            <p class="hint">Lista indicativa de processos de desenvolvimento e portas locais comuns. Não executa comandos dos projetos nem encerra processos; a correspondência processo/porta pode não estar disponível no Android.</p>
+            <div id="discover-running" class="discover-running"></div>
+          </div>
+          <p id="discover-status" class="discover-feedback" role="status" aria-live="polite">Navegação local. Nada será publicado sem vistoria, commit e confirmação no Git.</p>
+        </section>
+
+
+        <section class="tab" id="tab-spatial" aria-label="Editor espacial e publicação de projetos">
+          <div class="page-title"><div><p class="eyebrow">PUBLICAÇÃO MODULAR E GRAFO 3D</p><h1>Organizar e publicar.</h1><p>Escolha onde um aplicativo deve aparecer. Edite as ligações do laboratório e sua cena, veja a prévia e decida quando enviar ao GitHub.</p></div><button id="space-refresh" class="button subtle">Recarregar grafo</button></div>
+          <div class="panel"><div class="panel-head"><h2>1 · Colocar projeto no site</h2><span class="pill green">APENAS CÓPIA LOCAL</span></div>
+            <div class="space-formgrid">
+              <label>Projeto do catálogo <select id="space-project"></select></label>
+              <label>Destino <select id="space-destination"><option value="portfolio">Página de portfólio (/projetos/)</option><option value="home">Portfólio + link na página inicial</option><option value="spatial">Portfólio + laboratório 3D</option></select></label>
+            </div>
+            <p id="space-project-info" class="hint">Cadastre ou importe um aplicativo no catálogo. Projetos marcados como rascunho não entram na página pública.</p>
+            <div class="actions"><button id="space-expose" class="button primary">Gerar prévia e colocar no destino</button><a id="space-open-portfolio" class="button subtle" href="#" target="_blank" rel="noopener">Ver portfólio</a><a id="space-open-app" class="button quiet" href="#" target="_blank" rel="noopener">Abrir aplicativo</a></div>
+            <div id="space-expose-state" class="hint" aria-live="polite"></div>
+          </div>
+          <div class="panel"><div class="panel-head"><h2>2 · Hierarquia e ligações espaciais</h2><span class="pill">GRAFO REAL</span></div>
+            <p class="hint">Arraste um dodecaedro na projeção XY ou selecione-o para editar X, Y e Z. As conexões são as mesmas utilizadas em <code>modules/manifest.json</code>. Nada é salvo antes de confirmar.</p>
+            <div class="space-layout"><div class="space-map-wrap"><svg id="space-map" viewBox="0 0 780 500" role="img" aria-label="Editor de posições de dodecaedros e suas ligações"></svg></div>
+              <div class="space-inspector"><h3 id="space-selected-label">Selecione um módulo</h3>
+                <div class="space-xyz"><label>X <input id="space-x" type="number" min="-300" max="300" step="0.5"></label><label>Y <input id="space-y" type="number" min="-300" max="300" step="0.5"></label><label>Z <input id="space-z" type="number" min="-300" max="300" step="0.5"></label></div>
+                <button id="space-save-position" class="button primary" disabled>Salvar posição</button><p class="hint">Posições alteradas afetam o deslocamento da câmera no laboratório. As ligações determinam os módulos vizinhos.</p>
+                <h3>Ligações</h3><div id="space-links" class="space-links"></div>
+                <div class="space-connection"><select id="space-edge-a"></select><span>↔</span><select id="space-edge-b"></select><button id="space-add-edge" class="button subtle">Conectar</button></div>
+                <button id="space-save-links" class="button primary">Salvar conexões</button>
+              </div></div>
+            <div class="actions"><a id="space-open-lab" href="#" class="button subtle" target="_blank" rel="noopener">Abrir laboratório 3D ↗</a><button id="space-reload-preview" class="button quiet">Atualizar prévia 3D</button><a class="button quiet" href="https://livredopodervil.github.io/SpatialSeed/apps/web/" target="_blank" rel="noopener">SpatialSeed (editor externo) ↗</a></div><p id="space-preview-status" class="hint" role="status">Carregue a prévia ou abra o laboratório em nova aba.</p><iframe id="space-live-preview" title="Prévia do laboratório 3D (somente leitura)" loading="lazy" style="width:100%;height:400px;margin-top:14px;border:1px solid #c3dfe0;border-radius:12px;background:#eaf3f5" referrerpolicy="no-referrer"></iframe>
+          </div>
+          <div class="panel"><div class="panel-head"><h2>3 · Parâmetros do navegador 3D</h2><span class="pill">CONTROLES EXPERIMENTAIS</span></div>
+            <p class="hint">Parâmetros declarativos para câmera, navegação e animação. Na primeira aplicação o Studio instala um pequeno adaptador no motor conhecido, com backup. Nas próximas, modifica somente <code>config/spatial.json</code>. Não incorpora o runtime do SpatialSeed.</p>
+            <div id="space-settings" class="space-formgrid"></div>
+            <div class="actions"><button id="space-save-settings" class="button primary">Aplicar parâmetros</button><button id="space-repair-mini" class="button subtle">Reparar miniatura 3D</button><span id="space-adapter-state" class="hint"></span></div>
+          </div>
+          <div class="panel"><div class="panel-head"><h2>4 · Publicação assistida e recuperação</h2><span class="pill">REVERSÍVEL</span></div>
+            <p class="hint">Etapas: salvar → executar Vistoria → revisar arquivos → criar commit → publicar. O assistente verifica se o GitHub avançou e cria uma tag remota de backup antes do push.</p>
+            <div class="actions"><button id="space-publish-plan" class="button subtle">Revisar publicação</button><button id="space-publish-apply" class="button primary" disabled>Confirmar e publicar</button></div>
+            <label>Mensagem do commit <input id="space-publish-message" value="feat(site): atualizar projetos e atlas" maxlength="150"></label>
+            <div class="actions"><button id="space-select-all" class="button quiet" type="button">Selecionar todos</button><button id="space-select-none" class="button quiet" type="button">Desmarcar todos</button><span class="hint" id="space-selected-count"></span></div><div id="space-publish-list" class="space-publish-list"></div><p id="space-publish-summary" class="hint" aria-live="polite"></p>
+            <hr><h3>Reverter uma publicação</h3><p class="hint">Cria um novo commit restaurando um snapshot anterior. Exige worktree limpo, alinhado com o GitHub e confirmação explícita. Não usa force push.</p>
+            <div class="actions"><button id="space-recovery-refresh" class="button subtle">Consultar backups</button><select id="space-recovery-tags" aria-label="Versões de backup"></select><button id="space-recovery-apply" class="button danger-button">Restaurar versão selecionada</button></div><p id="space-recovery-summary" class="hint"></p>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-patches" aria-label="Pacotes de atualização localizados">
+          <div class="page-title"><div><p class="eyebrow">MÓDULOS REMOVÍVEIS · VERSÕES AUDITÁVEIS</p><h1>Pacotes de atualização.</h1><p>Atualize seções específicas sem trocar a árvore do site. Cada pacote declara seus arquivos, hashes, versão e operação reversível.</p></div></div>
+          <div class="two-col">
+            <div class="panel"><div class="panel-head"><h2>Pacotes em Downloads</h2><span class="pill green">SEM UPLOAD</span></div><p class="hint">Salve um arquivo <code>*.rdpatch.zip</code> na pasta Downloads do Android. O Studio encontra automaticamente os pacotes e verifica o conteúdo sem executar scripts contidos neles.</p>
+              <label>Pacote disponível <select id="patch-available" style="width:100%"></select></label>
+              <div class="actions"><button class="button subtle" id="patch-refresh">Atualizar lista</button><button class="button subtle" id="patch-plan">Examinar alterações</button><button class="button primary" id="patch-apply" disabled>Aplicar no worktree</button></div>
+              <div id="patch-detail" class="code-output small" style="white-space:pre-wrap">Selecione um pacote para ver as mudanças.</div>
+              <p class="hint">Se os arquivos foram alterados desde a versão prevista, a aplicação será bloqueada, sem sobrescrever trabalho existente.</p>
+            </div>
+            <div class="panel"><div class="panel-head"><h2>Pacotes instalados</h2><span class="pill">RECUPERÁVEL</span></div><div id="patch-installed"></div><div class="actions"><button class="button subtle" id="patch-remove-plan">Verificar remoção</button><button class="button danger-button" id="patch-remove" disabled>Remover pacote selecionado</button></div><p id="patch-removal-report" class="hint" style="white-space:pre-wrap"></p><p class="hint">A remoção restaura apenas os arquivos afetados usando backups externos ao Git. Se o patch já estiver no GitHub, publique a reversão como novo commit.</p></div>
+          </div>
+          <div class="panel"><h2>Depois de aplicar</h2><p>Abra a <b>Prévia</b>, execute <b>Vistoria</b> e use <b>Organizar e publicar</b> para revisar um commit só com os arquivos modificados. O gerenciador não envia nada automaticamente ao GitHub.</p></div>
+        </section>
+
+        <section class="tab" id="tab-files" aria-label="Editor de arquivos">
+          <div class="page-title"><div><p class="eyebrow">EDITOR DE ARQUIVOS</p><h1>Editar sem reconstruir tudo.</h1><p>Arquivos de texto, páginas, estilos e manifestos. Salvamento com cópia de segurança automática.</p></div></div>
+          <div class="editor-layout">
+            <div class="panel file-browser"><label for="file-search">Localizar arquivo</label><input id="file-search" type="search" placeholder="index.html, modules/…" autocomplete="off"><div id="file-list" class="file-list" role="listbox" aria-label="Arquivos do projeto"></div><button id="new-file" class="button subtle full">+ Criar arquivo de texto</button><details class="upload"><summary>Adicionar uma imagem</summary><label for="asset-dest">Destino (ex.: assets/previews/capa.webp)</label><input id="asset-dest" placeholder="assets/previews/capa.webp"><label for="asset-file">Imagem PNG, JPG, GIF ou WebP</label><input id="asset-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="asset-upload" class="button subtle full">Enviar para a cópia local</button></details></div>
+            <div class="panel edit-pane"><div class="edit-head"><div><p class="tiny-label">ARQUIVO SELECIONADO</p><strong id="editor-path">Escolha um arquivo</strong><small id="editor-status">Sem arquivo aberto</small></div><div class="actions"><button id="file-diff" class="button quiet" disabled>Diff</button><button id="file-refresh" class="button quiet" disabled>Recarregar</button><button id="file-save" class="button primary" disabled>Salvar</button></div></div><textarea id="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="Selecione um arquivo à esquerda para editar o conteúdo." disabled></textarea><p class="hint">Ctrl+S salva. Uma alteração externa exige recarregamento antes de sobrescrever. Imagens são enviadas pela opção à esquerda.</p><pre id="diff-output" class="code-output" hidden></pre></div>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-catalog" aria-label="Catálogo de projetos">
+          <div class="page-title"><div><p class="eyebrow">PORTFÓLIO MODULAR</p><h1>Catálogo de projetos.</h1><p>Adicione projetos individuais com título, URL, prévia e relacionamentos, sem editar o motor 3D.</p></div></div>
+          <div class="panel import-panel"><div class="panel-head"><h2>Importar aplicativo que já está no Termux</h2><span class="pill green">SEM UPLOAD</span></div><p class="hint">Aponte para uma pasta já existente dentro de <code>$HOME</code>, contendo <code>index.html</code>. O Studio copia o aplicativo para <code>projetos/ID/</code> e registra o projeto no catálogo, sem substituir outros arquivos.</p><div class="import-fields"><label>Diretório de origem <input id="import-source" placeholder="/data/data/com.termux/files/home/meu-aplicativo"></label><label>ID do projeto <input id="import-id" placeholder="meu-aplicativo" pattern="[a-z0-9-]+"></label><button id="import-plan" class="button subtle">Inspecionar origem</button><button id="import-apply" class="button primary" disabled>Importar após revisão</button></div><pre id="import-report" class="code-output small" hidden></pre></div>
+          <div id="catalog-missing" class="panel empty" hidden><h2>Catálogo ainda não instalado</h2><p>Crie o diretório <code>catalog/projects/</code> e um arquivo inicial de relações. Nenhuma página existente será modificada.</p><button class="button primary" id="catalog-init">Inicializar catálogo</button></div>
+          <div id="catalog-present" class="editor-layout" hidden>
+            <div class="panel file-browser"><div class="panel-head"><h2>Projetos</h2></div><div id="project-list" class="project-list"></div><button class="button subtle full" id="project-new">+ Novo projeto</button></div>
+            <form id="catalog-form" class="panel catalog-form"><div class="panel-head"><h2 id="catalog-title">Editar projeto</h2><span class="pill">JSON POR PROJETO</span></div>
+              <div class="form-grid"><label>ID <input name="id" required pattern="[a-z0-9-]+" placeholder="meu-projeto"></label><label>Situação<select name="status"><option value="rascunho">Rascunho</option><option value="demonstracao">Demonstração</option><option value="publicado">Publicado</option></select></label><label class="wide">Título <input name="title" required placeholder="Título do projeto"></label><label class="wide">Resumo <textarea name="summary" rows="4" placeholder="Descrição para o portfólio"></textarea></label><label>Categoria <input name="category" placeholder="computacao"></label><label>Cor <input name="color" type="color" value="#07899d"></label><label class="wide">Endereço (HTTPS ou rota /projetos/…) <input name="url" placeholder="/projetos/telemedicina/"></label><label class="wide">Caminho da prévia (opcional) <input name="preview" placeholder="/assets/previews/telemedicina.webp"></label><label class="wide">Assuntos, separados por vírgulas <input name="topics" placeholder="software, ciencia, visualizacao"></label><label class="wide">IDs dos projetos relacionados, separados por vírgulas <input name="neighbors" placeholder="spatialseed, telemedicina"></label></div>
+              <div class="actions end"><span id="catalog-status" class="muted">Selecione um projeto.</span><button type="submit" class="button primary">Salvar somente este projeto</button></div>
+            </form>
+          </div>
+        </section>
+
+        <section class="tab" id="tab-preview" aria-label="Prévia do site">
+          <div class="page-title"><div><p class="eyebrow">TESTE VISUAL</p><h1>Prévia isolada.</h1><p>Aplique alterações localmente e navegue na versão de trabalho, sem usar o GitHub Pages.</p></div></div>
+          <div class="panel preview-panel"><div class="preview-toolbar"><label for="preview-path">Caminho</label><input id="preview-path" value="/" aria-label="Caminho da página"><button id="preview-load" class="button primary">Carregar</button><a id="preview-newtab" class="button quiet" target="_blank" rel="noopener">Abrir em nova aba ↗</a></div><div class="preview-frame"><iframe id="site-preview" title="Prévia da cópia local do site" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" loading="lazy"></iframe></div><p class="hint">Esta prévia usa outra origem local. Se o portal 3D carregar uma biblioteca por CDN, o dispositivo precisará de acesso à internet para essa parte.</p></div>
+        </section>
+
+        <section class="tab" id="tab-checks" aria-label="Vistoria">
+          <div class="page-title"><div><p class="eyebrow">VALIDAÇÃO AUTOMÁTICA</p><h1>Vistoria antes do commit.</h1><p>Verifica HTML, links locais, manifesto de módulos, grafo, texturas, catálogo e metadados sociais.</p></div><button id="run-checks" class="button primary">Executar vistoria</button></div>
+          <div class="metric-grid"><div class="metric"><span>Erros</span><strong id="check-errors">—</strong></div><div class="metric"><span>Avisos</span><strong id="check-warnings">—</strong></div><div class="metric"><span>Verificações</span><strong id="check-passed">—</strong></div></div>
+          <div class="panel"><div class="panel-head"><h2>Relatório</h2><span id="check-state" class="pill">NÃO EXECUTADO</span></div><div id="check-output" class="results"><p class="muted">Execute a vistoria para avaliar a cópia local. Avisos não bloqueiam um commit, mas erros bloqueiam.</p></div></div>
+        </section>
+
+        <section class="tab" id="tab-git" aria-label="Versionamento Git">
+          <div class="page-title"><div><p class="eyebrow">VERSIONAMENTO CONTROLADO</p><h1>GitHub sincronizado e seguro.</h1><p>Consultar o remoto, atualizar esta cópia, criar commits seletivos e publicar com confirmação separada.</p></div><button id="git-refresh" class="button subtle">Atualizar status</button></div>
+          <div class="panel sync-panel"><div class="panel-head"><h2>Sincronização com GitHub</h2><span id="sync-state" class="pill">NÃO CONSULTADO</span></div><dl class="details"><dt>Repositório remoto</dt><dd id="sync-origin">—</dd><dt>Branch local</dt><dd id="sync-branch">—</dd><dt>Commits locais / remotos</dt><dd id="sync-counter">—</dd></dl><div class="actions" style="margin-top:18px"><button id="sync-fetch" class="button subtle">Consultar GitHub (fetch)</button><button id="sync-update" class="button quiet">Atualizar cópia local</button></div><p class="hint">A consulta atualiza apenas a referência remota. A atualização usa <code>git merge --ff-only</code> e exige árvore limpa; conflitos e históricos divergentes são bloqueados.</p><div class="sync-logs"><div><h3>Novidades no GitHub</h3><pre id="sync-incoming" class="code-output small"></pre></div><div><h3>Commits locais ainda não enviados</h3><pre id="sync-outgoing" class="code-output small"></pre></div></div></div>
+          <div class="panel"><div class="panel-head"><h2>Arquivos modificados</h2><span class="pill" id="git-file-count">—</span></div><div id="git-changes" class="change-list"></div><div class="actions"><button id="stage-selected" class="button subtle">Adicionar selecionados ao stage</button><button id="stage-all" class="button quiet">Selecionar todos</button></div></div>
+          <div class="panel commit-box"><div class="panel-head"><h2>Criar commit local</h2><span class="pill green">SEM PUSH</span></div><label for="commit-message">Mensagem de commit</label><input id="commit-message" placeholder="feat(portfolio): atualizar projetos" maxlength="150"><label for="commit-confirm">Confirmação: escreva COMMIT</label><input id="commit-confirm" placeholder="COMMIT" autocomplete="off"><p class="hint">Antes do commit, execute a vistoria com resultado sem erros. O envio ao GitHub é uma etapa posterior, com confirmação e backup remoto.</p><button id="do-commit" class="button primary">Criar commit (somente local)</button></div>
+          <div class="panel"><div class="panel-head"><h2>Publicar commits revisados</h2><span class="pill">EXIGE PUBLICAR</span></div><p class="hint">Após salvar, vistoriar, criar commit e consultar o GitHub, você pode enviar somente os commits adicionais. Exige branch <code>studio/</code>, árvore limpa, histórico linear e confirmação explícita. Será criada uma tag remota de segurança da versão anterior.</p><div class="actions"><button id="sync-publish" class="button primary">Publicar no GitHub</button></div><p class="hint">A publicação realiza <code>git push origin HEAD:main</code>, sem <code>--force</code>. Nenhum push é automático.</p></div>
+          <div class="panel"><h2>Commits recentes</h2><pre id="git-log" class="code-output small"></pre><p class="hint">Após revisão, o envio ao GitHub pode ser feito separadamente no terminal, com a branch e o destino conferidos.</p></div>
+        </section>
+
+        <section class="tab" id="tab-history" aria-label="Histórico de arquivos">
+          <div class="page-title"><div><p class="eyebrow">RECUPERAÇÃO LOCAL</p><h1>Versões anteriores.</h1><p>O RD Studio guarda uma cópia do conteúdo anterior a cada salvamento feito pelo editor.</p></div></div>
+          <div class="panel"><div class="field-row"><label for="history-path">Arquivo</label><input id="history-path" placeholder="index.html"><button id="history-load" class="button subtle">Consultar versões</button></div><div id="history-list" class="history-list"><p class="muted">Informe um caminho ou abra o histórico do arquivo no editor.</p></div><p class="hint">Histórico salvo fora do projeto, em <code>~/.rd-studio/historico/</code>. Não acompanha o Git. A restauração cria outra cópia de segurança.</p></div>
+        </section>
+      </main>
+      <footer class="footer">RD Studio 4.4 · Administração local · GitHub somente sob comando explícito</footer>
+    </div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

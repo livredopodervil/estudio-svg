@@ -1,0 +1,86 @@
+{
+  "spatialseed_baseline": "206b9a9 (auditoria de 14/11/2026; arquivos como enviados, não verificados contra remoto)",
+  "gil": "auditoria de 16/11/2026",
+  "files": [
+    {
+      "path": "vendor/spatialseed/packages/selection-operations/src/AffineProgram.js",
+      "source": "SpatialSeed/packages/selection-operations/src/AffineProgram.js",
+      "sha256": "a9006c6b332bc43293fcd0f9ec20c0adde32f0e9ef64098e94adf10fda9ef42d"
+    },
+    {
+      "path": "vendor/spatialseed/packages/selection-operations/src/AffineAst.js",
+      "source": "SpatialSeed/packages/selection-operations/src/AffineAst.js",
+      "sha256": "e5e79e362edfc98947a011d5e882cd32fa16364c60dbb854bbf9428406816817"
+    },
+    {
+      "path": "vendor/spatialseed/packages/math-affine/src/Matrix4.js",
+      "source": "SpatialSeed/packages/math-affine/src/Matrix4.js",
+      "sha256": "02643623db9ab75a66088267c43a1c0aaf7034d86315bd16e83d02383e15b5a3"
+    },
+    {
+      "path": "vendor/spatialseed/packages/temporal-runtime/src/TemporalRuntime.js",
+      "source": "SpatialSeed/packages/temporal-runtime/src/TemporalRuntime.js",
+      "sha256": "901bdc61cf413249fb2e852316328f1982d0aca6275b34192fafa74c933522ce"
+    },
+    {
+      "path": "vendor/spatialseed/packages/temporal-runtime/src/EvolutionResult.js",
+      "source": "SpatialSeed/packages/temporal-runtime/src/EvolutionResult.js",
+      "sha256": "476ae1b61fd7901247f0913f7c5239e9a8c1fa47636099030e84e79b1595e654"
+    },
+    {
+      "path": "vendor/spatialseed/packages/temporal-runtime/src/DependencyVersions.js",
+      "source": "SpatialSeed/packages/temporal-runtime/src/DependencyVersions.js",
+      "sha256": "0eaeca85dcd6485e2ab3aec070fd31de73f332a47b1d3aa17ef58e9d4d707278"
+    },
+    {
+      "path": "vendor/spatialseed/packages/temporal-runtime/src/AnalyticTimeDomains.js",
+      "source": "SpatialSeed/packages/temporal-runtime/src/AnalyticTimeDomains.js",
+      "sha256": "ce2945138a3284d649a1713d14b5cd12fd3e4a15c7f538fd46d1d0967089d617"
+    },
+    {
+      "path": "vendor/spatialseed/packages/occurrence-contracts/src/OccurrenceRef.js",
+      "source": "SpatialSeed/packages/occurrence-contracts/src/OccurrenceRef.js",
+      "sha256": "1679b784a77dfb8191fb6088da05939a54b560e52189d2f7521be1b97481fe5d"
+    },
+    {
+      "path": "vendor/spatialseed/packages/property-registry/src/PropertyRegistry.js",
+      "source": "SpatialSeed/packages/property-registry/src/PropertyRegistry.js",
+      "sha256": "659093ec42e45b5413b52784835c9bc00151957e4532090d9f6ee7db497ad962"
+    },
+    {
+      "path": "vendor/spatialseed/packages/runtime-api/src/RuntimeCapabilities.js",
+      "source": "SpatialSeed/packages/runtime-api/src/RuntimeCapabilities.js",
+      "sha256": "8c3712892283fadf829180545bf28f64c11cabf0e57f3bec781e78eee0bdc426"
+    },
+    {
+      "path": "legacy/gil3_compiler_experimental.py",
+      "source": "home/r1/gil3_compiler_experimental.py",
+      "sha256": "3743685d3d352065cdd2b89d97666e02f20f4155f950795687da1697db056e47"
+    },
+    {
+      "path": "legacy/helix.gil3",
+      "source": "home/r1/helix.gil3",
+      "sha256": "418cdcf20238a246c99bf486501bf19ff8ae37894d7d4506f418ef8b19d8e049"
+    },
+    {
+      "path": "legacy/amb.gil3",
+      "source": "home/r1/amb.gil3",
+      "sha256": "829248b3dd2accaf03f981a0e3d5fdc0cce14971656dbc6767142d309f62371e"
+    },
+    {
+      "path": "legacy/brasilia.gil3",
+      "source": "home/r1/brasilia.gil3",
+      "sha256": "bd25d970972169208825d4893b27cd0222a435c5ce877f0d96d4f6883f79c5c7"
+    },
+    {
+      "path": "legacy/flora.gil3",
+      "source": "home/r1/flora.gil3",
+      "sha256": "cfe86a881a17c8b296ac5efc88470cb87be061f9fe09f37af1df1cf8225df6d4"
+    },
+    {
+      "path": "legacy/snowflake_001.gil3",
+      "source": "home/r1/snowflakes/snowflake_001.gil3",
+      "sha256": "4c981265ff0678d56220ee8376a4b529a2706d12f5f7846f0bfbb7baf686ca0f"
+    }
+  ]
+}
