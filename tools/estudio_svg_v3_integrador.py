@@ -419,33 +419,9 @@ def inline_svg_images(markup,repo,stage,pub,n,warnings):
 
 
 def generate_svg(graphics,scene,i,count,media_dir,width,height):
-    clean=copy.deepcopy(scene)
-    clean['animacoes']=[]  # Browser usa o contrato original, nunca faixas já renderizadas.
-    renderer=graphics.visualize
-    names=inspect.signature(renderer).parameters
-    required={'p','idx','total','media_dir','width','height'}
-    if not required.issubset(names):
-        raise RuntimeError(f'graphics.visualize incompatível: {inspect.signature(renderer)}')
-    # Injeção local, apenas no processo do publicador experimental:
-    # os wrappers preservam a aparência, mas expõem os IDs e os pivôs ao navegador.
-    original_markup=graphics.animate_markup
-    original_image=graphics.animate_image_markup
-    def marked(markup,anim,p,target,center):
-        if not markup:return ''
-        return (f'<g id="{html.escape(target,quote=True)}" data-pivot-x="{float(center[0]):.4f}" '
-                f'data-pivot-y="{float(center[1]):.4f}">{markup}</g>')
-    def marked_image(markup,anim,p,center):
-        return marked(markup,anim,p,'__imagem__',center)
-    try:
-        graphics.animate_markup=marked
-        graphics.animate_image_markup=marked_image
-        out=renderer(clean,p=1.0,idx=i,total=count,media_dir=media_dir,width=width,height=height)
-    finally:
-        graphics.animate_markup=original_markup
-        graphics.animate_image_markup=original_image
-    if not isinstance(out,str) or not out.lstrip().startswith('<svg'):
-        raise RuntimeError(f'SVG da cena {i+1} não retornado pelo gerador')
-    return out
+    # Same immutable browser base as the live local player; no global monkeypatch.
+    return graphics.visualize(scene,p=1.0,idx=i,total=count,media_dir=media_dir,
+                              width=width,height=height,browser=True)
 
 
 def safety_preflight(repo,stage,slug):
@@ -529,6 +505,8 @@ def revert(repo,stage):
         if not path.is_file():continue
         current=path.read_text('utf-8')
         if marker not in current:continue
+        if marker==EDITOR_MARK and 'href="/player-v3/"' in current:
+            print('Link canônico local preservado:',path);continue
         if marker==PORTAL_MARK:
             updated=re.sub(r'<a id="vetorial-v3-link"[^>]*>.*?</a>','',current,count=1)
         else:
@@ -556,17 +534,12 @@ def main():
     dest=stage/'vetorial-v3'
     if dest.exists():
         raise RuntimeError(f'Player V3 já existe em {dest}. Não sobrescrevemos. Para testar novamente, preserve essa pasta e escolha outro stage.')
-    old_js_text=old_js.read_text('utf-8')
-    old_html_text=old_page.read_text('utf-8')
-    if '<!-- ESTUDIO_SVG_PLAYER_VETORIAL_POC_V1 -->' not in old_html_text:
-        raise RuntimeError('Página V2 não reconhecida. Preservada.')
-    new_js=exact_replace(old_js_text,JS_CHANGES,'player.js V2')
-    new_html=banner(exact_replace(old_html_text,HTML_CHANGES,'index.html V2'))
-    new_html=new_html.replace('Player vetorial experimental</title>','Player vetorial V3</title>',1)
-    # ESTUDIO_V3_MEDIA_PATCH_2026_11 — aplica recursos também aos novos exports
-    from player_v3_compat import patch_player, patch_html
-    new_js=patch_player(new_js)
-    new_html=patch_html(new_html)
+    # Reuse the committed Player, not the historical V2 -> V3 migration.
+    canonical=repo/'web_player'/'v3'
+    new_js=(canonical/'player.js').read_text('utf-8')
+    new_html=(canonical/'index.html').read_text('utf-8')
+    new_html,n_slug=re.subn(r'data-slug="[^"]*"',lambda _: 'data-slug="'+html.escape(args.slug,quote=True)+'"',new_html,count=1)
+    if n_slug!=1:raise RuntimeError('Player canônico sem data-slug')
     sys.path.insert(0,str(repo));sys.dont_write_bytecode=True
     graphics=importlib.import_module('graphics')
     sig=inspect.signature(graphics.visualize)
@@ -625,8 +598,16 @@ def main():
         (temp/'cenas').mkdir()
         (temp/'index.html').write_text(new_html,'utf-8')
         (temp/'player.js').write_text(new_js,'utf-8')
-        (temp/'runtime.js').write_text(RUNTIME_JS,'utf-8')
-        shutil.copy2(repo/'web_player'/'v3'/'media_layer.js',temp/'media_layer.js')
+        shutil.copy2(canonical/'runtime.js',temp/'runtime.js')
+        shutil.copy2(canonical/'media_layer.js',temp/'media_layer.js')
+        (temp/'v34').mkdir()
+        shutil.copy2(canonical/'v34'/'voice_locale.js',temp/'v34'/'voice_locale.js')
+        from urllib.parse import quote
+        voice_map={str(b):'./midia/'+quote(str(b)) for _,b in audios}
+        map_json=json.dumps(voice_map,ensure_ascii=False).replace('<','\\u003c')
+        if new_html.count('window.__voiceFiles={};')!=1:raise RuntimeError('Mapa de voz canônico indisponível')
+        new_html=new_html.replace('window.__voiceFiles={};','window.__voiceFiles='+map_json+';')
+        (temp/'index.html').write_text(new_html,'utf-8')
         for i,svg in enumerate(svgs,1):(temp/'cenas'/f'cena-{i:03d}.svg').write_text(svg,'utf-8')
         for src,basename in audios:
             path=temp/'midia'/basename

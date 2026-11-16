@@ -118,6 +118,21 @@ def animation_dict(raw):
     return result
 
 
+VISUAL_LAYERS=('imagem','conteudo','cabecalho','titulo','subtitulo','rodape')
+
+def layers_dict(raw,modo="quadro"):
+    if not isinstance(raw,dict):return {}
+    out={}
+    for key in VISUAL_LAYERS:
+        value=raw.get(key)
+        if not isinstance(value,dict):continue
+        default_z=(10 if modo=='fundo' else 30) if key=='imagem' else {'conteudo':20,'cabecalho':40,'titulo':50,'subtitulo':60,'rodape':70}[key]
+        item={'z':int(n(value.get('z',default_z),default_z,-10000,10000)),
+              'dx':n(value.get('dx',0),0,-4800,4800),'dy':n(value.get('dy',0),0,-4800,4800),
+              'oculta':value.get('oculta') is True}
+        out[key]=item
+    return out
+
 def normalize(data):
     if not isinstance(data,dict):raise ValueError('O projeto deve ser objeto JSON')
     raw=data.get('cenas')
@@ -162,6 +177,8 @@ def normalize(data):
             'imagem':image_dict(image,h>w,typ=='foto'),
             'cores':{k:color(cs.get(k),COLORS[k]) for k in COLORS},
             'audio':audio_dict(r.get('audio'),r.get('fala',''))}
+        camadas=layers_dict(r.get('camadas'),c['imagem']['modo'])
+        if camadas:c['camadas']=camadas
         if typ=='espacial': c['espacial']=normalize_spatial(r.get('espacial',default_spatial()))
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.
         c['fala']=c['audio']['voice_text']

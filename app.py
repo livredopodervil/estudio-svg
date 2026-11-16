@@ -58,6 +58,15 @@ def work(job,project,mode,scene,no_voice):
                 from standalone_html import export_html
                 from studio_core import MEDIA as app_media, OUTPUT as app_output
                 res=export_html(actual_name,pr,app_media,app_output,progress,with_audio=(mode=='export-html'))
+            elif mode=='audio-cena':
+                from studio_core import batch_audio
+                from audio_export import export_scene_voice
+                if not isinstance(scene,int) or not (1<=scene<=len(pr['cenas'])):
+                    raise StudioError('Número de cena inválido')
+                single={**pr,'cenas':[pr['cenas'][scene-1]]}
+                batch_audio(single,lambda pc,msg:progress(pc*.70,msg),export_zip=False)
+                res=export_scene_voice(actual_name,pr,scene,
+                                       lambda pc,msg:progress(.70+.30*pc,msg))
             elif mode in ('audio-mp3','audio-opus','voz-mp3'):
                 from audio_export import export_project_audio, export_scene_voice
                 if mode=='voz-mp3':
@@ -77,8 +86,8 @@ def work(job,project,mode,scene,no_voice):
 
 def queue_job(project,mode,scene=None,no_voice=False):
     name(project);read_project(project)
-    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','export-html','export-html-silent'):raise StudioError('Modo inválido')
-    if mode in ('cena','voz-mp3'):
+    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','audio-cena','export-html','export-html-silent'):raise StudioError('Modo inválido')
+    if mode in ('cena','voz-mp3','audio-cena'):
         try:scene=int(scene)
         except (ValueError,TypeError):raise StudioError('Informe o número da cena')
     else:scene=None
@@ -305,11 +314,44 @@ class Handler(BaseHTTPRequestHandler):
             if route=='/api/health' and method=='GET':
                 return self.response(200,{'ok':True,'version':VERSION,
                     'tools':{k:bool(shutil.which(k)) for k in ['ffmpeg','ffprobe','edge-tts','convert','espeak-ng','piper','termux-tts-speak']}})
+            if route=='/api/player-v3' and method=='GET':
+                identifier=name(q('name'));project=read_project(identifier)
+                revision=hashlib.sha256(json.dumps(project,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+                if q('revision') and q('revision')!=revision:raise StudioError('Projeto alterado; reabra o Player.')
+                if q('scene'):
+                    if q('revision')!=revision:raise StudioError('Projeto alterado; reabra o Player.')
+                    i=int(q('scene'))-1
+                    if not 0<=i<len(project['cenas']):raise StudioError('Cena inválida')
+                    v=project['video'];c=project['cenas'][i]
+                    # Camadas e SVG procedurais recebem a mesma composição de graphics.
+                    src=visualize(c,1,i,len(project['cenas']),MEDIA,v['width'],v['height'],browser=True)
+                    return self.response(200,src,'image/svg+xml; charset=utf-8')
+                from studio_core import voice_source
+                voices={}
+                for i,c in enumerate(project['cenas']):
+                    try:ready=voice_source(c,project,required=False)
+                    except StudioError:ready=None
+                    if ready:voices[str(i)]='/api/player-v3/voice?name='+identifier+'&scene='+str(i+1)+'&revision='+revision
+                return self.response(200,{'project':project,'revision':revision,'voices':voices})
+            if route=='/api/player-v3/voice' and method=='GET':
+                identifier=name(q('name'));project=read_project(identifier)
+                revision=hashlib.sha256(json.dumps(project,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+                if q('revision')!=revision:raise StudioError('Projeto alterado; reabra o Player.')
+                i=int(q('scene'))-1
+                if not 0<=i<len(project['cenas']):raise StudioError('Cena inválida')
+                from studio_core import voice_source
+                path=voice_source(project['cenas'][i],project,required=False)
+                if path is None:return self.response(404,{'error':'Voz não disponível'})
+                return self.stream_file(path)
             if route=='/api/presentation' and method=='GET':
                 identifier=name(q('name'))
                 project=read_project(identifier)
-                durations,mix=presentation_mix_status(identifier,project)
-                return self.response(200,{'project':project,'durations':durations,
+                mix_error=None
+                try:durations,mix=presentation_mix_status(identifier,project)
+                except StudioError as exc:
+                    if not str(exc).startswith('Narração excede a duração da cena:'):raise
+                    durations=[c['duracao'] for c in project['cenas']];mix=None;mix_error=str(exc)
+                return self.response(200,{'project':project,'durations':durations,'mix_error':mix_error,
                     'mix_ready':bool(mix),'audio_url':('/api/presentation/audio?name='+identifier) if mix else None})
             if route=='/api/presentation/audio' and method=='GET':
                 identifier=name(q('name'))
@@ -526,6 +568,16 @@ class Handler(BaseHTTPRequestHandler):
             with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,128*1024)
             return
         filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/espacial':'espacial.html','/espacial.html':'espacial.html','/espacial.js':'espacial.js','/espacial.css':'espacial.css','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
+        filemap['/media-recorder-v35.js']='media-recorder-v35.js'
+        filemap['/layers-v36.js']='layers-v36.js'
+        # Explicit allowlist: never serve arbitrary repository files.
+        player_files={'/player-v3/':'index.html','/player-v3/index.html':'index.html',
+          '/player-v3/player.js':'player.js','/player-v3/runtime.js':'runtime.js',
+          '/player-v3/media_layer.js':'media_layer.js','/player-v3/v34/voice_locale.js':'v34/voice_locale.js'}
+        if r in player_files:
+            fn=ROOT/'web_player'/'v3'/player_files[r]
+            mime='text/javascript; charset=utf-8' if fn.suffix=='.js' else 'text/html; charset=utf-8'
+            return self.response(200,fn.read_bytes(),mime)
         if r not in filemap:return self.response(404,'Não encontrado','text/plain')
         fn=ROOT/'web'/filemap[r];mime=('.js' if r.endswith('js') else '.css' if r.endswith('css') else '.html')
         types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'}

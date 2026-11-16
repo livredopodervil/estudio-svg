@@ -281,6 +281,11 @@
         "audio": {
           "$ref": "#/$defs/audio"
         },
+        "camadas": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {"^(imagem|conteudo|cabecalho|titulo|subtitulo|rodape)$": {"type":"object","properties":{"z":{"type":"integer","minimum":-10000,"maximum":10000},"dx":{"type":"number","minimum":-4800,"maximum":4800},"dy":{"type":"number","minimum":-4800,"maximum":4800},"oculta":{"type":"boolean"}},"additionalProperties":false}}
+        },
         "animacoes": {
           "type": "array",
           "maxItems": 32,

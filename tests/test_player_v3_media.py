@@ -46,8 +46,9 @@ class PlayerMediaContract(unittest.TestCase):
 
     def test_generated_players_use_compatibility_patch(self):
         gen=(ROOT/'tools/estudio_svg_v3_integrador.py').read_text('utf-8')
-        self.assertIn('new_js=patch_player(new_js)',gen)
-        self.assertIn('new_html=patch_html(new_html)',gen)
+        self.assertIn("new_js=(canonical/'player.js').read_text",gen)
+        self.assertIn("new_html=(canonical/'index.html').read_text",gen)
+        self.assertIn("canonical/'v34'/'voice_locale.js'",gen)
         self.assertIn("'media_layer.js'",gen)
 
 if __name__=='__main__':unittest.main()

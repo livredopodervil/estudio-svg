@@ -2,6 +2,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const name = new URL(location.href).searchParams.get('name') || 'demo_organico';
+  document.querySelector('#bar a').href='/?project='+encodeURIComponent(name);
   const audio = $('audio');
   const video = $('stageVideo');
   let currentClip = '';
@@ -16,6 +17,22 @@
   let raf = 0;
 
   const say = message => { $('msg').textContent = message; };
+  const narrator = new window.StudioV34.Narrator({synth:window.speechSynthesis||null,status:say});
+  let mode='browser',spoken=-1,elapsed=0;
+  const chosen=()=> $('captureSource').value;
+  const durations=()=> (mode==='mix'?data.durations:data.project.cenas.map(c=>Number(c.duracao)));
+  function voices(){const el=$('captureVoice'),keep=el.value;el.replaceChildren(new Option('Automática',''),...(window.speechSynthesis?.getVoices?.()||[]).map(v=>new Option(v.name+' ('+v.lang+')',v.voiceURI)));if([...el.options].some(o=>o.value===keep))el.value=keep;}
+  voices();window.speechSynthesis?.addEventListener?.('voiceschanged',voices);
+  function narrate(i){
+    if(mode!=='browser'||spoken===i)return;
+    spoken=i;const c=data.project.cenas[i], au=c.audio||{};
+    narrator.stop();if(au.muted||au.voice_enabled===false)return;
+    const base=data.project.idioma||data.project.language||'pt-BR',lang=$('captureLang').value;
+    const loc=window.StudioV34.localeText(c,i,lang,data.project.locale_packs||{},base);
+    if(loc.lang!==lang)say('Tradução indisponível; texto original em '+base+'.');
+    narrator.setMode('browser');narrator.setRate(Number($('captureRate').value));
+    narrator.speak({text:loc.text,lang:loc.lang,voices:window.speechSynthesis?.getVoices?.()||[],voiceName:$('captureVoice').value});
+  }
   const api = async (url, options = {}) => {
     const response = await fetch(url, options);
     const body = await response.json();
@@ -26,12 +43,12 @@
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
   });
 
-  const duration = () => data.durations.reduce((sum, n) => sum + n, 0);
+  const duration = () => durations().reduce((sum, n) => sum + n, 0);
   function sceneAt(t) {
     let at = 0;
-    for (let i = 0; i < data.durations.length; i++) {
-      const seconds = data.durations[i];
-      if (t < at + seconds || i === data.durations.length - 1) {
+    for (let i = 0; i < durations().length; i++) {
+      const seconds = durations()[i];
+      if (t < at + seconds || i === durations().length - 1) {
         const sceneTime = Math.max(0, t - at);
         return {i, sceneTime, progress: Math.max(0, Math.min(1, sceneTime / Math.max(.001, seconds)))};
       }
@@ -122,12 +139,13 @@
 
   async function refresh() {
     data = await api('/api/presentation?name=' + encodeURIComponent(name));
+    mode=chosen();
     fitFrame();
     $('prepare').disabled = preparing;
     if (!preparing) {
       say(data.mix_ready
         ? `${data.project.cenas.length} cenas, ${duration().toFixed(1)}s. Áudio pronto para reprodução.`
-        : `${data.project.cenas.length} cenas. Áudio não preparado. Toque em Preparar áudio.`);
+        : `${data.project.cenas.length} cenas. Use Voz do navegador sem preparar áudio. Para mix WAV, prepare o áudio. ${data.mix_error||''}`);
     }
     frame(0);
   }
@@ -163,13 +181,22 @@
 
   function tick(now) {
     if (!playing) return;
-    const withAudio = $('usemix').checked;
+    const withAudio = mode==='mix';
     if (withAudio && audio.error) {
       stop();
       say('Falha ao reproduzir áudio. Verifique as permissões e o navegador.');
       return;
     }
-    const t = withAudio ? audio.currentTime : (now - epoch) / 1000;
+    let t = withAudio ? audio.currentTime : (now - epoch) / 1000;
+    if(mode==='browser'&&spoken>=0){
+      const end=durations().slice(0,spoken+1).reduce((a,b)=>a+b,0);
+      if(t>=end&&(narrator.busy||framePending)){
+        t=end-.0001;epoch=now-t*1000;
+      }else if(t>=end&&spoken+1<durations().length){
+        t=end;epoch=now-t*1000;narrate(spoken+1);
+      }
+    }
+    elapsed=t;
     if (t >= duration()) { stop(); return; }
     if (now - lastUpdate >= 90) {
       lastUpdate = now;
@@ -180,7 +207,8 @@
 
   async function start() {
     if (!data || playing || preparing) return;
-    const withAudio = $('usemix').checked;
+    mode=chosen();
+    const withAudio = mode==='mix';
     if (withAudio) {
       if (!data.mix_ready) {
         say('Ainda não existe áudio pronto. Toque em Preparar áudio e depois em Iniciar.');
@@ -199,7 +227,8 @@
     } else {
       audio.pause();
     }
-    playing = true;
+    playing = true;spoken=-1;elapsed=0;
+    if(mode==='browser')narrate(0);
     epoch = performance.now();
     lastUpdate = 0;
     document.activeElement?.blur?.(); // O foco anterior não pode reexibir a barra.
@@ -210,7 +239,7 @@
   }
 
   function stop() {
-    playing = false;
+    playing = false;narrator.stop();spoken=-1;
     cancelAnimationFrame(raf);
     audio.pause();
     video.pause();
@@ -220,6 +249,10 @@
   }
 
   audio.addEventListener('ended', () => { if (playing) stop(); });
+  $('captureSource').onchange=()=>{if(playing)stop();mode=chosen();if(data)frame(0);};
+  $('captureLang').onchange=$('captureVoice').onchange=()=>{if(playing&&mode==='browser'){const i=spoken;spoken=-1;narrate(i);}};
+  $('captureRate').onchange=()=>narrator.setRate(Number($('captureRate').value));
+  window.addEventListener('pagehide',stop);
   $('prepare').onclick = prepareAudio;
   $('start').onclick = start;
   $('stop').onclick = stop;

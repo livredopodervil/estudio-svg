@@ -77,7 +77,7 @@ def image_element(config,media_dir,bg,view_h,full=False):
         + (f'<rect x="{xx-6}" y="{yy+8}" width="{ww+12}" height="{hh+8}" rx="{radius}" fill="#000" opacity=".20"/>' if config.get('frame',True) else '')
         + f'<image x="{xx}" y="{yy}" width="{ww}" height="{hh}" href="{uri}" clip-path="url(#{clip})"/>')
 
-def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
+def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720,*,browser=False):
     p=clamp(p);height_v=round(1280*height/width)
     vc=c.get('cores',{});bg=vc.get('fundo','#241b1a');ac=vc.get('destaque','#d99a62');fg=vc.get('texto','#fff1da')
     ty=c.get('tipo','globo');e=p*p*(3-2*p) if c.get('movimento')!='linear' else p
@@ -92,12 +92,32 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
        f'<ellipse cx="{1070+52*math.sin(p*math.tau)}" cy="{350+30*math.sin(p*math.pi)}" rx="510" ry="330" fill="{esc(ac)}" opacity=".065"/>',
        f'<ellipse cx="130" cy="{height_v-110}" rx="590" ry="320" fill="{esc(ac)}" opacity=".11"/>',
        f'<path d="M0 {height_v*.75:.0f} Q300 {height_v*.65:.0f} 640 {height_v*.82:.0f} T1280 {height_v*.72:.0f}" stroke="{esc(ac)}" stroke-width="2" fill="none" opacity=".20"/>']
+    layer_config=c.get('camadas') or {}
+    layers=[]
+    def layer(key,markup,z):
+        if not markup:return ''
+        cfg=layer_config.get(key,{})
+        if cfg.get('oculta'):return ''
+        dx,dy=cfg.get('dx',0),cfg.get('dy',0)
+        transform=f' transform="translate({dx} {dy})"' if dx or dy else ''
+        return f'<g data-studio-layer="{key}"{transform}>{markup}</g>'
+    def emit(key,markup,z):
+        layers.append((layer_config.get(key,{}).get('z',z),len(layers),layer(key,markup,z)))
+    def animated(markup,tracks,position,target,center):
+        if not markup:return ''
+        if browser:
+            return (f'<g id="{esc(target)}" data-pivot-x="{center[0]}" data-pivot-y="{center[1]}">{markup}</g>')
+        return animate_markup(markup,tracks,position,target,center)
+    def image_animated(markup,tracks,position,center):
+        return animated(markup,tracks,position,'__imagem__',center)
     config=c.get('imagem',{})
     has_image=isinstance(config,dict) and bool(config.get('arquivo'))
     if has_image and config.get('modo', 'fundo' if ty=='foto' else 'quadro')=='fundo':
         markup=image_element(config,media_dir,bg,height_v,full=True)
-        a.append(animate_image_markup(markup,c.get('animacoes',[]),p,(640,height_v/2)))
-        a.append(f'<rect width="1280" height="{height_v}" fill="url(#shade)"/>')
+        image_bg=image_animated(markup,c.get('animacoes',[]),p,(640,height_v/2))
+        shade=f'<rect width="1280" height="{height_v}" fill="url(#shade)"/>'
+        if 'imagem' in layer_config:emit('imagem',image_bg+shade,10)
+        else:a.append(layer('imagem',image_bg+shade,10))
     for z in range(23):
         x=(z*193+53)%1280;y=(z*283+78)%height_v
         a.append(f'<circle cx="{x}" cy="{y}" r="{2+z%3}" fill="{esc(ac)}" opacity=".16"/>')
@@ -191,7 +211,7 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
         a.append(render_spatial(c['espacial'],p,height_v))
     elif ty=='svg':
         fragment=render_fragment(c.get('svg',''),str(media_dir or Path('.')))
-        fragment=animate_svg_fragment(fragment,c.get('animacoes',[]),p)
+        if not browser:fragment=animate_svg_fragment(fragment,c.get('animacoes',[]),p)
         # New drawings share the FULL video canvas. Legacy 1280x720 drawings
         # remain centred and unchanged until deliberately converted in the editor.
         import xml.etree.ElementTree as ET
@@ -206,25 +226,37 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720):
     if has_image and config.get('modo','fundo' if ty=='foto' else 'quadro')=='quadro':
         markup=image_element(config,media_dir,bg,height_v,full=False)
         mx=1280*clamp(config.get('x',.73));my=height_v*clamp(config.get('y',.58))
-        a.append(animate_image_markup(markup,c.get('animacoes',[]),p,(mx,my)))
+        photo=image_animated(markup,c.get('animacoes',[]),p,(mx,my))
+        if 'imagem' in layer_config or 'conteudo' in layer_config:
+            # Preserve the legacy content animation inherited by a framed photo.
+            if browser and photo:
+                photo=f'<g id="__conteudo_imagem__" data-pivot-x="640" data-pivot-y="{height_v/2}">{photo}</g>'
+            elif photo:photo=animate_markup(photo,c.get('animacoes',[]),p,'__conteudo__',(640,height_v/2))
+            emit('imagem',photo,30)
+        else:a.append(layer('imagem',photo,30))
     if len(a)>content_start:
         content=''.join(a[content_start:]); del a[content_start:]
-        a.append(animate_markup(content,c.get('animacoes',[]),p,'__conteudo__',(640,height_v/2)))
+        emit('conteudo',animated(content,c.get('animacoes',[]),p,'__conteudo__',(640,height_v/2)),20)
     # Header, title and footnote overlay
+    header_start=len(a)
     a.append(f'<rect x="0" y="0" width="1280" height="11" fill="{esc(ac)}"/>')
     a.append(label(80,header_y,c.get('categoria','ESTÚDIO SVG'),23,ac,750))
     a.append(label(1170,header_y,f'{idx+1:02d}/{total:02d}',22,fg,600,'end'))
+    emit('cabecalho',''.join(a[header_start:]),40);del a[header_start:]
     n=0;title_parts=[];sub_parts=[]
     for j,line in enumerate(wrap(c.get('titulo',''),28 if tall else 37,3)):
         title_parts.append(label(80,title_y+j*(60 if tall else 64),line,47 if tall else 50,fg,800));n=j+1
-    a.append(animate_markup(''.join(title_parts),c.get('animacoes',[]),p,'__titulo__',(640,title_y+n*24)))
+    emit('titulo',animated(''.join(title_parts),c.get('animacoes',[]),p,'__titulo__',(640,title_y+n*24)),50)
     for j,line in enumerate(wrap(c.get('subtitulo',''),43 if tall else 63,2)):
         sub_parts.append(label(82,title_y+n*(60 if tall else 64)+12+j*39,line,29 if tall else 27,fg,420))
-    a.append(animate_markup(''.join(sub_parts),c.get('animacoes',[]),p,'__subtitulo__',(640,title_y+n*60+45)))
+    emit('subtitulo',animated(''.join(sub_parts),c.get('animacoes',[]),p,'__subtitulo__',(640,title_y+n*60+45)),60)
+    footer_start=len(a)
     a.append(f'<rect x="0" y="{footer_y}" width="1280" height="110" fill="{esc(bg)}" opacity=".92"/>')
     a.append(f'<rect x="80" y="{footer_y+16}" width="1120" height="6" rx="3" fill="{esc(ac)}" opacity=".28"/>')
     a.append(f'<rect x="80" y="{footer_y+16}" width="{1120*p:.1f}" height="6" rx="3" fill="{esc(ac)}"/>')
     for j,line in enumerate(wrap(c.get('fonte',''),90,2)):
         a.append(label(82,footer_y+57+j*29,line,21,fg,450))
+    emit('rodape',''.join(a[footer_start:]),70);del a[footer_start:]
+    a.extend(markup for _,__,markup in sorted(layers))
     a.append('</svg>')
     return ''.join(a)

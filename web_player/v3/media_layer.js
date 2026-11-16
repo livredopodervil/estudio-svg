@@ -57,7 +57,7 @@
     pause();active=i;source=filename;clip=filename?next:null;
     if(!filename){video.style.display='none';video.removeAttribute('src');video.load();return;}
     video.loop=next.repetir!==false;
-    video.src='./midia/'+encodeURIComponent(filename);
+    video.src=(location.pathname.startsWith('/player-v3/')?'/api/media/clip?file=':'./midia/')+encodeURIComponent(filename);
     video.style.display='block';place();video.load();
     if(isPlaying){play();}
   }

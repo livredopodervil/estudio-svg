@@ -4,7 +4,9 @@ const $=id=>document.getElementById(id), clamp=(x,a=0,b=1)=>Math.max(a,Math.min(
 let project=null, durations=[], starts=[], total=0, index=-1, svg=null, bases=new Map();
 let current=0, playing=false, origin=0, raf=0, voiceEl=null, voiceScene=-1, warning='';
 let voiceBusy=false, voiceEpoch=0, waitingVoice=false, calibration=false;
-const slug=document.documentElement.dataset.slug;
+const localPlayer=location.pathname==='/player-v3/'||location.pathname==='/player-v3/index.html';
+const slug=localPlayer?new URLSearchParams(location.search).get('project'):document.documentElement.dataset.slug;
+let revision='',pendingScene=-1;
 const pivotStoreKey='estudio-svg-vetorial-pivos:'+slug;
 let pivotOverrides={};
 try { pivotOverrides=JSON.parse(localStorage.getItem(pivotStoreKey)||'{}')||{}; } catch (_) { pivotOverrides={}; }
@@ -57,9 +59,9 @@ function sanitize(root){
   return root;
 }
 async function loadScene(i,token){
-  if(i===index)return;
-  stopVoice();index=i;bases.clear();svg=null;
-  const url='./cenas/cena-'+String(i+1).padStart(3,'0')+'.svg';
+  if(i===index || pendingScene===i)return;
+  pendingScene=i;
+  const url=localPlayer?'/api/player-v3?name='+encodeURIComponent(slug)+'&revision='+encodeURIComponent(revision)+'&scene='+(i+1):'./cenas/cena-'+String(i+1).padStart(3,'0')+'.svg';
   const res=await fetch(url,{cache:'no-store'});
   if(!res.ok)throw Error(url+' → HTTP '+res.status);
   const markup=await res.text();
@@ -68,6 +70,7 @@ async function loadScene(i,token){
   if(parsed.querySelector('parsererror'))throw Error('SVG inválido: cena '+(i+1));
   const root=sanitize(document.importNode(parsed.documentElement,true));
   if(root.localName!=='svg')throw Error('Documento não é SVG: cena '+(i+1));
+  stopVoice();index=i;pendingScene=-1;bases.clear();
   $('stage').replaceChildren(root);svg=root;
   svg.setAttribute('preserveAspectRatio','xMidYMid meet');svg.removeAttribute('width');svg.removeAttribute('height');
   $('scene').textContent=(i+1)+' / '+durations.length+' · '+String(project.cenas[i].titulo||'');
@@ -125,7 +128,10 @@ function apply(t){
     const targets=Array.isArray(a.alvos)?a.alvos:[a.alvo],offset=val(a,'intervalo');
     for(let j=0;j<targets.length;j++){
       const begin=Math.min(1,val(a,'inicio')+j*offset),end=Math.min(1,val(a,'fim',1)+j*offset);
-      if(end>begin)animations.push({...a,alvo:targets[j],inicio:begin,fim:end});
+      if(end>begin){
+        animations.push({...a,alvo:targets[j],inicio:begin,fim:end});
+        if(targets[j]==='__conteudo__'&&bases.has('__conteudo_imagem__'))animations.push({...a,alvo:'__conteudo_imagem__',inicio:begin,fim:end});
+      }
     }
   }
   for(const a of animations){
@@ -157,12 +163,15 @@ let loadToken=0;
 async function show(t){
   if(!project)return;
   current=clamp(t,0,total);const i=pick(Math.min(current,Math.max(0,total-1e-6)));
-  if(i!==index){const token=++loadToken;await loadScene(i,token);if(token!==loadToken)return;}
+  if(pendingScene===i)return;
+  if(i!==index){const token=++loadToken;try{await loadScene(i,token);}catch(e){if(token===loadToken)pendingScene=-1;throw e;}if(token!==loadToken)return;}
+  else if(pendingScene!==-1){++loadToken;pendingScene=-1;}
   apply(current);
 }
 function loop(now){
   if(!playing)return;
   if(voiceEl && voiceEl.error){out('Erro na narração.');stopVoice();}
+  if(pendingScene!==-1){origin=now-current*1000;raf=requestAnimationFrame(loop);return;}
   let t=(now-origin)/1000;
   // Nunca troca de cena antes de concluir a voz da cena corrente.
   if(index>=0&&voiceBusy&&index<durations.length){
@@ -250,10 +259,14 @@ window.addEventListener('pagehide',()=>{pause();stopVoice();});
 (async()=>{
   try{
     const requested=new URLSearchParams(location.search).get('project');
-    if(requested && requested!==slug)throw Error('Esta apresentação inclui SVGs de '+slug+'. Publique os SVGs e JSON de '+requested+' em um pacote próprio; não é possível trocar apenas o JSON.');
-    const r=await fetch('../apresentacoes/'+encodeURIComponent(slug)+'/projeto.json',{cache:'no-store'});
+    if(localPlayer&&!slug)throw Error('Selecione e salve um projeto no editor.');
+    if(!localPlayer && requested && requested!==slug)throw Error('Esta apresentação inclui SVGs de '+slug+'. Publique os SVGs e JSON de '+requested+' em um pacote próprio; não é possível trocar apenas o JSON.');
+    const r=await fetch(localPlayer?'/api/player-v3?name='+encodeURIComponent(slug):'../apresentacoes/'+encodeURIComponent(slug)+'/projeto.json',{cache:'no-store'});
     if(!r.ok)throw Error('projeto.json HTTP '+r.status);
-    project=await r.json();if(!Array.isArray(project.cenas)||!project.cenas.length)throw Error('Projeto sem cenas');
+    const payload=await r.json();
+    project=localPlayer?payload.project:payload;
+    if(localPlayer){revision=payload.revision;window.__voiceSceneFiles=payload.voices||{};document.querySelector('header a').href='/?project='+encodeURIComponent(slug);}
+    if(!Array.isArray(project.cenas)||!project.cenas.length)throw Error('Projeto sem cenas');
     starts=[];let sum=0;durations=project.cenas.map(c=>Math.max(.1,Number(c.duracao)||1));
     for(const d of durations){starts.push(sum);sum+=d;}total=sum;
     const lang=String(project.idioma||project.language||'pt-BR');

@@ -106,7 +106,7 @@ def synthesize(text,pr,tmp):
         run(['piper','--model',model,'--output_file',tmp],input_bytes=(text.strip()+'\n').encode('utf8'),timeout=300)
     else:raise StudioError('Motor desconhecido: '+engine)
 
-def batch_audio(pr,progress=lambda *_:None):
+def batch_audio(pr,progress=lambda *_:None,*,export_zip=True):
     voices=[];counts=len(pr['cenas'])
     for i,scene in enumerate(pr['cenas']):
         au=scene['audio']
@@ -129,6 +129,7 @@ def batch_audio(pr,progress=lambda *_:None):
                 finally:tmp.unlink(missing_ok=True)
             voices.append((i,f))
         progress((i+1)/counts,f'Voz {i+1}/{counts}: cache pronto')
+    if not export_zip:return None
     zip_path=OUTPUT/'vozes_em_lote.zip';tmp=zip_path.with_suffix('.partial')
     with zipfile.ZipFile(tmp,'w',zipfile.ZIP_DEFLATED) as z:
         for i,f in voices:z.write(f,f'voz_{i+1:03d}{f.suffix}')
