@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import '../web/workspace-v38.js';
+const W=globalThis.StudioWorkspaceV38;
+test('six reusable catalog objects, unique IDs and bounded tracks',()=>{assert.equal(W.catalog.length,6);for(const [kind] of W.catalog){for(const h of [720,2276]){let o=W.object(kind,'obj_test',h,8),ids=[...o.markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length);assert.ok(o.tracks.length>0&&o.tracks.length<=32);assert.ok(o.tracks.every(a=>ids.includes(a.alvo)&&a.fim>a.inicio&&a.fim<=1));}}});
+test('entrance lasts about one second, repetitions bounded',()=>{let e=W.motion('a','enter',20);assert.ok(Math.abs(e[0].fim*20-1.05)<.001);assert.equal(W.motion('a','pulse',600)[0].repeticoes,20);assert.ok(W.motion('a','orbit',30)[0].repeticoes>5);});
+test('reject malformed parameters',()=>{assert.throws(()=>W.object('not-found','obj_test',720,8));assert.throws(()=>W.object('orbit','bad',720,8));assert.throws(()=>W.motion('x','enter',0));assert.throws(()=>W.motion('x','bogus',10));});

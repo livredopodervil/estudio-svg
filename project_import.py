@@ -88,7 +88,7 @@ def _free_name(folder, preferred, kind='asset'):
         basename = stem + ('' if i == 1 else '_' + str(i)) + extension
         if len(basename) > 160:
             continue
-        if not (folder / basename).exists():
+        if not (folder / basename).exists() and not (kind=='project' and (folder/'.arquivados'/basename).exists()):
             return basename
     raise ValueError('Não foi possível encontrar nome livre')
 

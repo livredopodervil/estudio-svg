@@ -15,6 +15,7 @@ from graphics import visualize
 from svg_graphic import clean_svg
 
 BUNDLE_IMPORT_LOCK=threading.RLock()
+PROJECT_LOCK=threading.RLock()
 JOBS={};JOB_LOCK=threading.RLock();ENGINE_LOCK=threading.Lock();PREVIEW_LOCK=threading.Lock();SVG_LOCK=threading.RLock()
 
 def project_path(project):return PROJECTS/(name(project)+'.json')
@@ -23,9 +24,12 @@ def read_project(project):
     if not p.is_file():raise StudioError('Projeto não encontrado: '+project)
     return normalize(json.loads(p.read_text(encoding='utf8')))
 def save_project(project,data):
-    p=project_path(project);valid=normalize(data)
-    tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(valid,ensure_ascii=False,indent=2),encoding='utf8');tmp.replace(p)
-    return valid
+    from studio_workspace import archive_path
+    with PROJECT_LOCK:
+        p=project_path(project);valid=normalize(data)
+        if p.is_symlink() or archive_path(PROJECTS,project).exists():raise StudioError('Projeto arquivado ou caminho inseguro; restaure antes de salvar')
+        tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(valid,ensure_ascii=False,indent=2),encoding='utf8');tmp.replace(p)
+        return valid
 
 def log_job(job,msg):
     line=str(msg)
@@ -85,13 +89,14 @@ def work(job,project,mode,scene,no_voice):
             with JOB_LOCK:job.update(status='error',phase='Erro',error=str(e))
 
 def queue_job(project,mode,scene=None,no_voice=False):
-    name(project);read_project(project)
+    name(project)
     if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','audio-cena','export-html','export-html-silent'):raise StudioError('Modo inválido')
     if mode in ('cena','voz-mp3','audio-cena'):
         try:scene=int(scene)
         except (ValueError,TypeError):raise StudioError('Informe o número da cena')
     else:scene=None
     with JOB_LOCK:
+        read_project(project)
         active=next((j for j in JOBS.values() if j['status'] in ('queued','running')),None)
         if active:
             if active['project']==project and active['mode']==mode and active['scene']==scene:return active,True
@@ -205,7 +210,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         for k,v in [('Content-Type',mime),('Content-Length',str(len(data))),('Cache-Control','no-store'),
                     ('X-Content-Type-Options','nosniff')]:self.send_header(k,v)
-        self.end_headers();self.wfile.write(data)
+        self.end_headers()
+        if self.command!='HEAD':self.wfile.write(data)
     def stream_file(self,path):
         f=Path(path)
         if not f.is_file():return self.response(404,{'error':'Mídia ainda não disponível'})
@@ -235,6 +241,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options','nosniff')
         if partial:self.send_header('Content-Range',f'bytes {start}-{end}/{size}')
         self.end_headers()
+        if self.command=='HEAD':return
         try:
             with f.open('rb') as inp:
                 inp.seek(start);left=end-start+1
@@ -284,7 +291,7 @@ class Handler(BaseHTTPRequestHandler):
                 if rec['count']!=rec['size']:raise StudioError('Envio incompleto')
                 try:
                     if rec['kind']=='bundle':
-                        with BUNDLE_IMPORT_LOCK:
+                        with BUNDLE_IMPORT_LOCK, PROJECT_LOCK:
                             result=import_zip(rec['path'],v.get('name',''),PROJECTS,MEDIA,CACHE,inspect_media)
                         return self.response(200,result)
                     inspect_media(rec['path'],rec['kind'])
@@ -438,6 +445,33 @@ class Handler(BaseHTTPRequestHandler):
                 # Validation is read-only: no project file is created or overwritten.
                 data=self.payload(6_000_000)
                 return self.response(200,{'ok':True,'project':normalize(data.get('project'))})
+            if route=='/api/workspace/voice-plan' and method=='POST':
+                from studio_workspace import voice_plan
+                v=self.payload();return self.response(200,{'rows':voice_plan(v['project'],v['first'],v['last'])})
+            if route=='/api/workspace/inventory' and method=='POST':
+                from studio_workspace import inventory
+                v=self.payload();return self.response(200,{'files':inventory(v['project'],MEDIA)})
+            if route=='/api/workspace/archived' and method=='GET':
+                from studio_workspace import archived_projects
+                with PROJECT_LOCK:return self.response(200,{'projects':archived_projects(PROJECTS)})
+            if route=='/api/workspace/archive' and method=='POST':
+                from studio_workspace import change_archive
+                port=self.server.server_port
+                if self.headers.get('Origin') not in (f'http://127.0.0.1:{port}',f'http://localhost:{port}') or self.headers.get('Host') not in (f'127.0.0.1:{port}',f'localhost:{port}'):
+                    return self.response(403,{'error':'Origem local explícita necessária'})
+                v=self.payload();identifier=name(v.get('name'));action=v.get('action')
+                if action not in ('archive','restore') or v.get('confirm')!=identifier:raise StudioError('Confirmação inválida')
+                with BUNDLE_IMPORT_LOCK, JOB_LOCK, PROJECT_LOCK:
+                    if any(j['status'] in ('queued','running') for j in JOBS.values()):raise StudioError('Aguarde o fim da produção')
+                    change_archive(PROJECTS,identifier,restore=action=='restore')
+                return self.response(200,{'ok':True,'name':identifier})
+            if route=='/api/workspace/gil-example' and method=='GET':
+                root=os.environ.get('RD_GIL_ROOT');key=q('id')
+                allowed={'orbit','kinetic','wave','pulse-network','field','datacenter'}
+                if not root or key not in allowed:raise StudioError('Exemplo indisponível; inicie pelo RD Studio integrado')
+                base=ROOT/'examples'/'components' if key in ('pulse-network','field') else Path(root).resolve()/'examples';src=base/(key+'.gil')
+                if not src.is_file() or src.is_symlink() or src.stat().st_size>250000:raise StudioError('Exemplo GIL ausente ou inválido')
+                return self.response(200,{'source':src.read_text('utf8'),'name':key+'.gil'})
             if route=='/api/projects' and method=='GET':return self.response(200,{'projects':[p.stem for p in sorted(PROJECTS.glob('*.json'))]})
             if route=='/api/project' and method=='GET':return self.response(200,{'name':q('name','demo_organico'),'project':read_project(q('name','demo_organico'))})
             if route=='/api/project' and method=='POST':
@@ -515,6 +549,17 @@ class Handler(BaseHTTPRequestHandler):
                 if not filename or Path(filename).suffix.lower() not in VIDEO_EXT:
                     raise StudioError('Formato de vídeo inválido')
                 return self.stream_file(MEDIA/filename)
+            if route=='/api/component/gil' and method=='POST':
+                origin=self.headers.get('Origin','');port=self.server.server_port
+                if origin not in (f'http://127.0.0.1:{port}',f'http://localhost:{port}') or self.headers.get('Host') not in (f'127.0.0.1:{port}',f'localhost:{port}'):
+                    return self.response(403,{'error':'Origem local explícita necessária'})
+                from gil_bridge import render_component
+                data=self.payload(800_000)
+                if not ENGINE_LOCK.acquire(blocking=False):return self.response(409,{'error':'Outra renderização está em andamento'})
+                try:
+                    result=render_component(data,os.environ.get('RD_GIL_ROOT'),os.environ.get('RD_SPATIALSEED_ROOT'),CACHE,store_media_bytes,inspect_media)
+                    return self.response(200,result)
+                finally:ENGINE_LOCK.release()
             if route=='/api/upload/chunks' and method=='POST':
                 return self.chunked_upload(self.payload(2_000_000))
             if route=='/api/upload' and method=='POST':
@@ -570,6 +615,8 @@ class Handler(BaseHTTPRequestHandler):
         filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/espacial':'espacial.html','/espacial.html':'espacial.html','/espacial.js':'espacial.js','/espacial.css':'espacial.css','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
         filemap['/media-recorder-v35.js']='media-recorder-v35.js'
         filemap['/layers-v36.js']='layers-v36.js'
+        filemap['/timing-v37.js']='timing-v37.js'
+        filemap['/workspace-v38.js']='workspace-v38.js'
         # Explicit allowlist: never serve arbitrary repository files.
         player_files={'/player-v3/':'index.html','/player-v3/index.html':'index.html',
           '/player-v3/player.js':'player.js','/player-v3/runtime.js':'runtime.js',
@@ -583,6 +630,9 @@ class Handler(BaseHTTPRequestHandler):
         types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8'}
         return self.response(200,fn.read_bytes(),types[mime])
     def do_HEAD(self):
+        # Media clients may probe length before requesting byte ranges.
+        if urlsplit(self.path).path in ('/api/media/clip','/api/player-v3/voice'):
+            return self.route('GET')
         self.send_response(200);self.send_header('Content-Length','0');self.end_headers()
 
 

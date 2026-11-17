@@ -28,13 +28,13 @@ class PlayerMediaContract(unittest.TestCase):
 
     def test_html_includes_media_before_player(self):
         page=(ROOT/'web_player/v3/index.html').read_text('utf-8')
-        self.assertLess(page.index('media_layer.js?v=4'),page.index('player.js?v=4'))
+        self.assertLess(page.index('media_layer.js?v=5'),page.index('player.js?v=5'))
         self.assertIn('window.__voiceSceneFiles={}',page)
         self.assertIn('id="voiceSource"', page)
         self.assertIn('./v34/voice_locale.js', page)
         self.assertLess(
             page.index('./v34/voice_locale.js'),
-            page.index('player.js?v=4')
+            page.index('player.js?v=5')
         )
 
     def test_media_runtime_is_independent(self):

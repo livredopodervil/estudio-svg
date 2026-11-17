@@ -5,6 +5,8 @@ const types=['globo','linha','barras','numero','cartoes','arvore','svg','foto','
 const names={globo:'Globo',linha:'Linhas',barras:'Barras',numero:'Número',cartoes:'Cartões',arvore:'Árvore fractal',svg:'SVG personalizado',foto:'Fotografia',espacial:'Espacial 3D (experimental)'};
 const presets={'16:9':[1280,720],'9:16':[720,1280],'1:1':[800,800],'4:5':[800,1000],'21:9':[1260,540]};
 const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',animacoes:[],video_clipe:{arquivo:'',x:.5,y:.56,w:.70,h:.40,fit:'cover',inicio:0,repetir:true,opacidade:1},imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[],modo:'quadro',x:.73,y:.58,w:.41,h:.65,frame:true},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,tracks:[]}});
+let previewRaf=0,lastPreviewDraw=-Infinity;
+let previewRate=1,timingHistory=null,fitResult=null,workspaceBusy=false,librarySerial=0;
 let clipPreviewFile='',clipPreviewScene=-1,clipEditing=false,clipGesture=null;
 let project=null,projectName='',selected=0,tab='scene',dirty=false,saving=false,playing=false,playTime=0,lastFrame=0,previewBusy=false,previewPending=false,jobTimer=null,busy=false,assetPath=null,cacheInfo=null,selectedPane='previewPanel';
 const api=async(path,options={})=>{const response=await fetch(path,options);const kind=response.headers.get('Content-Type')||'';let v=kind.includes('json')?await response.json():await response.text();if(!response.ok){const err=Error(v.error||'HTTP '+response.status);err.status=response.status;throw err;}return v;};
@@ -94,6 +96,8 @@ function renderScene(){let h='<div class="sectionTitle">Cena '+(selected+1)+' ·
  h+='</div>';
  h+='<div class="sectionTitle">Clipe de vídeo na cena</div>';
  h+='<div class="inline"><button id="importClip" type="button">▣ Importar vídeo</button><button id="recordCamera" type="button">● Gravar câmera</button><button id="editClipVisual" type="button" '+(project.cenas[selected].video_clipe.arquivo?'':'disabled')+'>▣ Posicionar visualmente</button><button id="removeClip" type="button" '+(project.cenas[selected].video_clipe.arquivo?'':'disabled')+'>✕ Remover vídeo da cena</button></div>';
+ h+='<div class="inline"><button id="insertGIL" type="button">Inserir GIL / SpatialSeed</button><button id="openGIL" type="button">Abrir editor GIL</button>'+(project.cenas[selected].componente_gil?'<button id="sourceGIL" type="button">Baixar fonte GIL</button><button id="editGILWorkspace" type="button">Editar composição</button>':'')+'</div>';
+ if(project.cenas[selected].componente_gil)h+='<p class="fieldHint">Componente '+esc(project.cenas[selected].componente_gil.origin)+' · '+Number(project.cenas[selected].componente_gil.duration).toFixed(2)+' s · derivado MP4</p>';
  h+=field('Arquivo do clipe',`cenas.${selected}.video_clipe.arquivo`);
  h+='<p class="fieldHint">O vídeo aparece como quadro móvel sobre o SVG. O som do clipe é independente: para usá-lo como narração, selecione a faixa no painel Áudio.</p>';
  h+='<div class="fieldGrid4">';
@@ -168,7 +172,7 @@ function openOrCreateSVG(){
 }
 function sType(...choices){return choices.includes(project.cenas[selected].tipo);}
 function sImgCrop(){return (project.cenas[selected].imagem.crop||[]).join(', ');}
-function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da cena '+(selected+1)+'</div>';
+function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da cena '+(selected+1)+'</div><div class="inline"><button id="voiceThisShortcut">Gerar voz desta cena</button><button id="voiceAllShortcut">Gerar todas as vozes</button><button id="voiceTimingShortcut">Adequar duração à voz</button></div>';
  h+=field('Ativar narração',`cenas.${selected}.audio.voice_enabled`,'checkbox');
  h+=field('Texto para voz neural',`cenas.${selected}.audio.voice_text`,'textarea','', 'Síntese gerada apenas quando você tocar em Áudio em lote.');
  h+=field('Voz gravada (substitui o texto neural)',`cenas.${selected}.audio.voice_file`);
@@ -198,15 +202,16 @@ function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da c
 function dirtyNow(redraw=false){dirty=true;$('saveInfo').textContent='● Há alterações não salvas';if(redraw)drawEverything();else showPreview();}
 async function save(force=false){if(!project||(!dirty&&!force))return;
  if(saving)return; saving=true;
- try{const d=await post('/api/project',{name:projectName,project});dirty=false;$('saveInfo').textContent='✓ Salvo no aparelho';}finally{saving=false;}}
+ try{const name=projectName,snapshot=JSON.stringify(project);await post('/api/project',{name,project:JSON.parse(snapshot)});dirty=name!==projectName||JSON.stringify(project)!==snapshot;stopTransport(true);$('saveInfo').textContent=dirty?'● Alterações posteriores ao salvamento':'✓ Salvo no aparelho';}finally{saving=false;}}
 function drawSceneList(){const l=$('sceneList');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneItem ${i===selected?'active':''}"><button class="scenePick" data-scene="${i}"><small>${String(i+1).padStart(2,'0')} · ${esc(names[s.tipo]||s.tipo)} · ${s.duracao}s</small><b>${esc(s.titulo||'Sem título')}</b><small>${s.audio.voice_enabled?'♫ voz':'sem voz'}</small></button><div class="sceneOrder"><button data-shift="-1" data-index="${i}">↑</button><button data-shift="1" data-index="${i}">↓</button></div></div>`).join('');$('sceneCount').textContent=project.cenas.length;}
-function drawTimeline(){const total=totalDuration();$('timeline').innerHTML=project.cenas.map((s,i)=>`<button class="${selected===i?'active':''}" data-scene="${i}" style="width:${Math.max(94,Math.min(230,Math.floor(s.duracao/total*680)))}px">${i+1}. ${esc(s.titulo)}</button>`).join('');}
-function drawEverything(){if(!project)return;drawSceneList();drawTimeline();drawEditor();$('stage').style.aspectRatio=project.video.width+'/'+project.video.height;const ratio=project.video.width/project.video.height;const shell=$('stageShell');shell.style.width=project.video.height>project.video.width?Math.max(160,Math.round(Math.min(window.innerWidth*.92,window.innerHeight*.70*ratio)))+'px':'';document.body.classList.toggle('portraitProject',project.video.height>project.video.width);$('formatInfo').textContent=`${project.video.width} × ${project.video.height} · ${project.video.fps} FPS`;showPreview();}
+function drawTimeline(){const scale=Number($('timelineZoom')?.value)||12;const l=$('timeline');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneStrip ${selected===i?'active':''}" style="width:${Math.max(42,Number(s.duracao)*scale)}px"><button data-scene="${i}" title="${esc(s.titulo)}"><small>${i+1} · ${startOf(i).toFixed(1)}s</small><b>${esc(s.titulo)}</b><small>${Number(s.duracao).toFixed(2)}s ${s.audio.voice_enabled?'♫':''}</small></button><button class="trimHandle" data-trim="${i}" aria-label="Arrastar para ajustar duração da cena ${i+1}" title="Arraste para ajustar duração"></button></div>`).join('');}
+function bindTimeline(){const l=$('timeline');$('timelineZoom').oninput=drawTimeline;l.addEventListener('pointerdown',e=>{const grip=e.target.closest('[data-trim]');if(!grip||e.button!==0||!project||saving||busy)return;e.preventDefault();e.stopPropagation();stopWorkspace();const target=project.cenas[Number(grip.dataset.trim)],orig=Number(target.duracao),owner=project,scale=Number($('timelineZoom').value)||12,x=e.clientX,strip=grip.parentElement;let val=orig;grip.setPointerCapture(e.pointerId);grip.onpointermove=ev=>{val=Math.max(.5,Math.min(600,Math.round((orig+(ev.clientX-x)/scale)*20)/20));strip.style.width=Math.max(42,val*scale)+'px';strip.querySelector('button small:last-child').textContent=val.toFixed(2)+'s';};const finish=ev=>{grip.onpointermove=grip.onpointerup=grip.onpointercancel=null;if(ev.type!=='pointercancel'&&owner===project&&project.cenas.includes(target)&&Math.abs(val-orig)>.001){target.duracao=val;selected=project.cenas.indexOf(target);playTime=startOf(selected);dirtyNow(true);}else drawTimeline();};grip.onpointerup=finish;grip.onpointercancel=finish;});}
+function drawEverything(){if(!project)return;drawSceneList();drawTimeline();drawEditor();if(!$('workspaceLibrary').hidden)libraryTargets();$('stage').style.aspectRatio=project.video.width+'/'+project.video.height;const ratio=project.video.width/project.video.height;$('previewFullHost').style.setProperty('--preview-aspect',ratio);const shell=$('stageShell');shell.style.width=project.video.height>project.video.width?Math.max(160,Math.round(Math.min(window.innerWidth*.92,window.innerHeight*.70*ratio)))+'px':'';document.body.classList.toggle('portraitProject',project.video.height>project.video.width);$('formatInfo').textContent=`${project.video.width} × ${project.video.height} · ${project.video.fps} FPS`;showPreview();}
 function jump(i){clipEditingEnabled(false);clearMediaPlayers();selected=Math.max(0,Math.min(project.cenas.length-1,i));playTime=startOf(selected);drawEverything();}
-function tick(ts){if(!playing)return;if(lastFrame){playTime=Math.min(totalDuration(),playTime+(ts-lastFrame)/1000);}lastFrame=ts;
+function tick(ts){previewRaf=0;if(!playing)return;const next=Math.min(totalDuration(),playTime+(lastFrame?Math.max(0,ts-lastFrame)/1000*previewRate:0));lastFrame=ts;playTime=transportTime(next);
  if(playTime>=totalDuration()){playing=false;$('playButton').textContent='▶';}
  const ix=sceneAt(playTime).i;if(ix!==selected){clearMediaPlayers();selected=ix;drawSceneList();drawTimeline();drawEditor();}
- showPreview();if(playing)requestAnimationFrame(tick);
+ showPreview();if(playing)previewRaf=requestAnimationFrame(tick);else{stopTransport();$('stageClip').pause();}
 }
 function clampClip(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
 function clipEditingEnabled(enabled){
@@ -267,25 +272,26 @@ function syncPreviewVideo(sceneIndex,position){
  }
  const left=100*(clip.x-clip.w/2),top=100*(clip.y-clip.h/2);
  Object.assign(host.style,{left:left+'%',top:top+'%',width:clip.w*100+'%',height:clip.h*100+'%',objectFit:clip.fit,opacity:String(clip.opacidade)});
- host.hidden=false;host.loop=!!clip.repetir;host.muted=true;
+ host.hidden=false;host.loop=!!clip.repetir;host.muted=true;host.playbackRate=previewRate;
  $('toggleClipEdit').hidden=false;updateClipBox();
  const t=Number(clip.inicio||0)+position*Number(project.cenas[sceneIndex].duracao);
  if(host.readyState>=1&&Number.isFinite(t)){
    const duration=host.duration;
+   if(!clip.repetir&&Number.isFinite(duration)&&duration>0&&t>=duration){host.hidden=true;host.pause();return;}
    const target=clip.repetir&&Number.isFinite(duration)&&duration>0?t%duration:t;
-   if(Math.abs(host.currentTime-target)>.3)try{host.currentTime=target;}catch(e){}
+   if(!host.seeking&&Math.abs(host.currentTime-target)>(playing?.65:.08))try{host.currentTime=target;}catch(e){}
  }
  if(playing){if(host.paused)host.play().catch(()=>{});}else if(!host.paused)host.pause();
 }
 async function showPreview(){if(!project)return;
  $('timeInfo').textContent=sec(playTime)+' / '+sec(totalDuration());$('seek').value=totalDuration()?Math.round(playTime/totalDuration()*1000):0;
- if(previewBusy){previewPending=true;return;}previewBusy=true;const s=sceneAt(playTime);
- try{const svg=await post('/api/preview',{scene:project.cenas[s.i],video:project.video,progress:s.progress,index:s.i,total:project.cenas.length});$('stage').innerHTML=svg;syncPreviewVideo(s.i,s.progress);}
+ const now=performance.now();if(playing&&now-lastPreviewDraw<100)return;if(previewBusy){previewPending=true;return;}lastPreviewDraw=now;previewBusy=true;const s=sceneAt(playTime),owner=project;
+ try{const svg=await post('/api/preview',{scene:project.cenas[s.i],video:project.video,progress:s.progress,index:s.i,total:project.cenas.length});if(project===owner&&sceneAt(playTime).i===s.i){$('stage').innerHTML=svg;syncPreviewVideo(s.i,sceneAt(playTime).progress);}}
  catch(e){$('stage').textContent='Falha na prévia: '+e.message;}
- finally{previewBusy=false;if(previewPending){previewPending=false;setTimeout(showPreview,80);}}
+ finally{previewBusy=false;if(previewPending){previewPending=false;if(!playing)setTimeout(showPreview,80);}}
 }
 async function listProjects(){const r=await api('/api/projects');$('projectSelect').innerHTML=r.projects.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');return r.projects;}
-async function load(name){if(dirty)await save();clipEditingEnabled(false);clearMediaPlayers();clipPreviewFile='';clipPreviewScene=-1;let r=await api('/api/project?name='+encodeURIComponent(name));project=r.project;projectName=name;selected=0;playTime=0;playing=false;dirty=false;$('projectSelect').value=name;$('saveInfo').textContent='✓ Carregado';drawEverything();refreshCache();}
+async function load(name){if(dirty)await save();fitResult=null;timingHistory=null;clipEditingEnabled(false);clearMediaPlayers();clipPreviewFile='';clipPreviewScene=-1;let r=await api('/api/project?name='+encodeURIComponent(name));project=r.project;projectName=name;selected=0;playTime=0;playing=false;dirty=false;$('projectSelect').value=name;$('saveInfo').textContent='✓ Carregado';drawEverything();refreshCache();}
 async function refreshCache(){if(!project)return;try{let r=await api('/api/cache/status?name='+encodeURIComponent(projectName));cacheInfo=r.scenes;$('cacheTable').innerHTML=r.scenes.map(c=>`<div class="cacheItem"><b>${c.index}. ${esc(c.title)}</b><small><span class="${c.visual?'check':'missing'}">Visual ${c.visual?'✓':'·'}</span> · <span class="${c.audio?'check':'missing'}">Áudio ${c.audio?'✓':'·'}</span> · <span class="${c.voice?'check':'missing'}">Voz ${c.voice?'✓':'·'}</span></small><br><small>${c.seconds.toFixed(2)} s</small><br><button data-clear="${c.index}">Limpar cache desta cena</button></div>`).join('');}catch(e){$('cacheTable').textContent='Cache: '+e.message;}}
 async function begin(mode,no_voice=false){if(busy)return toast('Já existe um trabalho em execução',true);try{await save();let j=await post('/api/job',{name:projectName,mode,scene:['cena','voz-mp3','audio-cena'].includes(mode)?selected+1:undefined,no_voice});busy=true;$('downloads').innerHTML='';$('logBox').textContent='';trackJob(j.job);}catch(e){toast(e.message,true);}}
 function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBadge').textContent='Executando';
@@ -309,13 +315,42 @@ function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBad
  }};
  jobTimer=setInterval(poll,1200);poll();switchPane('workPanel');}
 
+// The cached scene mix is the clock while it is audible. Seek only at an
+// explicit navigation/resume or source change, never on each visual frame.
+let transportKey='',transportFallback=false,transportEpoch=0,transportOffset=0,transportPending=false,transportBlocked=false,transportSeek=true,transportDeadline=0;
+function stopTransport(reset=false){const a=$('transportAudio');if(!a)return;a.pause();transportSeek=true;if(reset){transportEpoch++;transportKey='';transportPending=false;transportBlocked=false;a.onerror=null;a.removeAttribute('src');a.load();}}
+function transportTime(next){
+ const a=$('transportAudio');if(!project||!playing||!$('previewSound').checked||dirty){if(!a.paused)stopTransport();return next;}
+ const {i}=sceneAt(playTime),c=project.cenas[i],key=projectName+'|'+i,begin=startOf(i),end=begin+Number(c.duracao),now=performance.now();
+ if(c.audio?.muted){if(!a.paused)stopTransport();return next;}
+ function source(kind){transportOffset=kind==='voice'?Number(c.audio.voice_delay||0):0;transportSeek=true;transportPending=false;transportDeadline=performance.now()+5000;a.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+(i+1)+'&kind='+kind;a.load();}
+ if(key!==transportKey){transportKey=key;transportFallback=false;transportBlocked=false;const epoch=++transportEpoch;a.onerror=()=>{if(epoch!==transportEpoch||key!==transportKey)return;if(!transportFallback&&c.audio.voice_enabled){transportFallback=true;source('voice');$('transportStatus').textContent='Sem mix em cache; tentando a voz.';}else{transportBlocked=true;$('transportStatus').textContent='Áudio da cena indisponível; gere a voz ou o mix.';}};$('transportStatus').textContent='Áudio da prévia: mix em cache';source('audio');}
+ const local=playTime-begin-transportOffset;
+ if(transportBlocked||a.error)return next;
+ if(local<0){transportDeadline=now+5000;return Math.min(next,begin+transportOffset);}
+ if(now>transportDeadline&&(transportSeek||(!a.ended&&(a.paused||a.seeking||a.readyState<2)))){transportBlocked=true;a.pause();$('transportStatus').textContent='Áudio não carregou; prévia visual continua.';return next;}
+ if(a.readyState<1)return playTime;
+ if(Number.isFinite(a.duration)&&local>=a.duration-.025){a.pause();return next;}
+ a.playbackRate=previewRate;a.volume=transportFallback?Math.min(1,Math.max(0,Number(project.volume_voz??1)*Number(c.audio.voice_volume??1))):1;
+ if(transportSeek){transportSeek=false;if(Math.abs(a.currentTime-local)>.06){try{a.currentTime=Math.max(0,local);}catch{transportBlocked=true;return next;}}}
+ if(a.ended&&!a.seeking)return next;
+ if(a.paused&&!transportPending){transportPending=true;const epoch=transportEpoch;a.play().catch(err=>{if(epoch!==transportEpoch||err.name==='AbortError')return;transportBlocked=true;$('transportStatus').textContent='Reprodução de áudio bloqueada; pause e reproduza novamente.';}).finally(()=>{if(epoch===transportEpoch)transportPending=false;});}
+ if(a.seeking||a.paused||a.readyState<2)return playTime;
+ transportDeadline=now+5000;
+ const audioTime=begin+transportOffset+a.currentTime;
+ // Avoid stalling at the end of a short voice-only file or a rounding error.
+ if(audioTime>=end-.015)return Math.min(totalDuration(),end);
+ return Math.max(playTime,Math.min(end,audioTime));
+}
+function syncTransport(){transportTime(playTime);}
 function clearMediaPlayers(){
- const a=$('voicePlayer'),v=$('scenePlayer');
+ stopTransport(true);const a=$('voicePlayer'),v=$('scenePlayer');
  try{a.pause();a.removeAttribute('src');a.load();v.pause();v.removeAttribute('src');v.load();v.hidden=true;}catch(e){}
  $('mediaStatus').textContent='Cena '+(selected+1)+': escolha o áudio ou vídeo para ouvir.';
 }
+async function openPlayback(path){if(!project||saving)return;const name=projectName,original=JSON.stringify(project);stopWorkspace();const popup=window.open('about:blank','_blank');if(popup)popup.opener=null;try{await save(true);if(name!==projectName||JSON.stringify(project)!==original||dirty)throw Error('Projeto mudou; salve e tente novamente.');const url=path+encodeURIComponent(name);if(popup)popup.location.replace(new URL(url,location.href).href);else if(confirm('A abertura em outra aba foi bloqueada. Abrir nesta janela?'))location.href=url;}catch(e){if(popup)popup.close();toast(e.message,true);}}
 async function playSceneAudio(kind){
- try{
+ stopWorkspace();try{
   await save(); const a=$('voicePlayer');$('scenePlayer').pause();$('scenePlayer').hidden=true;
   a.pause();a.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+(selected+1)+'&kind='+kind+'&ts='+Date.now();
   $('mediaStatus').textContent=kind==='voice'?'Locução gerada (sem música)':'Mixagem final da cena';
@@ -323,7 +358,7 @@ async function playSceneAudio(kind){
  }catch(e){toast('Áudio indisponível: gere Áudio em lote ou Renderizar cena. '+e.message,true);}
 }
 async function watchSceneVideo(){
- try{
+ stopWorkspace();try{
   await save();$('mediaStatus').textContent='Preparando prévia com os trechos já armazenados...';
   const r=await post('/api/scene/preview',{name:projectName,scene:selected+1});
   $('voicePlayer').pause();const v=$('scenePlayer');v.src=r.url;v.hidden=false;
@@ -386,7 +421,7 @@ async function uploadChunked(file,kind,desiredName=''){
  }catch(error){post('/api/upload/chunks',{op:'abort',upload_id:start.upload_id}).catch(()=>{});throw error;}
 }
 function attachVoice(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.audio.voice_file=filename;scene.audio.voice_enabled=true;scene.audio.muted=false;dirtyNow(true);toast('Gravação vinculada. Texto da narração preservado; use Salvar.');}
-function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
+function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;delete scene.componente_gil;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
 async function captureMedia(kind){const index=selected;
  if(!window.StudioRecorder)return toast('Módulo de gravação não disponível',true);
  window.StudioRecorder.open(kind,async(file,useCameraAudio)=>{
@@ -395,6 +430,33 @@ async function captureMedia(kind){const index=selected;
    else{attachVideo(index,r.filename);if(useCameraAudio)attachVoice(index,r.filename);}
  },{script:String(project.cenas[index]?.audio?.voice_text||project.cenas[index]?.fala||''),title:project.cenas[index]?.titulo||''});
 }
+const WORKSPACE='http://127.0.0.1:8877';
+function inWorkspace(){return window.parent!==window&&location.origin==='http://127.0.0.1:8784';}
+window.addEventListener('message',e=>{if(!inWorkspace()||e.source!==parent||e.origin!==WORKSPACE||e.data?.protocol!=='rd-workspace-1')return;if(e.data.type==='deactivate'){stopWorkspace();clearMediaPlayers();return;}if(e.data.type==='gil-source'&&typeof e.data.source==='string'&&e.data.source.length<=250000){if(!project){toast('Selecione um projeto e uma cena primeiro.',true);return;}if(confirm('Inserir composição GIL na cena '+(selected+1)+' — '+project.cenas[selected].titulo+'?'))importGIL(new File([e.data.source],'workspace.gil',{type:'text/plain'}));}});
+let gilRendering=false;
+async function importGIL(file){
+ if(!file||gilRendering||!project)return;
+ const targetProject=project,target=project.cenas[selected],oldClip=target.video_clipe.arquivo;
+ if(file.size>250000)return toast('Fonte acima de 250 kB',true);
+ if(oldClip&&!confirm('Substituir o clipe visual desta cena? A narração e as faixas de áudio atuais permanecem.'))return;
+ const value=prompt('Duração do trecho em segundos (vazio = composição inteira; máximo 60 s)',String(Math.min(60,target.duracao)));if(value===null)return;
+ const duration=value.trim()===''?null:Number(value);if(duration!==null&&(!Number.isFinite(duration)||duration<.5||duration>60))return toast('Duração inválida',true);
+ const effects=confirm('Incluir efeitos sonoros da GIL como faixa de áudio separada? A narração será preservada.');
+ if(effects&&target.audio.tracks.length>=20)return toast('Limite de 20 faixas sonoras',true);
+ const format=/\.(spatialseed|json)$/i.test(file.name)?'spatialseed':'gil';
+ if(format==='spatialseed'&&!confirm('Conversão experimental de caixas e grupos. Câmera/luz novas; animações e materiais nativos não serão reproduzidos integralmente. Continuar?'))return;
+ gilRendering=true;toast('Renderizando composição localmente…');$('saveInfo').textContent='Renderizando componente GIL…';
+ try{const r=await post('/api/component/gil',{source:await file.text(),format,duration,fps:24,long_side:960,effects});
+   if(project!==targetProject||!project.cenas.includes(target)||target.video_clipe.arquivo!==oldClip){toast('A cena mudou durante o render. Mídia preservada: '+r.filename,true);return;}
+   if(r.effects&&target.audio.tracks.length>=20){toast('Limite de faixas atingido; mídia preservada: '+r.filename,true);return;}
+   Object.assign(target.video_clipe,{arquivo:r.filename,inicio:0,repetir:false,fit:'contain'});target.componente_gil=r.component;
+   if(r.effects)target.audio.tracks.push({file:r.filename,start:0,volume:.5,fade_in:0,fade_out:0,loop:false});
+   if(Math.abs(target.duracao-r.duration)>.05&&confirm('Ajustar a duração da cena para '+r.duration.toFixed(2)+' s? O ajuste de narração do projeto continua válido.'))target.duracao=r.duration;
+   dirtyNow(true);toast('Composição inserida. Salve o projeto; edite a narração em Áudio.');
+ }catch(e){toast('Falha na composição: '+e.message,true);$('saveInfo').textContent='Composição não inserida';}
+ finally{gilRendering=false;}
+}
+function downloadGIL(){const c=project?.cenas[selected]?.componente_gil;if(!c)return;const url=URL.createObjectURL(new Blob([c.source],{type:'text/plain'}));const a=document.createElement('a');a.href=url;a.download='componente-'+c.source_sha256.slice(0,12)+'.gil';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}
 async function importClip(file){if(!file)return;const index=selected;try{const r=await uploadChunked(file,'video');attachVideo(index,r.filename);}catch(e){toast('Falha ao importar vídeo: '+e.message,true);}}
 function animationJump(fraction){playTime=startOf(selected)+Math.min(.999,Math.max(0,fraction))*Number(project.cenas[selected].duracao);playing=false;$('playButton').textContent='▶';lastFrame=0;showPreview();}
 function sampleAnimation(){const animations=project.cenas[selected].animacoes;
@@ -406,6 +468,7 @@ async function upload(file,path){if(!file)return;if(file.size>12e6)return toast(
  try{const r=await post('/api/upload',{kind,data,filename:file.name});setPath(path,r.filename);dirtyNow(true);drawEditor();toast('Arquivo importado: '+r.filename);if(kind==='image')await openImageComposer();}catch(e){toast(e.message,true);}}
 function moveScene(i,shift){clearMediaPlayers();let j=i+shift;if(j<0||j>=project.cenas.length)return;[project.cenas[i],project.cenas[j]]=[project.cenas[j],project.cenas[i]];selected=j;playTime=startOf(selected);dirtyNow(true);}
 function parseFields(e){let el=e.target;const path=el.dataset.path;if(path){let v=el.type==='checkbox'?el.checked:el.value;if(el.type==='number'){v=Number(v);if(!Number.isFinite(v))return;}setPath(path,v);
+   if(path.endsWith('.video_clipe.arquivo')){const i=Number(path.split('.')[1]);if(project.cenas[i])delete project.cenas[i].componente_gil;}
    if(path.endsWith('voice_text')){setPath(`cenas.${selected}.fala`,v);if(v.trim())setPath(`cenas.${selected}.audio.voice_enabled`,true);}
    if(path.endsWith('.id')&&!/^[A-Za-z0-9_-]{1,64}$/.test(v))return toast('ID inválido',true);
    if(path.startsWith('video.')){drawEverything();}
@@ -423,11 +486,72 @@ function parseFields(e){let el=e.target;const path=el.dataset.path;if(path){let 
    project.cenas[selected].imagem.crop=nums;dirtyNow();
  }
 }
+function showDrawer(id){for(const key of ['timingDialog','workspaceProjects','workspaceLibrary'])$(key).hidden=key!==id;if(id)$(id).scrollIntoView({block:'start',behavior:'smooth'});}
+function stopWorkspace(){playing=false;cancelAnimationFrame(previewRaf);previewRaf=0;lastFrame=0;$('playButton').textContent='▶';$('stageClip').pause();stopTransport();}
+function bindTiming(){
+ const dialog=$('timingDialog');
+ const range=()=>{if(!project)throw Error('Selecione um projeto.');const scope=$('timingScope').value,first=scope==='all'?0:scope==='current'?selected:Number($('timingFirst').value)-1,last=scope==='all'?project.cenas.length-1:scope==='current'?selected:Number($('timingLast').value)-1;if(!Number.isInteger(first)||!Number.isInteger(last)||first<0||last<first||last>=project.cenas.length)throw Error('Intervalo inválido');return {first,last};};
+ const snapshot=()=>JSON.stringify({project,...range()});
+ const makePlan=()=>{
+   const {first,last}=range(),mode=$('timingMode').value;
+   if(mode==='fit'){
+      if(!fitResult||fitResult.project!==project||fitResult.snapshot!==snapshot())throw Error('Meça os arquivos de voz para a seleção atual.');
+      return fitResult.rows.filter(r=>r.status==='ok'&&r.after!==r.before).map(r=>({scene:project.cenas[r.index],before:r.before,after:r.after,other:r.other_audio||r.clip}));
+   }
+   const raw=$('timingValue').value;if(!raw.trim())throw Error('Informe um valor.');return window.StudioTimingV37.plan(project.cenas,first,last,mode,Number(raw));
+ };
+ const summary=()=>{
+   $('timingRange').hidden=$('timingScope').value!=='range';
+   const mode=$('timingMode').value,scale=mode==='scale',fit=mode==='fit';$('timingValueField').hidden=fit;$('timingMeasure').hidden=!fit;$('timingValueLabel').textContent=scale?'Fator (ex.: 1,5)':'Segundos';$('timingValue').min=scale?'0.001':'0.5';$('timingValue').max=scale?'1200':'600';
+   $('timingUndo').disabled=!(timingHistory&&timingHistory.project===project)||saving||workspaceBusy;
+   $('timingRows').innerHTML='';
+   try{const list=makePlan(),delta=list.reduce((n,e)=>n+e.after-e.before,0);$('timingSummary').textContent=list.length+' cenas alteradas · total nominal: '+(totalDuration()+delta).toFixed(2)+' s';$('timingApply').disabled=!list.length||saving||workspaceBusy;
+     if(fit){$('timingRows').innerHTML=fitResult.rows.map(r=>`<div><b>${r.index+1}. ${esc(r.title)}</b><small>${r.status==='ok'?Number(r.before).toFixed(2)+' → '+Number(r.after).toFixed(2)+' s · voz '+Number(r.voice_seconds).toFixed(2)+' s'+(r.other_audio||r.clip?' · possui outras mídias':''):esc(r.status)}</small></div>`).join('');}
+   }catch(e){$('timingSummary').textContent=e.message;$('timingApply').disabled=true;}
+ };
+ $('batchTiming').onclick=()=>{if(!project)return;stopWorkspace();$('timingFirst').max=$('timingLast').max=project.cenas.length;$('timingFirst').value=1;$('timingLast').value=project.cenas.length;fitResult=null;summary();showDrawer('timingDialog');};
+ for(const id of ['timingScope','timingMode','timingFirst','timingLast','timingValue'])$(id).addEventListener('input',summary);
+ $('timingClose').onclick=$('timingCloseTop').onclick=()=>showDrawer(null);
+ $('timingMeasure').onclick=async()=>{if(workspaceBusy||!project)return;try{const snap=snapshot(),p=project;workspaceBusy=true;$('timingMeasure').disabled=true;$('timingSummary').textContent='Medindo locuções prontas…';const r=await post('/api/workspace/voice-plan',{project:cp(project),...range()});if(project!==p||snapshot()!==snap)throw Error('A seleção ou o projeto mudou; meça novamente.');fitResult={project:p,snapshot:snap,rows:r.rows};}catch(e){fitResult=null;toast(e.message,true);}finally{workspaceBusy=false;$('timingMeasure').disabled=false;summary();}};
+ $('timingApply').onclick=()=>{if(saving||workspaceBusy)return;try{const edits=makePlan();if(!edits.length)return;if(edits.some(e=>e.after<e.before&&(e.other||e.scene.video_clipe?.arquivo||e.scene.audio?.tracks?.length||e.scene.audio?.music_file||project.trilha))&&!confirm('Reduzir cenas pode cortar a reprodução de clipes, música e efeitos. Os arquivos não serão apagados. Aplicar?'))return;window.StudioTimingV37.apply(edits);timingHistory={project,edits};fitResult=null;stopWorkspace();playTime=startOf(selected);dirtyNow(true);summary();toast('Durações atualizadas. Salve para persistir.');}catch(e){toast(e.message,true);summary();}};
+ $('timingUndo').onclick=()=>{if(saving||!timingHistory||timingHistory.project!==project)return;try{window.StudioTimingV37.undo(timingHistory.edits,project.cenas);timingHistory=null;fitResult=null;stopWorkspace();playTime=startOf(selected);dirtyNow(true);summary();toast('Último lote desfeito.');}catch(e){toast(e.message,true);}};
+ $('previewFull').onclick=async()=>{try{const el=$('previewFullHost');if(document.fullscreenElement===el)await document.exitFullscreen();else if(el.requestFullscreen)await el.requestFullscreen();else throw Error('Tela cheia indisponível; abra em Apresentar.');}catch(e){toast(e.message,true);}};$('stageShell').addEventListener('dblclick',()=>{if(document.fullscreenElement===$('previewFullHost'))document.exitFullscreen()?.catch(()=>{});});$('previewFullExit').onclick=()=>document.exitFullscreen?.().catch(e=>toast(e.message,true));
+ $('previewRate').onchange=()=>{previewRate=Number($('previewRate').value)||1;$('stageClip').playbackRate=previewRate;lastFrame=0;};
+ $('stageClip').addEventListener('loadedmetadata',()=>{if(!project)return;const s=sceneAt(playTime);if(clipPreviewScene===s.i)syncPreviewVideo(s.i,s.progress);});
+}
+function libraryTargets(){if(!project)return;const el=$('motionTarget'),old=el.value;el.innerHTML=animationTargets(project.cenas[selected]).map(([id,title])=>`<option value="${esc(id)}">${esc(title)}</option>`).join('');if([...el.options].some(o=>o.value===old))el.value=old;}
+function insertLibraryObject(kind){if(!project||saving)return;try{
+ const fresh=$('libraryNewScene').checked,old=project.cenas[selected];if(!fresh&&old.tipo!=='svg')throw Error('Selecione uma cena SVG ou marque Criar nova cena.');if(fresh&&project.cenas.length>=150)throw Error('Limite de 150 cenas.');
+ const c=fresh?sceneBase():old, parser=new DOMParser();const height=Math.round(1280*project.video.height/project.video.width);
+ let root,logicalHeight=height;
+ if(fresh){root=parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 ${height}"/>`,'image/svg+xml').documentElement;}
+ else {const source=c.svg.trim();root=parser.parseFromString(/^<svg(?:\s|>)/i.test(source)?source:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">${source}</svg>`,'image/svg+xml').documentElement;const vb=(root.getAttribute('viewBox')||'0 0 1280 720').trim().split(/[ ,]+/).map(Number);if(root.localName!=='svg'||vb.length!==4||vb[0]!==0||vb[1]!==0||vb[2]!==1280||!Number.isFinite(vb[3]))throw Error('Use um SVG canônico 0 0 1280 H para inserir neste desenho.');logicalHeight=vb[3];}
+ const prefix='obj_'+Date.now().toString(36)+'_'+(++librarySerial).toString(36),obj=window.StudioWorkspaceV38.object(kind,prefix,logicalHeight,fresh?8:Number(c.duracao));
+ if((fresh?0:c.animacoes.length)+obj.tracks.length>32)throw Error('Limite de 32 faixas da cena. Crie uma nova cena ou remova animações.');
+ const node=parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${obj.markup}</svg>`,'image/svg+xml').documentElement;if(node.localName!=='svg')throw Error('Objeto inválido');
+ for(const item of [...node.children])root.appendChild(root.ownerDocument.importNode(item,true));const svg=new XMLSerializer().serializeToString(root);if(svg.length>2000000)throw Error('SVG excede limite.');
+ if(fresh){Object.assign(c,{tipo:'svg',titulo:obj.title.toUpperCase(),subtitulo:'',categoria:'',fonte:'',duracao:8,cores:{fundo:'#101c2b',destaque:'#79cdd2',texto:'#edf4f7'},animacoes:[],movimento:'linear'});project.cenas.splice(selected+1,0,c);selected++;}
+ c.svg=svg;c.animacoes.push(...obj.tracks);stopWorkspace();playTime=startOf(selected);dirtyNow(true);libraryTargets();toast('Objeto inserido. Salve para persistir.');
+ }catch(e){toast(e.message,true);}}
+async function refreshWorkspaceProjects(){if(!project)return;const target=project;try{const [r,a]=await Promise.all([post('/api/workspace/inventory',{project:cp(project)}),api('/api/workspace/archived')]);if(project!==target)return;$('workspaceInventory').innerHTML=r.files.length?r.files.map(f=>`<div><b>${esc(f.file)}</b><small>${f.present?(f.bytes/1024).toFixed(1)+' KiB':'Ausente'} · ${esc(f.uses.join(' · '))}</small></div>`).join(''):'<p class="info">Sem mídia referenciada neste projeto.</p>';$('archivedList').innerHTML=a.projects.length?a.projects.map(n=>`<div><b>${esc(n)}</b><button data-restore-project="${esc(n)}">Restaurar</button></div>`).join(''):'<p class="info">Nenhum projeto arquivado.</p>';}catch(e){toast(e.message,true);}}
+async function changeProjectArchive(action,n){if(!project||saving||workspaceBusy||busy||gilRendering)return toast('Aguarde concluir a operação atual.',true);if(!confirm((action==='archive'?'Arquivar ':'Restaurar ')+n+'? As mídias serão preservadas.'))return;workspaceBusy=true;const freeze=[document.querySelector('.top'),document.querySelector('main.workspace'),document.querySelector('.mobileTabs'),$('workspaceProjects')];freeze.forEach(el=>el.inert=true);try{const snap=JSON.stringify(project);await save();if(JSON.stringify(project)!==snap)throw Error('O projeto mudou durante o salvamento. Tente novamente.');await post('/api/workspace/archive',{action,name:n,confirm:n});let list=await listProjects();if(action==='archive'){dirty=false;await load(list[0]);}await refreshWorkspaceProjects();toast(action==='archive'?'Projeto arquivado':'Projeto restaurado');}catch(e){toast(e.message,true);}finally{freeze.forEach(el=>el.inert=false);workspaceBusy=false;}}
+function bindWorkspace(){
+ $('manageProjects').onclick=()=>{showDrawer('workspaceProjects');refreshWorkspaceProjects();};$('closeProjects').onclick=()=>showDrawer(null);$('projectInventory').onclick=refreshWorkspaceProjects;$('projectBundleShortcut').onclick=()=>$('exportBundle').click();$('archiveProject').onclick=()=>changeProjectArchive('archive',projectName);$('archivedList').onclick=e=>{let b=e.target.closest('[data-restore-project]');if(b)changeProjectArchive('restore',b.dataset.restoreProject);};
+ $('openLibrary').onclick=()=>{if(!project)return;libraryTargets();showDrawer('workspaceLibrary');};$('closeLibrary').onclick=()=>showDrawer(null);
+ $('objectCatalog').innerHTML=window.StudioWorkspaceV38.catalog.map(([id,title],i)=>`<button type="button" data-library-object="${id}"><svg viewBox="${id==='wave'||id==='flow'?'110 315 1060 300':'365 220 550 480'}" aria-hidden="true">${window.StudioWorkspaceV38.object(id,'obj_tile_'+i,720,8).markup}</svg>${esc(title)}</button>`).join('');
+ $('objectCatalog').onclick=e=>{let b=e.target.closest('[data-library-object]');if(b)insertLibraryObject(b.dataset.libraryObject);};
+ $('motionPreset').innerHTML=window.StudioWorkspaceV38.motions.map(([k,t])=>`<option value="${k}">${esc(t)}</option>`).join('');
+ $('applyMotion').onclick=()=>{if(!project||saving)return;try{const c=project.cenas[selected],target=$('motionTarget').value;if(!animationTargets(c).some(([id])=>id===target))throw Error('Selecione novamente o objeto');const a=window.StudioWorkspaceV38.motion(target,$('motionPreset').value,Number(c.duracao));if(c.animacoes.length+a.length>32)throw Error('Limite de 32 faixas da cena');c.animacoes.push(...a);stopWorkspace();playTime=startOf(selected);dirtyNow(true);toast('Movimento aplicado. Salve para persistir.');}catch(e){toast(e.message,true);}};
+ $('gilLibraryDownload').onclick=async()=>{try{const r=await api('/api/workspace/gil-example?id='+encodeURIComponent($('gilLibrarySelect').value));const url=URL.createObjectURL(new Blob([r.source],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download=r.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),3000);toast('Fonte GIL baixada. Abra no editor GIL para exportar componente HTML nativo.');}catch(e){toast(e.message,true);}};
+ $('workspaceGILLink').onclick=e=>{if(inWorkspace()){e.preventDefault();parent.postMessage({protocol:'rd-workspace-1',type:'navigate',to:'gil'},WORKSPACE);}}; $('gilLibraryFile').onclick=()=>$('gilFile').click();$('gilLibraryInsert').onclick=async()=>{if(gilRendering||!project)return;const scene=project.cenas[selected];try{const r=await api('/api/workspace/gil-example?id='+encodeURIComponent($('gilLibrarySelect').value));if(project.cenas[selected]!==scene)throw Error('A cena mudou durante a leitura');await importGIL(new File([r.source],r.name,{type:'text/plain'}));}catch(e){toast(e.message,true);}};
+ $('quickNarration').onclick=()=>{if(!project)return;showDrawer(null);tab='audio';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='audio'));drawEditor();switchPane('editPanel');$('editPanel').scrollIntoView({block:'start'});};
+}
 function bind(){
- $('studio-v3-vetorial-link').onclick=async e=>{e.preventDefault();if(!project||saving)return;try{await save(true);location.href='/player-v3/?project='+encodeURIComponent(projectName);}catch(err){toast(err.message,true);}};
+ bindTiming();bindWorkspace();
+ $('studio-v3-vetorial-link').onclick=e=>{e.preventDefault();openPlayback('/player-v3/?project=');};
  const layers=window.StudioLayersV36.connect({get:()=>({project,selected,projectName,playing}),change:()=>dirtyNow(true),notify:toast,jump});
  $('openLayersV36').onclick=()=>layers.open();
- $('projectSelect').onchange=e=>load(e.target.value).catch(x=>toast(x.message,true));
+ $('projectSelect').onchange=e=>{if(workspaceBusy||saving){e.target.value=projectName;return toast('Aguarde a operação atual.',true);}showDrawer(null);load(e.target.value).catch(x=>toast(x.message,true));};
  window.addEventListener('resize',()=>{if(project){const portrait=project.video.height>project.video.width;const ratio=project.video.width/project.video.height;$('stageShell').style.width=portrait?Math.max(160,Math.round(Math.min(window.innerWidth*.92,window.innerHeight*.70*ratio)))+'px':'';}});
  $('saveButton').onclick=()=>save(true).then(()=>toast('Salvo no celular')).catch(e=>toast(e.message,true));
  $('newProject').onclick=async()=>{let n=prompt('Nome identificador, sem espaços:','novo_projeto');if(!n)return;try{let r=await post('/api/project/new',{name:n,titulo:'Meu documentário'});await listProjects();await load(r.name);toast('Projeto criado');}catch(e){toast(e.message,true);}};
@@ -449,7 +573,7 @@ function bind(){
 
  $('jsonFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());let n=prompt('Nome do projeto importado:',f.name.replace(/\.json$/i,'').replace(/[^A-Za-z0-9_-]/g,'_'));if(!n)return;await post('/api/project',{name:n,project:data});await listProjects();await load(n);toast('JSON importado e migrado');}catch(e){toast(e.message,true);}e.target.value='';};
  $('sceneList').onclick=e=>{let mv=e.target.closest('[data-shift]');if(mv)return moveScene(Number(mv.dataset.index),Number(mv.dataset.shift));let b=e.target.closest('[data-scene]');if(b)jump(Number(b.dataset.scene));};
- $('timeline').onclick=e=>{let b=e.target.closest('[data-scene]');if(b)jump(Number(b.dataset.scene));};
+ bindTimeline();$('timeline').onclick=e=>{let b=e.target.closest('[data-scene]');if(b)jump(Number(b.dataset.scene));};
  $('addScene').onclick=()=>{project.cenas.splice(selected+1,0,sceneBase());selected++;playTime=startOf(selected);dirtyNow(true);};
  $('addSpatialScene').onclick=()=>{let c=sceneBase();c.tipo='espacial';c.titulo='CENA ESPACIAL';c.espacial={camera:{azimute:28,elevacao:18,distancia:9},objetos:[{id:'centro',tipo:'esfera',cor:'#67bfe9',posicao:[-1.5,0,0]},{id:'bloco',tipo:'cubo',cor:'#e4a46d',posicao:[1.3,0,0]}],animacoes:[{alvo:'bloco',propriedade:'rotacao_y',inicio:0,fim:1,de:0,ate:360}]};project.cenas.splice(selected+1,0,c);selected++;playTime=startOf(selected);dirtyNow(true);};
  $('addSvgScene').onclick=()=>{let c=sceneBase();c.tipo='svg';c.titulo='ILUSTRAÇÃO VETORIAL';c.svg='<g class="layer" id="camada1"><title>Camada 1</title><circle cx="640" cy="360" r="125" fill="#d99a62"/></g>';project.cenas.splice(selected+1,0,c);selected++;playTime=startOf(selected);dirtyNow(true);};
@@ -462,8 +586,8 @@ function bind(){
   catch(e){if(popup)popup.close();toast('Não foi possível abrir o editor: '+e.message,true);}
  };
 
- $('playButton').onclick=()=>{playing=!playing;lastFrame=0;if(playing&&playTime>=totalDuration())playTime=0;$('playButton').textContent=playing?'Ⅱ':'▶';if(playing)requestAnimationFrame(tick);};
- $('seek').oninput=e=>{playTime=totalDuration()*Number(e.target.value)/1000;selected=sceneAt(playTime).i;drawSceneList();drawTimeline();showPreview();};
+ $('playButton').onclick=()=>{playing=!playing;lastFrame=0;if(playing&&playTime>=totalDuration())playTime=0;$('playButton').textContent=playing?'Ⅱ':'▶';if(playing){if(transportBlocked)stopTransport(true);transportBlocked=false;transportSeek=true;transportDeadline=performance.now()+5000;$('voicePlayer').pause();$('scenePlayer').pause();if(dirty&&$('previewSound').checked)$('transportStatus').textContent='Salve o projeto para ouvir o áudio correspondente.';syncTransport();cancelAnimationFrame(previewRaf);previewRaf=requestAnimationFrame(tick);}else{cancelAnimationFrame(previewRaf);previewRaf=0;$('stageClip').pause();stopTransport();}}; $('previewSound').onchange=()=>{stopTransport(true);syncTransport();};
+ $('seek').oninput=e=>{if(!project)return;transportSeek=true;transportBlocked=false;transportDeadline=performance.now()+5000;lastFrame=0;playTime=totalDuration()*Number(e.target.value)/1000;selected=sceneAt(playTime).i;drawSceneList();drawTimeline();drawEditor();showPreview();syncTransport();};
  document.querySelectorAll('.mobileTabs button').forEach(b=>b.onclick=()=>switchPane(b.dataset.pane));
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{tab=b.dataset.edit;document.querySelectorAll('[data-edit]').forEach(k=>k.classList.toggle('on',k===b));drawEditor();});
  $('editor').addEventListener('change',parseFields);
@@ -476,8 +600,15 @@ function bind(){
    return;
   }
   if(t.id==='imageComposerOpen'){openImageComposer();return;}
+  if(t.id==='voiceThisShortcut'){begin('audio-cena');return;}
+  if(t.id==='voiceAllShortcut'){begin('audio');return;}
+  if(t.id==='voiceTimingShortcut'){$('batchTiming').click();$('timingMode').value='fit';$('timingMode').dispatchEvent(new Event('input'));return;}
   if(t.id==='addAnimation'){addSceneAnimation();return;}
   if(t.id==='sampleAnimation'){sampleAnimation();return;}
+  if(t.id==='insertGIL'){if(!gilRendering)$('gilFile').click();return;}
+  if(t.id==='sourceGIL'){downloadGIL();return;}
+  if(t.id==='openGIL'){if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'navigate',to:'gil'},WORKSPACE);else location.href='http://127.0.0.1:8791/';return;}
+  if(t.id==='editGILWorkspace'){const source=project?.cenas[selected]?.componente_gil?.source;if(inWorkspace()&&source)parent.postMessage({protocol:'rd-workspace-1',type:'edit-gil',source},WORKSPACE);else downloadGIL();return;}
   if(t.id==='importClip'){$('clipFile').click();return;}
   if(t.id==='recordCamera'){captureMedia('video');return;}
   if(t.id==='recordVoice'){captureMedia('audio');return;}
@@ -502,7 +633,7 @@ function bind(){
     const clip=project.cenas[selected].video_clipe;
     if(!clip?.arquivo)return;
     if(!confirm('Remover o vídeo desta cena? O arquivo original e a narração permanecem preservados.'))return;
-    clip.arquivo='';
+    clip.arquivo='';delete project.cenas[selected].componente_gil;
     clipEditingEnabled(false);
     const video=$('stageClip');video.pause();video.hidden=true;video.removeAttribute('src');video.load();
     clipPreviewFile='';clipPreviewScene=-1;
@@ -517,6 +648,7 @@ function bind(){
   if(t.dataset.shape){const shapes={circle:'<circle cx="640" cy="360" r="135" fill="#d99a62"/>',rect:'<rect x="425" y="255" width="430" height="210" rx="65" fill="#d99a62"/>',path:'<path d="M250,510 Q460,200 640,450 T1030,250" fill="none" stroke="#d99a62" stroke-width="25"/>',text:'<text x="640" y="365" text-anchor="middle" font-size="76" fill="#d99a62">OLÁ</text>'};project.cenas[selected].svg+='\n'+shapes[t.dataset.shape];dirtyNow(true);}
  };
  $('mediaFile').onchange=e=>{upload(e.target.files[0],assetPath);e.target.value='';};
+ $('gilFile').onchange=e=>{importGIL(e.target.files[0]);e.target.value='';};
  $('clipFile').onchange=e=>{importClip(e.target.files[0]);e.target.value='';};
  $('editor').addEventListener('input',e=>{if(e.target.id==='animationSeek'){
    const val=Number(e.target.value);$('animationProgress').textContent=val+'%';animationJump(val/100);
@@ -524,7 +656,7 @@ function bind(){
  $('listenVoice').onclick=()=>playSceneAudio('voice');$('listenMix').onclick=()=>playSceneAudio('audio');
  $('watchScene').onclick=watchSceneVideo;$('listenAndroid').onclick=listenAndroid;
  $('exportHtml').onclick=()=>begin('export-html');$('exportHtmlSilent').onclick=()=>begin('export-html-silent');$('exportMp3').onclick=()=>begin('audio-mp3');$('exportOpus').onclick=()=>begin('audio-opus');$('toggleClipEdit').onclick=()=>clipEditingEnabled(!clipEditing);initClipGesture();
- $('makeFrames').onclick=()=>begin('quadros');$('makeAudio').onclick=()=>begin('audio');$('makeSceneVoice').onclick=()=>begin('audio-cena');$('autoExtendVoice').onclick=()=>{project.encaixe_voz='estender';dirtyNow(true);toast('Renderização configurada para estender a cena até concluir a locução. Salve o projeto.');};$('mixAudio').onclick=()=>begin('mix');$('makeLite').onclick=()=>begin('render-leve');$('presentBtn').onclick=async()=>{if(!project||saving)return;try{await save(true);location.href='/captura?name='+encodeURIComponent(projectName);}catch(e){toast(e.message,true);}};$('makeVideo').onclick=()=>begin('render');$('makeSilent').onclick=()=>begin('render',true);$('makeScene').onclick=()=>begin('cena');$('refreshCache').onclick=refreshCache;
+ $('makeFrames').onclick=()=>begin('quadros');$('makeAudio').onclick=()=>begin('audio');$('makeSceneVoice').onclick=()=>begin('audio-cena');$('autoExtendVoice').onclick=()=>{project.encaixe_voz='estender';dirtyNow(true);toast('Renderização configurada para estender a cena até concluir a locução. Salve o projeto.');};$('mixAudio').onclick=()=>begin('mix');$('makeLite').onclick=()=>begin('render-leve');$('presentBtn').onclick=()=>openPlayback('/captura?name=');$('makeVideo').onclick=()=>begin('render');$('makeSilent').onclick=()=>begin('render',true);$('makeScene').onclick=()=>begin('cena');$('refreshCache').onclick=refreshCache;
  $('cacheTable').onclick=async e=>{let b=e.target.closest('[data-clear]');if(!b)return;const scene=Number(b.dataset.clear);if(!confirm('Remover cache visual e sonoro da cena '+scene+'?'))return;try{await post('/api/cache/clear',{name:projectName,scene});await refreshCache();toast('Cache da cena limpo');}catch(e){toast(e.message,true);}};
  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save().catch(x=>toast(x.message,true));}});
  window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
@@ -544,6 +676,6 @@ async function init(){
   if(e.key!=='estudioSvgVectorSave'||!e.newValue)return;
   try{const u=JSON.parse(e.newValue);syncVectorSave(u.name,u.scene);}catch(err){}
  });
- bind();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');let preferred=projects.includes(requested)?requested:projects.includes('demo_organico')?'demo_organico':projects[0];if(!preferred)throw Error('Nenhum projeto encontrado');await load(preferred);switchPane('previewPanel');let a=await api('/api/jobs/active');if(a.job)trackJob(a.job);}catch(e){toast(e.message,true);$('stage').textContent='Falha ao iniciar: '+e.message;}}
+ bind();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');let preferred=projects.includes(requested)?requested:projects.includes('demo_organico')?'demo_organico':projects[0];if(!preferred)throw Error('Nenhum projeto encontrado');await load(preferred);switchPane('previewPanel');let a=await api('/api/jobs/active');if(a.job)trackJob(a.job);if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'ready'},WORKSPACE);}catch(e){toast(e.message,true);$('stage').textContent='Falha ao iniciar: '+e.message;}}
 init();
 })();

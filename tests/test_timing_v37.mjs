@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import '../web/timing-v37.js';
+const t=globalThis.StudioTimingV37;
+const sample=()=>[{duracao:5,audio:{voice_file:'voice.wav'},video_clipe:{arquivo:'clip.mp4'}},{duracao:12},{duracao:20}];
+test('floor preserves larger durations and all media references',()=>{const scenes=sample(),au=scenes[0].audio,clip=scenes[0].video_clipe,edits=t.plan(scenes,0,2,'floor',10);assert.equal(edits.length,1);t.apply(edits);assert.deepEqual(scenes.map(s=>s.duracao),[10,12,20]);assert.equal(scenes[0].audio,au);assert.equal(scenes[0].video_clipe,clip);t.undo(edits,scenes);assert.deepEqual(scenes.map(s=>s.duracao),[5,12,20]);});
+test('subset and set',()=>{const s=sample();t.apply(t.plan(s,1,2,'set',8));assert.deepEqual(s.map(x=>x.duracao),[5,8,8]);});
+test('scale and non-mutating planning',()=>{const s=sample();const p=t.plan(s,0,2,'scale',.75);assert.deepEqual(s.map(x=>x.duracao),[5,12,20]);t.apply(p);assert.deepEqual(s.map(x=>x.duracao),[3.75,9,15]);});
+test('reject invalid batch before any mutation',()=>{const s=sample();for(const args of [[0,3,'set',3],[-1,2,'floor',10],[0,2,'scale',40],[0,2,'set',NaN],[0,2,'set',.4],[1,0,'set',2]])assert.throws(()=>t.plan(s,...args));assert.deepEqual(s.map(x=>x.duracao),[5,12,20]);});
+test('undo respects later edits and replacement',()=>{const s=sample(),p=t.plan(s,0,2,'set',10);t.apply(p);s[2].duracao=15;assert.throws(()=>t.undo(p,s));assert.deepEqual(s.map(x=>x.duracao),[10,10,15]);s[2].duracao=10;s[2]={...s[2]};assert.throws(()=>t.undo(p,s));});

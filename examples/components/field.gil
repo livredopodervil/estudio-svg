@@ -1,0 +1,265 @@
+gil timeline 0.1 {
+// Campo cinemático discreto, não representa uma solução de equação física.
+stage {"width":960,"height":540,"duration":12,"background":"#101b2c","camera":"cam"}
+resource camera camera {"z":16,"fov":44}
+resource lamp light.directional {"x":-5,"y":7,"z":7,"intensity":1}
+resource group group {}
+resource tile mesh.box {"size":0.44,"color":"#6ecbd5","layer":1}
+resource gold mesh.box {"size":0.44,"color":"#efb875","layer":1}
+resource fade overlay.fade {"color":"#101b2c","opacity":0,"layer":30}
+resource tone audio.tone {"frequency":330,"gain":0.04,"wave":"sine"}
+object cam camera - {}
+object sun lamp - {}
+object field group - {"rx":23}
+object transition fade - {}
+object click tone - {}
+object cell_0_0 gold field {"x":-3.06,"z":-2.38}
+animate cell_0_0 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_0_0 sy {"expr":"1+0.45*sin(-3.06*2+-2.38*1.5-t*3)"}
+object cell_0_1 tile field {"x":-3.06,"z":-1.7}
+animate cell_0_1 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_0_1 sy {"expr":"1+0.45*sin(-3.06*2+-1.7*1.5-t*3)"}
+object cell_0_2 tile field {"x":-3.06,"z":-1.02}
+animate cell_0_2 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_0_2 sy {"expr":"1+0.45*sin(-3.06*2+-1.02*1.5-t*3)"}
+object cell_0_3 gold field {"x":-3.06,"z":-0.34}
+animate cell_0_3 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_0_3 sy {"expr":"1+0.45*sin(-3.06*2+-0.34*1.5-t*3)"}
+object cell_0_4 tile field {"x":-3.06,"z":0.34}
+animate cell_0_4 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_0_4 sy {"expr":"1+0.45*sin(-3.06*2+0.34*1.5-t*3)"}
+object cell_0_5 tile field {"x":-3.06,"z":1.02}
+animate cell_0_5 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_0_5 sy {"expr":"1+0.45*sin(-3.06*2+1.02*1.5-t*3)"}
+object cell_0_6 gold field {"x":-3.06,"z":1.7}
+animate cell_0_6 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_0_6 sy {"expr":"1+0.45*sin(-3.06*2+1.7*1.5-t*3)"}
+object cell_0_7 tile field {"x":-3.06,"z":2.38}
+animate cell_0_7 y {"expr":"0.8*sin(-3.06*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_0_7 sy {"expr":"1+0.45*sin(-3.06*2+2.38*1.5-t*3)"}
+object cell_1_0 tile field {"x":-2.38,"z":-2.38}
+animate cell_1_0 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_1_0 sy {"expr":"1+0.45*sin(-2.38*2+-2.38*1.5-t*3)"}
+object cell_1_1 tile field {"x":-2.38,"z":-1.7}
+animate cell_1_1 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_1_1 sy {"expr":"1+0.45*sin(-2.38*2+-1.7*1.5-t*3)"}
+object cell_1_2 gold field {"x":-2.38,"z":-1.02}
+animate cell_1_2 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_1_2 sy {"expr":"1+0.45*sin(-2.38*2+-1.02*1.5-t*3)"}
+object cell_1_3 tile field {"x":-2.38,"z":-0.34}
+animate cell_1_3 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_1_3 sy {"expr":"1+0.45*sin(-2.38*2+-0.34*1.5-t*3)"}
+object cell_1_4 tile field {"x":-2.38,"z":0.34}
+animate cell_1_4 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_1_4 sy {"expr":"1+0.45*sin(-2.38*2+0.34*1.5-t*3)"}
+object cell_1_5 gold field {"x":-2.38,"z":1.02}
+animate cell_1_5 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_1_5 sy {"expr":"1+0.45*sin(-2.38*2+1.02*1.5-t*3)"}
+object cell_1_6 tile field {"x":-2.38,"z":1.7}
+animate cell_1_6 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_1_6 sy {"expr":"1+0.45*sin(-2.38*2+1.7*1.5-t*3)"}
+object cell_1_7 tile field {"x":-2.38,"z":2.38}
+animate cell_1_7 y {"expr":"0.8*sin(-2.38*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_1_7 sy {"expr":"1+0.45*sin(-2.38*2+2.38*1.5-t*3)"}
+object cell_2_0 tile field {"x":-1.7,"z":-2.38}
+animate cell_2_0 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_2_0 sy {"expr":"1+0.45*sin(-1.7*2+-2.38*1.5-t*3)"}
+object cell_2_1 gold field {"x":-1.7,"z":-1.7}
+animate cell_2_1 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_2_1 sy {"expr":"1+0.45*sin(-1.7*2+-1.7*1.5-t*3)"}
+object cell_2_2 tile field {"x":-1.7,"z":-1.02}
+animate cell_2_2 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_2_2 sy {"expr":"1+0.45*sin(-1.7*2+-1.02*1.5-t*3)"}
+object cell_2_3 tile field {"x":-1.7,"z":-0.34}
+animate cell_2_3 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_2_3 sy {"expr":"1+0.45*sin(-1.7*2+-0.34*1.5-t*3)"}
+object cell_2_4 gold field {"x":-1.7,"z":0.34}
+animate cell_2_4 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_2_4 sy {"expr":"1+0.45*sin(-1.7*2+0.34*1.5-t*3)"}
+object cell_2_5 tile field {"x":-1.7,"z":1.02}
+animate cell_2_5 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_2_5 sy {"expr":"1+0.45*sin(-1.7*2+1.02*1.5-t*3)"}
+object cell_2_6 tile field {"x":-1.7,"z":1.7}
+animate cell_2_6 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_2_6 sy {"expr":"1+0.45*sin(-1.7*2+1.7*1.5-t*3)"}
+object cell_2_7 gold field {"x":-1.7,"z":2.38}
+animate cell_2_7 y {"expr":"0.8*sin(-1.7*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_2_7 sy {"expr":"1+0.45*sin(-1.7*2+2.38*1.5-t*3)"}
+object cell_3_0 gold field {"x":-1.02,"z":-2.38}
+animate cell_3_0 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_3_0 sy {"expr":"1+0.45*sin(-1.02*2+-2.38*1.5-t*3)"}
+object cell_3_1 tile field {"x":-1.02,"z":-1.7}
+animate cell_3_1 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_3_1 sy {"expr":"1+0.45*sin(-1.02*2+-1.7*1.5-t*3)"}
+object cell_3_2 tile field {"x":-1.02,"z":-1.02}
+animate cell_3_2 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_3_2 sy {"expr":"1+0.45*sin(-1.02*2+-1.02*1.5-t*3)"}
+object cell_3_3 gold field {"x":-1.02,"z":-0.34}
+animate cell_3_3 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_3_3 sy {"expr":"1+0.45*sin(-1.02*2+-0.34*1.5-t*3)"}
+object cell_3_4 tile field {"x":-1.02,"z":0.34}
+animate cell_3_4 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_3_4 sy {"expr":"1+0.45*sin(-1.02*2+0.34*1.5-t*3)"}
+object cell_3_5 tile field {"x":-1.02,"z":1.02}
+animate cell_3_5 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_3_5 sy {"expr":"1+0.45*sin(-1.02*2+1.02*1.5-t*3)"}
+object cell_3_6 gold field {"x":-1.02,"z":1.7}
+animate cell_3_6 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_3_6 sy {"expr":"1+0.45*sin(-1.02*2+1.7*1.5-t*3)"}
+object cell_3_7 tile field {"x":-1.02,"z":2.38}
+animate cell_3_7 y {"expr":"0.8*sin(-1.02*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_3_7 sy {"expr":"1+0.45*sin(-1.02*2+2.38*1.5-t*3)"}
+object cell_4_0 tile field {"x":-0.34,"z":-2.38}
+animate cell_4_0 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_4_0 sy {"expr":"1+0.45*sin(-0.34*2+-2.38*1.5-t*3)"}
+object cell_4_1 tile field {"x":-0.34,"z":-1.7}
+animate cell_4_1 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_4_1 sy {"expr":"1+0.45*sin(-0.34*2+-1.7*1.5-t*3)"}
+object cell_4_2 gold field {"x":-0.34,"z":-1.02}
+animate cell_4_2 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_4_2 sy {"expr":"1+0.45*sin(-0.34*2+-1.02*1.5-t*3)"}
+object cell_4_3 tile field {"x":-0.34,"z":-0.34}
+animate cell_4_3 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_4_3 sy {"expr":"1+0.45*sin(-0.34*2+-0.34*1.5-t*3)"}
+object cell_4_4 tile field {"x":-0.34,"z":0.34}
+animate cell_4_4 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_4_4 sy {"expr":"1+0.45*sin(-0.34*2+0.34*1.5-t*3)"}
+object cell_4_5 gold field {"x":-0.34,"z":1.02}
+animate cell_4_5 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_4_5 sy {"expr":"1+0.45*sin(-0.34*2+1.02*1.5-t*3)"}
+object cell_4_6 tile field {"x":-0.34,"z":1.7}
+animate cell_4_6 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_4_6 sy {"expr":"1+0.45*sin(-0.34*2+1.7*1.5-t*3)"}
+object cell_4_7 tile field {"x":-0.34,"z":2.38}
+animate cell_4_7 y {"expr":"0.8*sin(-0.34*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_4_7 sy {"expr":"1+0.45*sin(-0.34*2+2.38*1.5-t*3)"}
+object cell_5_0 tile field {"x":0.34,"z":-2.38}
+animate cell_5_0 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_5_0 sy {"expr":"1+0.45*sin(0.34*2+-2.38*1.5-t*3)"}
+object cell_5_1 gold field {"x":0.34,"z":-1.7}
+animate cell_5_1 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_5_1 sy {"expr":"1+0.45*sin(0.34*2+-1.7*1.5-t*3)"}
+object cell_5_2 tile field {"x":0.34,"z":-1.02}
+animate cell_5_2 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_5_2 sy {"expr":"1+0.45*sin(0.34*2+-1.02*1.5-t*3)"}
+object cell_5_3 tile field {"x":0.34,"z":-0.34}
+animate cell_5_3 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_5_3 sy {"expr":"1+0.45*sin(0.34*2+-0.34*1.5-t*3)"}
+object cell_5_4 gold field {"x":0.34,"z":0.34}
+animate cell_5_4 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_5_4 sy {"expr":"1+0.45*sin(0.34*2+0.34*1.5-t*3)"}
+object cell_5_5 tile field {"x":0.34,"z":1.02}
+animate cell_5_5 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_5_5 sy {"expr":"1+0.45*sin(0.34*2+1.02*1.5-t*3)"}
+object cell_5_6 tile field {"x":0.34,"z":1.7}
+animate cell_5_6 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_5_6 sy {"expr":"1+0.45*sin(0.34*2+1.7*1.5-t*3)"}
+object cell_5_7 gold field {"x":0.34,"z":2.38}
+animate cell_5_7 y {"expr":"0.8*sin(0.34*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_5_7 sy {"expr":"1+0.45*sin(0.34*2+2.38*1.5-t*3)"}
+object cell_6_0 gold field {"x":1.02,"z":-2.38}
+animate cell_6_0 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_6_0 sy {"expr":"1+0.45*sin(1.02*2+-2.38*1.5-t*3)"}
+object cell_6_1 tile field {"x":1.02,"z":-1.7}
+animate cell_6_1 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_6_1 sy {"expr":"1+0.45*sin(1.02*2+-1.7*1.5-t*3)"}
+object cell_6_2 tile field {"x":1.02,"z":-1.02}
+animate cell_6_2 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_6_2 sy {"expr":"1+0.45*sin(1.02*2+-1.02*1.5-t*3)"}
+object cell_6_3 gold field {"x":1.02,"z":-0.34}
+animate cell_6_3 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_6_3 sy {"expr":"1+0.45*sin(1.02*2+-0.34*1.5-t*3)"}
+object cell_6_4 tile field {"x":1.02,"z":0.34}
+animate cell_6_4 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_6_4 sy {"expr":"1+0.45*sin(1.02*2+0.34*1.5-t*3)"}
+object cell_6_5 tile field {"x":1.02,"z":1.02}
+animate cell_6_5 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_6_5 sy {"expr":"1+0.45*sin(1.02*2+1.02*1.5-t*3)"}
+object cell_6_6 gold field {"x":1.02,"z":1.7}
+animate cell_6_6 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_6_6 sy {"expr":"1+0.45*sin(1.02*2+1.7*1.5-t*3)"}
+object cell_6_7 tile field {"x":1.02,"z":2.38}
+animate cell_6_7 y {"expr":"0.8*sin(1.02*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_6_7 sy {"expr":"1+0.45*sin(1.02*2+2.38*1.5-t*3)"}
+object cell_7_0 tile field {"x":1.7,"z":-2.38}
+animate cell_7_0 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_7_0 sy {"expr":"1+0.45*sin(1.7*2+-2.38*1.5-t*3)"}
+object cell_7_1 tile field {"x":1.7,"z":-1.7}
+animate cell_7_1 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_7_1 sy {"expr":"1+0.45*sin(1.7*2+-1.7*1.5-t*3)"}
+object cell_7_2 gold field {"x":1.7,"z":-1.02}
+animate cell_7_2 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_7_2 sy {"expr":"1+0.45*sin(1.7*2+-1.02*1.5-t*3)"}
+object cell_7_3 tile field {"x":1.7,"z":-0.34}
+animate cell_7_3 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_7_3 sy {"expr":"1+0.45*sin(1.7*2+-0.34*1.5-t*3)"}
+object cell_7_4 tile field {"x":1.7,"z":0.34}
+animate cell_7_4 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_7_4 sy {"expr":"1+0.45*sin(1.7*2+0.34*1.5-t*3)"}
+object cell_7_5 gold field {"x":1.7,"z":1.02}
+animate cell_7_5 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_7_5 sy {"expr":"1+0.45*sin(1.7*2+1.02*1.5-t*3)"}
+object cell_7_6 tile field {"x":1.7,"z":1.7}
+animate cell_7_6 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_7_6 sy {"expr":"1+0.45*sin(1.7*2+1.7*1.5-t*3)"}
+object cell_7_7 tile field {"x":1.7,"z":2.38}
+animate cell_7_7 y {"expr":"0.8*sin(1.7*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_7_7 sy {"expr":"1+0.45*sin(1.7*2+2.38*1.5-t*3)"}
+object cell_8_0 tile field {"x":2.38,"z":-2.38}
+animate cell_8_0 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_8_0 sy {"expr":"1+0.45*sin(2.38*2+-2.38*1.5-t*3)"}
+object cell_8_1 gold field {"x":2.38,"z":-1.7}
+animate cell_8_1 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_8_1 sy {"expr":"1+0.45*sin(2.38*2+-1.7*1.5-t*3)"}
+object cell_8_2 tile field {"x":2.38,"z":-1.02}
+animate cell_8_2 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_8_2 sy {"expr":"1+0.45*sin(2.38*2+-1.02*1.5-t*3)"}
+object cell_8_3 tile field {"x":2.38,"z":-0.34}
+animate cell_8_3 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_8_3 sy {"expr":"1+0.45*sin(2.38*2+-0.34*1.5-t*3)"}
+object cell_8_4 gold field {"x":2.38,"z":0.34}
+animate cell_8_4 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_8_4 sy {"expr":"1+0.45*sin(2.38*2+0.34*1.5-t*3)"}
+object cell_8_5 tile field {"x":2.38,"z":1.02}
+animate cell_8_5 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_8_5 sy {"expr":"1+0.45*sin(2.38*2+1.02*1.5-t*3)"}
+object cell_8_6 tile field {"x":2.38,"z":1.7}
+animate cell_8_6 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_8_6 sy {"expr":"1+0.45*sin(2.38*2+1.7*1.5-t*3)"}
+object cell_8_7 gold field {"x":2.38,"z":2.38}
+animate cell_8_7 y {"expr":"0.8*sin(2.38*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_8_7 sy {"expr":"1+0.45*sin(2.38*2+2.38*1.5-t*3)"}
+object cell_9_0 gold field {"x":3.06,"z":-2.38}
+animate cell_9_0 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(-2.38*2.1+t*2)"}
+animate cell_9_0 sy {"expr":"1+0.45*sin(3.06*2+-2.38*1.5-t*3)"}
+object cell_9_1 tile field {"x":3.06,"z":-1.7}
+animate cell_9_1 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(-1.7*2.1+t*2)"}
+animate cell_9_1 sy {"expr":"1+0.45*sin(3.06*2+-1.7*1.5-t*3)"}
+object cell_9_2 tile field {"x":3.06,"z":-1.02}
+animate cell_9_2 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(-1.02*2.1+t*2)"}
+animate cell_9_2 sy {"expr":"1+0.45*sin(3.06*2+-1.02*1.5-t*3)"}
+object cell_9_3 gold field {"x":3.06,"z":-0.34}
+animate cell_9_3 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(-0.34*2.1+t*2)"}
+animate cell_9_3 sy {"expr":"1+0.45*sin(3.06*2+-0.34*1.5-t*3)"}
+object cell_9_4 tile field {"x":3.06,"z":0.34}
+animate cell_9_4 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(0.34*2.1+t*2)"}
+animate cell_9_4 sy {"expr":"1+0.45*sin(3.06*2+0.34*1.5-t*3)"}
+object cell_9_5 tile field {"x":3.06,"z":1.02}
+animate cell_9_5 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(1.02*2.1+t*2)"}
+animate cell_9_5 sy {"expr":"1+0.45*sin(3.06*2+1.02*1.5-t*3)"}
+object cell_9_6 gold field {"x":3.06,"z":1.7}
+animate cell_9_6 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(1.7*2.1+t*2)"}
+animate cell_9_6 sy {"expr":"1+0.45*sin(3.06*2+1.7*1.5-t*3)"}
+object cell_9_7 tile field {"x":3.06,"z":2.38}
+animate cell_9_7 y {"expr":"0.8*sin(3.06*2-t*3)+0.6*cos(2.38*2.1+t*2)"}
+animate cell_9_7 sy {"expr":"1+0.45*sin(3.06*2+2.38*1.5-t*3)"}
+animate field ry {"expr":"45*sin(t*0.6)"}
+animate cam z {"keys":[[0,17],[4,12],[8,15],[12,17]],"ease":"smooth"}
+animate cam x {"expr":"1.25*sin(t*0.7)"}
+animate sun x {"expr":"-5*cos(t*0.6)"}
+animate transition opacity {"keys":[[0,1],[0.7,0],[11.3,0],[12,1]],"ease":"smooth"}
+cue click {"start":2,"duration":0.15}
+cue click {"start":5,"duration":0.15}
+cue click {"start":8,"duration":0.15}
+cue click {"start":11,"duration":0.15}
+}

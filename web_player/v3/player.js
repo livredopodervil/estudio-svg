@@ -2,7 +2,7 @@
 'use strict';
 const $=id=>document.getElementById(id), clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
 let project=null, durations=[], starts=[], total=0, index=-1, svg=null, bases=new Map();
-let current=0, playing=false, origin=0, raf=0, voiceEl=null, voiceScene=-1, warning='';
+let current=0, playing=false, origin=0, raf=0, voiceEl=null, voiceScene=-1, warning='', speed=1;
 let voiceBusy=false, voiceEpoch=0, waitingVoice=false, calibration=false;
 const localPlayer=location.pathname==='/player-v3/'||location.pathname==='/player-v3/index.html';
 const slug=localPlayer?new URLSearchParams(location.search).get('project'):document.documentElement.dataset.slug;
@@ -40,7 +40,7 @@ function nativeVoice(scene){
   const perLang=window.__voiceSceneLocaleFiles?.[lang]||{};
   const file=perLang[scene]||(lang===originalLang?(nativeMap[scene]||legacy[basePath]||''):'');
   voiceRuntime.setMode($('voiceSource').value);
-  voiceRuntime.setRate(Number($('rate').value));
+  voiceRuntime.setRate(Number($('rate').value)*speed);
   voiceRuntime.setVolume(1);
   voiceRuntime.speak({text:localeText.text,lang:localeText.lang,file,
     voices:window.speechSynthesis?.getVoices?.()||[],
@@ -59,8 +59,8 @@ function sanitize(root){
   return root;
 }
 async function loadScene(i,token){
-  if(i===index || pendingScene===i)return;
   pendingScene=i;
+  window.StudioMedia?.pause();
   const url=localPlayer?'/api/player-v3?name='+encodeURIComponent(slug)+'&revision='+encodeURIComponent(revision)+'&scene='+(i+1):'./cenas/cena-'+String(i+1).padStart(3,'0')+'.svg';
   const res=await fetch(url,{cache:'no-store'});
   if(!res.ok)throw Error(url+' → HTTP '+res.status);
@@ -81,7 +81,7 @@ async function loadScene(i,token){
   picker.hidden=!targets.length;
   picker.value=targets.find(t=>/ponteiro|agulha|hand|segund|minut|hora/i.test(t))||targets[0]||'';
   calibration=false;$('calibrate').textContent='⊙ Ajustar eixo';
-  window.StudioMedia?.scene(i,project.cenas[i],project.video,current-starts[i],playing);
+  window.StudioMedia?.scene(i,project.cenas[i],project.video,current-starts[i],playing,speed);
   if(playing)nativeVoice(i);
 }
 function val(a,k,defaultValue=0){const n=Number(a[k]);return Number.isFinite(n)?n:defaultValue;}
@@ -156,6 +156,7 @@ function apply(t){
   window.EstudioV3.updateProcedural(svg,project.cenas[index],p);
   // Mesma cena permanece no DOM, sem solicitação de frames ao servidor.
   svg.style.opacity=String(clamp(p/.06));
+  window.StudioMedia?.tick(index,Math.max(0,t-starts[index]),playing&&!waitingVoice,speed);
   $('seek').value=String(Math.round(1000*t/Math.max(total,.001)));
   $('clock').textContent=sec(t)+' / '+sec(total);
 }
@@ -164,21 +165,21 @@ async function show(t){
   if(!project)return;
   current=clamp(t,0,total);const i=pick(Math.min(current,Math.max(0,total-1e-6)));
   if(pendingScene===i)return;
-  if(i!==index){const token=++loadToken;try{await loadScene(i,token);}catch(e){if(token===loadToken)pendingScene=-1;throw e;}if(token!==loadToken)return;}
+  if(i!==index){const token=++loadToken;try{await loadScene(i,token);}catch(e){if(token!==loadToken)return;pendingScene=-1;throw e;}if(token!==loadToken)return;}
   else if(pendingScene!==-1){++loadToken;pendingScene=-1;}
   apply(current);
 }
 function loop(now){
   if(!playing)return;
   if(voiceEl && voiceEl.error){out('Erro na narração.');stopVoice();}
-  if(pendingScene!==-1){origin=now-current*1000;raf=requestAnimationFrame(loop);return;}
-  let t=(now-origin)/1000;
+  if(pendingScene!==-1){origin=now-current*1000/speed;raf=requestAnimationFrame(loop);return;}
+  let t=(now-origin)/1000*speed;
   // Nunca troca de cena antes de concluir a voz da cena corrente.
   if(index>=0&&voiceBusy&&index<durations.length){
     const end=starts[index]+durations[index];
     if(t>=end){
       t=end-0.0005;
-      origin=now-t*1000; // pausa apenas o relógio das imagens
+      origin=now-t*1000/speed; // pausa o relógio das imagens e o clipe
       if(!waitingVoice){waitingVoice=true;out('Aguardando conclusão da narração da cena '+(index+1));}
     }
   }else if(waitingVoice){waitingVoice=false;out('Reprodução sincronizada.');}
@@ -195,19 +196,20 @@ $('play').onclick=()=>{
   if(!project)return;
   if(playing){pause();return;}
   if(current>=total){current=0;stopVoice();}
-  playing=true;window.StudioMedia?.play();origin=performance.now()-current*1000;$('play').textContent='Ⅱ Pausar';
+  playing=true;window.StudioMedia?.play();origin=performance.now()-current*1000/speed;$('play').textContent='Ⅱ Pausar';
   if(index>=0&&index===pick(current)){
     if(voiceBusy&&voiceScene===index){voiceRuntime.resume();}else nativeVoice(index);
   }
   raf=requestAnimationFrame(loop);
 };
 $('seek').oninput=()=>{const t=total*Number($('seek').value)/1000;
-  if(playing)origin=performance.now()-t*1000;
+  if(playing)origin=performance.now()-t*1000/speed;
   stopVoice();window.StudioMedia?.seek(pick(t),t-starts[pick(t)]);
-  show(t).then(()=>{if(playing)nativeVoice(index)}).catch(e=>out(e.message));
+  show(t).then(()=>{if(playing&&index===pick(current)&&pendingScene===-1)nativeVoice(index)}).catch(e=>out(e.message));
 };
+$('speed').onchange=()=>{speed=Number($('speed').value)||1;origin=performance.now()-current*1000/speed;voiceRuntime.setRate(Number($('rate').value)*speed);if(index>=0)apply(current);};
 $('rate').oninput=()=>{$('rateOut').textContent=Number($('rate').value).toFixed(2)+'×';
-  voiceRuntime.setRate(Number($('rate').value));
+  voiceRuntime.setRate(Number($('rate').value)*speed);
   // Web Speech API não permite alterar a velocidade durante uma fala em curso.
 };
 $('narrate').onchange=()=>{if(!$('narrate').checked)stopVoice();else if(playing&&index>=0)nativeVoice(index);};
@@ -254,7 +256,12 @@ function refreshVoices(){
 }
 refreshVoices();window.speechSynthesis?.addEventListener?.('voiceschanged',refreshVoices);
 
-$('full').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen?.();else $('stageShell').requestFullscreen?.();};
+const fullscreenShell=$('stageShell');let fullTimer;
+function revealFullControls(){if(document.fullscreenElement!==fullscreenShell)return;fullscreenShell.classList.add('controls-visible');clearTimeout(fullTimer);fullTimer=setTimeout(()=>fullscreenShell.classList.remove('controls-visible'),3500);}
+$('full').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else if(fullscreenShell.requestFullscreen)await fullscreenShell.requestFullscreen();else throw Error('Tela cheia não suportada');}catch(e){out(e.message+' — abra o player em uma aba independente do Chrome.');}};
+$('fullExit').onclick=()=>document.exitFullscreen?.().catch(e=>out(e.message));$('fullPlay').onclick=()=>$('play').click();
+fullscreenShell.addEventListener('click',revealFullControls);document.addEventListener('fullscreenchange',()=>{if(document.fullscreenElement===fullscreenShell)revealFullControls();else{clearTimeout(fullTimer);fullscreenShell.classList.remove('controls-visible');}});
+if(window!==parent){$('separate').href=location.href;$('separate').hidden=false;}
 window.addEventListener('pagehide',()=>{pause();stopVoice();});
 (async()=>{
   try{

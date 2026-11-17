@@ -36,3 +36,15 @@ Autor: Rogério Duarte. Respeite licenças e créditos das dependências.
 - `alvos` e `intervalo` são expandidos por `schema.animation_dict`; a cena persistida deve ser normalizada e limitada a 32 faixas.
 - GSAP não está integrado. Revisar `docs/LICENCAS_GSAP.md` antes de redistribuir qualquer arquivo GreenSock, especialmente pelas restrições a editores visuais.
 - Manuais para LLMs ficam em `docs/LLM_*.md`; exemplos JSON devem passar por `schema.normalize` e regressões automatizadas antes de publicação.
+
+## Ponte GIL 0.2.1
+- O adaptador GIL produz mídia local e fonte verificável, sem escrever o JSON automaticamente. Persistência e edição continuam no serviço canônico do vídeo; narração e faixas existentes nunca são substituídas implicitamente. Nenhum código de projeto deve ser executado pelo importador JSON. O editor GIL permanece autoridade dos objetos internos. Preservar os contratos do SpatialSeed e explicitar limites de projeção.
+
+## Controle temporal V3.7
+- Alterações coletivas de duração são planejadas e validadas integralmente antes de alteração, sem tocar mídia, voz e fontes GIL. A duração mínima é um atributo do documento; velocidade de reprodução é estado efêmero da interface. Preserve o encaixe de voz no renderizador.
+- O clip HTML segue o tempo lógico da cena e pausa durante espera por voz; carregamento de metadata e seeks assíncronos não devem introduzir relógio concorrente. O derivado MP4 da GIL não equivale à execução nativa do objeto.
+
+## V3.8 — autoria e organização
+- Planejamento temporal usa o mesmo `voice_required_seconds()` do renderizador. Medir não grava; aplicar exige snapshot íntegro e só altera durações. Voz ausente fica intacta. Redução pode encurtar outras trilhas e clipes; não apaga arquivos.
+- Projeto arquivado é JSON preservado em `projetos/.arquivados`, com nome reservado. Operações exigem confirmação, origem local, ausência de tarefa ativa e não sobrescrevem. Mídia/cache compartilhados não são coletados ou movidos automaticamente.
+- Inventário usa referências do documento, não varredura de diretórios privados. A biblioteca utiliza as faixas existentes, IDs próprios e o pipeline canônico SVG; a ponte GIL permanece dona do derivado, com fonte preservada. Não duplicar contratos de animação/voz ou executar código arbitrário.

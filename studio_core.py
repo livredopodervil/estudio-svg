@@ -136,10 +136,14 @@ def batch_audio(pr,progress=lambda *_:None,*,export_zip=True):
     tmp.replace(zip_path)
     return zip_path
 
+def voice_required_seconds(scene, measured):
+    """Minimum nominal duration for a measured voice, shared with authoring."""
+    return measured+scene['audio']['voice_delay']+.26
+
 def scene_length(scene,pr,voice=True):
     requested=scene['duracao'];voicef=voice_source(scene,pr,required=voice) if voice else None
     if voicef:
-        need=duration(voicef)+scene['audio']['voice_delay']+.26
+        need=voice_required_seconds(scene,duration(voicef))
         if need>requested and pr['encaixe_voz']=='estender':requested=need
         elif need>requested:raise StudioError('Narração excede a duração da cena: '+scene['titulo'])
     fps=pr['video']['draw_fps']
