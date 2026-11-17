@@ -81,3 +81,10 @@ Consultar `docs/VIEWPORT_PLATAFORMA_V313.md`. A matriz afim é compartilhada ent
 - HTML independente com GIL incorpora exclusivamente módulos autorizados do runtime instalado (`RD_GIL_ROOT`) e mídias locais referenciadas, sem buscar recursos externos. Se faltar qualquer dependência, interromper em vez de gerar HTML parcial.
 - O modo Apresentar deve utilizar os mesmos `syncObjects`/`updateLayer` do editor. Captura de tela usa `getDisplayMedia` apenas quando disponível e com gesto/permissão explícita; exportação Canvas pelo editor permanece o fallback no Android.
 - Após aplicar, validar em Android os gizmos, seleção, ordem de camadas, áudio, apresentação, gravação/exportação e HTML offline. Não publicar automaticamente.
+
+### V3.13.4 — execução convergente, áudio e seleção legada
+- `web/media-start-gate.js` coordena `play()`/`pause()` de áudio HTML no editor, na apresentação e nos HTML autônomos. Toda Promise de `play()` deve ser tratada; não mascarar falhas reais de permissão, codec ou mídia. O HTML autônomo precisa atribuir explicitamente o URI incorporado ao elemento de áudio antes de reproduzir.
+- O clipe original permanece no esquema legado até ação humana **Converter clipe em camada editável**. A ação transfere arquivo, pose e áudio para `objetos_midia`, removendo sua referência ativa do `video_clipe` para impedir duplicação. O histórico do documento deve permitir desfazer.
+- Seleção de SVG legado abre ferramentas existentes de SVG/animação, preservando IDs. Não gravar mudanças temporárias no SVG da prévia como se fossem edição persistente.
+- Programas de movimento usam exclusivamente `motionSource`/`motionProgram` com `Timeline` GIL; múltiplos programas podem coexistir. `visual-effects.mjs` contém a apresentação de moldura, cantos e sombra para DOM e Canvas. Evitar criar efeitos incompatíveis entre exportadores.
+- O pipeline legado de frames SVG não está unificado com a avaliação nativa de objetos; não afirmar unidade completa de renderer até retirar a duplicação com testes de paridade. Testar vídeo de 10 min e áudio no Android antes de promover estabilidade.

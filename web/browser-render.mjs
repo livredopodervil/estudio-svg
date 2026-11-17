@@ -1,3 +1,4 @@
+import {canvasAppearance} from './visual-effects.mjs';
 // Estúdio SVG · Rogério Duarte. Exportação local experimental, sem quadros PNG no servidor.
 import {objectMotion,localTime,rect} from './scene-objects.mjs';
 import {codecCandidates,codecs} from './platform-capabilities.mjs';
@@ -35,7 +36,7 @@ async function svgImage(markup,signal,{transparent=false}={}){
 async function openImage(file,signal){const im=new Image();im.src='/api/media/image?file='+encodeURIComponent(file);await timed(im.decode(),15000,'Imagem não carregada: '+file,signal);return im;}
 function eventReady(el,event,ready,signal){return timed(new Promise((resolve,reject)=>{const ok=()=>{cleanup();resolve();},bad=()=>{cleanup();reject(Error('Mídia não decodificada: '+el.src));},cleanup=()=>{el.removeEventListener(event,ok);el.removeEventListener('error',bad);signal.removeEventListener('abort',bad);};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});signal.addEventListener('abort',bad,{once:true});if(ready())ok();}),15000,'Tempo excedido na leitura do clipe.',signal);}
 async function openVideo(file,offset,loop,signal,resources){const v=document.createElement('video');resources.add(v);v.muted=true;v.playsInline=true;v.preload='auto';v.loop=loop;v.src='/api/media/clip?file='+encodeURIComponent(file);v.load();await eventReady(v,'loadeddata',()=>v.readyState>=2,signal);if(!Number.isFinite(v.duration)||v.duration<=0)throw Error('Duração de clipe desconhecida: '+file);const target=sourceTime(offset,v.duration,loop);if(target!==null&&Math.abs(v.currentTime-target)>.025){v.currentTime=target;await eventReady(v,'seeked',()=>!v.seeking&&v.readyState>=2,signal);}return v;}
-function drawMedia(ctx,canvas,im,p,fit){const w=p.w*canvas.width,h=p.h*canvas.height;const args=boxFit(im.videoWidth||im.naturalWidth,im.videoHeight||im.naturalHeight,w,h,fit);if(!args)return;ctx.save();ctx.translate(p.x*canvas.width,p.y*canvas.height);ctx.transform(...affine(p,w,h));ctx.globalAlpha=clamp(p.opacity,0,1);ctx.beginPath();ctx.rect(-w/2,-h/2,w,h);ctx.clip();ctx.drawImage(im,...args);ctx.restore();}
+function drawMedia(ctx,canvas,im,p,fit){const w=p.w*canvas.width,h=p.h*canvas.height;const args=boxFit(im.videoWidth||im.naturalWidth,im.videoHeight||im.naturalHeight,w,h,fit);if(!args)return;ctx.save();ctx.translate(p.x*canvas.width,p.y*canvas.height);ctx.transform(...affine(p,w,h));ctx.globalAlpha=clamp(p.opacity,0,1);const stroke=canvasAppearance(ctx,w,h,p);ctx.drawImage(im,...args);stroke();ctx.restore();}
 // Rasterizações assíncronas de SVG não interrompem o relógio de áudio. Atraso excessivo aborta.
 function frameSlot(first){return {image:first,at:0,requested:0,pending:false,error:null};}
 function requestFrame(slot,t,step,make,signal){if(slot.error)throw slot.error;if(t-slot.at>Math.max(.8,3*step))throw Error('Desenho SVG atrasado; reduza resolução/FPS de desenho.');if(slot.pending||t-slot.requested+1e-6<step)return;slot.pending=true;slot.requested=t;Promise.resolve().then(()=>make(t)).then(image=>{if(!signal.aborted){slot.image=image;slot.at=t;}},e=>{if(!signal.aborted)slot.error=e;}).finally(()=>{slot.pending=false;});}
@@ -52,7 +53,7 @@ async function prepareEntry(e,p,signal,videos){const c=e.scene,{objetos_midia,gi
 }
 function paint(ctx,canvas,e,t,settings,signal,initial=false){const held=initial||t>=e.nominal;t=Math.min(t,Math.max(0,e.nominal-1e-8));ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);requestFrame(e.base,t,1/settings.baseFPS,e.baseAt,signal);ctx.drawImage(e.base.image,0,0,canvas.width,canvas.height);
  for(const l of e.layers){const o=l.obj,local=l.native||!l.sample?t:localTime(o,t);if(local===null){l.media?.pause?.();continue;}
- const p=l.native?{x:o.x,y:o.y,w:o.w,h:o.h,opacity:o.opacidade,rz:0}:l.sample?rect(o,l.sample(local)):o;
+ const p=l.native?{...o,x:o.x,y:o.y,w:o.w,h:o.h,opacity:o.opacidade,rz:0}:l.sample?{...o,...rect(o,l.sample(local))}:o;
  if(l.kind==='gil'){requestFrame(l.slot,local,1/settings.gilFPS,l.imageAt,signal);drawMedia(ctx,canvas,l.slot.image,p,'contain');}else if(l.kind==='image'){drawMedia(ctx,canvas,l.media,p,o.fit);}else if(held){l.media.pause();if(sourceTime(local+(o.offset||0),l.media.duration,o.loop)!==null)drawMedia(ctx,canvas,l.media,p,o.fit);}else if(videoFrame(l.media,local+(o.offset||0),o.loop,l.state)){drawMedia(ctx,canvas,l.media,p,o.fit);}}
 }
 // Keep the final container bytes on local storage for long recordings. No re-encoding.

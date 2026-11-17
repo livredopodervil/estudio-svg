@@ -93,6 +93,12 @@ def media_objects_dict(raw):
         if not isinstance(motion,str) or len(motion.encode('utf8'))>16000:raise ValueError('Fonte de movimento inválida')
         obj['motion']=motion
         obj['rotation']=n(item.get('rotation',0),0,-360,360)
+        for k,default,lo,hi in [('corner_radius',0,0,.5),('border_width',0,0,20),('shadow_blur',0,0,60)]:
+            obj[k]=n(item.get(k,default),default,lo,hi)
+        for k,default in [('border_color','#ffffff'),('shadow_color','#000000')]:
+            color=item.get(k,default)
+            if not isinstance(color,str) or not re.fullmatch(r'#[0-9a-fA-F]{6}',color):raise ValueError('Cor de moldura inválida: '+k)
+            obj[k]=color
         for k,lo,hi in [('shear',-2,2),('pivot_x',-.5,.5),('pivot_y',-.5,.5)]:
             if k in item:obj[k]=n(item[k],0,lo,hi)
         stack=item.get('motion_programs',[])

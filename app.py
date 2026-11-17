@@ -644,7 +644,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES
@@ -674,6 +674,7 @@ class Handler(BaseHTTPRequestHandler):
         filemap['/timing-v37.js']='timing-v37.js'
         filemap['/workspace-v38.js']='workspace-v38.js'
         filemap['/edit-history.js']='edit-history.js'
+        filemap['/media-start-gate.js']='media-start-gate.js'
         # Explicit allowlist: never serve arbitrary repository files.
         player_files={'/player-v3/':'index.html','/player-v3/index.html':'index.html',
           '/player-v3/player.js':'player.js','/player-v3/runtime.js':'runtime.js',

@@ -49,7 +49,8 @@ class TestStandaloneV34(TestCase):
             self.assertFalse(payload['audio'])
             self.assertEqual(len(payload['scenes'][0]['frames']),2)
             scripts=re.findall(r'<script>(.*?)</script>',html,flags=re.DOTALL)
-            self.assertEqual(len(scripts),2)
+            self.assertEqual(len(scripts),3)
+            self.assertIn("RDMediaGate=", scripts[1])
             if shutil.which('node'):
                 for i,js in enumerate(scripts):
                     f=root/f'script-{i}.js';f.write_text(js)

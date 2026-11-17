@@ -135,3 +135,5 @@
 #previewFullHost:fullscreen .rdViewportToolDock{z-index:2000}
 .rdViewportToolDock .rdDockHandle{touch-action:none}
 @media(max-width:600px){.rdViewportToolDock{grid-template-columns:repeat(2,32px)}}
+
+.legacyObjectSelection{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:#253b3b;border:1px solid #80a99e;padding:7px 10px;border-radius:8px;margin-bottom:8px;font:12px system-ui,sans-serif}.legacyObjectSelection[hidden]{display:none!important}.legacyObjectSelection button{font-size:12px;padding:5px 8px}.legacyObjectSelection span{color:#c6d9d5}.legacyObjectSelection strong{color:#f6d39c}

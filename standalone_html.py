@@ -142,6 +142,9 @@ def export_html(identifier, raw_project, media_dir, output_dir, progress=lambda 
             import os
             try:page=attach_native(page,os.environ.get('RD_GIL_ROOT',''),Path(__file__).resolve().parent)
             except (ValueError, OSError) as e:raise StudioError(str(e)) from e
+        # Shared audio driver is embedded in a self-contained HTML file.
+        driver=(Path(__file__).resolve().parent/'web/media-start-gate.js').read_text(encoding='utf8')
+        page=page.replace('%%RD_MEDIA_GATE%%',driver)
         if len(page.encode('utf8'))>MAX_HTML_SIZE:
             raise StudioError('HTML excede 145 MB. Reduza duração, draw_fps ou tamanho dos vídeos.')
         target=output_dir/(identifier+('_standalone.html' if with_audio else '_standalone_sem_audio.html'))
@@ -159,16 +162,19 @@ HTML_TEMPLATE=r'''<!doctype html>
 </style></head><body><main id="screen"><div id="frame"><div id="scene"></div><video id="video" muted playsinline preload="metadata" hidden></video></div></main>
 <div id="controls"><button id="start">▶ Iniciar</button><button id="pause">■ Parar</button><button id="full">⛶ Tela cheia</button><label>Áudio <select id="voiceMode" aria-label="Fonte de narração"><option value="mixed">Mixagem incorporada</option><option value="browser">Voz do navegador</option><option value="silent">Sem áudio</option></select></label><label>Idioma <select id="voiceLang"></select></label><label>Voz <select id="voiceName"><option value="">Automática</option></select></label><label>Velocidade <input id="voiceRate" type="range" min="0.7" max="2" step="0.05" value="1"><output id="voiceRateOut">1.00×</output></label><label>Volume <input id="voiceVolume" type="range" min="0" max="1" step="0.05" value="1"></label><span id="note">Selecione a fonte de voz e toque em Iniciar.</span></div><audio id="audio" preload="auto"></audio>
 <script>%%VOICE_RUNTIME%%</script>
+<script>%%RD_MEDIA_GATE%%</script>
 <script>
 (()=>{'use strict';
 const encoded='%%PAYLOAD%%';
 const bytes=Uint8Array.from(atob(encoded),x=>x.charCodeAt(0));
 const data=JSON.parse(new TextDecoder().decode(bytes));
+const embeddedAudio=document.getElementById('audio');if(data.audio){embeddedAudio.src=data.audio;embeddedAudio.preload='auto';}
 const $=s=>document.getElementById(s), audio=$('audio'), video=$('video');
 const screen=$('screen'), frame=$('frame'), scene=$('scene');
 const total=data.scenes.reduce((t,s)=>t+s.seconds,0);
 const starts=[];let sum=0;for(const s of data.scenes){starts.push(sum);sum+=s.seconds;}
-let playing=false,epoch=0,raf=0,last='',clipName='',clipScene=-1,showTimer=0;
+let playing=false,starting=false,epoch=0,attempt=0,raf=0,last='',clipName='',clipScene=-1,showTimer=0;
+const audioGate=RDMediaGate.create(audio);
 let speechScene=-1,held=false,mode='mixed';
 const say=new StudioV34.Narrator({
   synth:('speechSynthesis' in window)?speechSynthesis:null,
@@ -229,7 +235,7 @@ function speak(i){if(mode!=='browser'||speechScene===i)return;
   say.speak({text:loc.text,lang:loc.lang,voiceName:voiceName.value,
     voices:window.speechSynthesis?.getVoices?.()||[],onDone:()=>{held=false;}});
 }
-function stop(){playing=false;cancelAnimationFrame(raf);audio.pause();video.pause();
+function stop(){++attempt;starting=false;$('start').disabled=false;playing=false;cancelAnimationFrame(raf);audioGate.stop();video.pause();
   say.stop();speechScene=-1;held=false;
   document.body.classList.remove('playing','reveal');
   note('Apresentação parada. Selecione a fonte de voz e toque em Iniciar.');}
@@ -261,15 +267,22 @@ language.replaceChildren(...[...localeOptions].map(code=>new Option(code,code)))
 language.value=data.locale||'pt-BR';
 if('speechSynthesis' in window){availableVoices();window.speechSynthesis.addEventListener?.('voiceschanged',availableVoices);}
 $('start').onclick=async()=>{
-  if(playing)return;
-  stop();mode=select.value;audio.currentTime=0;
+  if(playing||starting)return;
+  starting=true;$('start').disabled=true;
+  const ticket=++attempt;
+  mode=select.value;speechScene=-1;held=false;last='';
+  say.stop();audio.currentTime=0;
   say.setRate(Number(rate.value));audio.playbackRate=Number(rate.value);audio.volume=Number($('voiceVolume').value);
   if(mode==='mixed'&&data.audio){
-    try{await audio.play();}catch(e){note('Áudio incorporado bloqueado: '+e.message);return;}
+    try{const started=await audioGate.start();if(!started||ticket!==attempt)return;}
+    catch(e){if(ticket!==attempt)return;starting=false;$('start').disabled=false;
+      note('Áudio não iniciou ('+e.name+'): '+e.message);return;}
   }
-  playing=true;epoch=performance.now();last='';document.activeElement?.blur?.();
-  document.body.classList.add('playing');document.body.classList.remove('reveal');
-  if(mode==='browser')speak(0); // A síntese começa dentro do gesto do usuário.
+  if(ticket!==attempt)return;
+  starting=false;$('start').disabled=false;playing=true;
+  const beginning=performance.now();epoch=beginning;last='';
+  document.activeElement?.blur?.();document.body.classList.add('playing');document.body.classList.remove('reveal');
+  if(mode==='browser')speak(0); // O gesto inicializa a síntese e a apresentação.
   update(0);raf=requestAnimationFrame(tick);
 };
 $('pause').onclick=stop;

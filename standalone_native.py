@@ -21,7 +21,7 @@ def embed_modules(runtime_root: str | Path, app_root: str | Path) -> str:
         raise ValueError('Runtime GIL ausente: informe RD_GIL_ROOT ao iniciar o Estúdio.')
     studio = Path(app_root).resolve() / 'web'
     gil_allowed = set(MODULES)
-    extra = {'scene-objects.mjs', 'gil-native.mjs', 'viewport-affine.mjs'}
+    extra = {'scene-objects.mjs', 'gil-native.mjs', 'viewport-affine.mjs', 'visual-effects.mjs'}
     scripts = {}
     for target in sorted(gil_allowed | {'studio/' + f for f in extra}):
         if target.startswith('studio/'):

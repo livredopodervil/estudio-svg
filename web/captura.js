@@ -218,29 +218,33 @@
     raf = requestAnimationFrame(tick);
   }
 
+  const mediaGate=window.RDMediaGate.create(audio);
+  let startingAudio=false, audioAttempt=0;
   async function start() {
-    if (!data || playing || preparing) return;
+    if (!data || playing || preparing || startingAudio) return;
+    startingAudio=true;const ticket=++audioAttempt;
     mode=chosen();speed=Number($('captureSpeed').value)||1;
     const withAudio = mode==='mix';
     if (withAudio) {
       if (!data.mix_ready) {
         say('Ainda não existe áudio pronto. Toque em Preparar áudio e depois em Iniciar.');
-        return;
+        startingAudio=false;return;
       }
-      audio.pause();
+      mediaGate.stop();
       audio.src = data.audio_url || '/api/presentation/audio?name=' + encodeURIComponent(name);
       audio.currentTime = 0;audio.playbackRate=speed;
       try {
-        // Called from the user's tap, not automatically after an asynchronous job.
-        await audio.play();
+        // Playback is owned by the shared media gate, and starts in the user gesture.
+        if(!await mediaGate.start()||ticket!==audioAttempt){startingAudio=false;return;}
       } catch (error) {
         say('O navegador bloqueou a reprodução: ' + error.message + '. Toque novamente em Iniciar.');
-        return;
+        startingAudio=false;return;
       }
     } else {
       audio.pause();
     }
-    playing = true;spoken=-1;elapsed=0;$('captureSpeed').disabled=true;
+    if(ticket!==audioAttempt){startingAudio=false;return;}
+    startingAudio=false;playing = true;spoken=-1;elapsed=0;$('captureSpeed').disabled=true;
     if(mode==='browser')narrate(0);
     epoch = performance.now();
     lastUpdate = 0;
@@ -252,9 +256,9 @@
   }
 
   function stop() {
-    playing = false;narrator.stop();spoken=-1;$('captureSpeed').disabled=false;
+    ++audioAttempt;startingAudio=false;playing = false;narrator.stop();spoken=-1;$('captureSpeed').disabled=false;
     cancelAnimationFrame(raf);
-    audio.pause();
+    mediaGate.stop();
     video.pause();
     if(nativeModules)nativeModules.then(([gil,objects])=>objects.pauseObjects($('visualFrame'))).catch(()=>{});
     if (controlsTimer) clearTimeout(controlsTimer);
