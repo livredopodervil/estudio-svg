@@ -91,6 +91,7 @@ def inventory(raw,media):
     for i,c in enumerate(pr['cenas'],1):
         prefix=f'Cena {i}: '
         add(c['imagem']['arquivo'],prefix+'imagem/prancha');add(c['video_clipe']['arquivo'],prefix+'clipe')
+        for obj in c.get('objetos_midia',[]):add(obj.get('file',''),prefix+'objeto '+obj['label'])
         au=c['audio'];add(au['voice_file'],prefix+'voz');add(au['music_file'],prefix+'música')
         for j,a in enumerate(au['tracks'],1):add(a['file'],prefix+f'faixa {j}')
         # SVG asset: references are local raster resources (not arbitrary URLs).

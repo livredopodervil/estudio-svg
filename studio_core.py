@@ -191,6 +191,7 @@ def convert_svg(svg,width,height):
     return p.stdout
 
 def poster(scene,pr,index,total):
+    if (scene.get('gil_nativo') or scene.get('objetos_midia')):raise StudioError('Quadro legado não suporta GIL nativa; use o Player vetorial local.')
     cfg=pr['video'];sec=scene_length(scene,pr,voice=False)
     key=visual_key(scene,pr,sec)
     out=CACHE/'poster'/(key+'.png')
@@ -200,6 +201,7 @@ def poster(scene,pr,index,total):
     return out,True
 
 def render_visual(scene,pr,index,total,seconds,progress=lambda *_:None):
+    if (scene.get('gil_nativo') or scene.get('objetos_midia')):raise StudioError('Renderizador legado não suporta GIL nativa; use o Player vetorial local.')
     cfg=pr['video'];key=visual_key(scene,pr,seconds)
     out=CACHE/'visual'/(key+'.mp4')
     if out.is_file() and out.stat().st_size>500 and abs(duration(out)-seconds)<.2:return out,False
@@ -435,8 +437,26 @@ def project_audio_mix(name,pr,progress=lambda *_:None):
     return {'audio':final.name,'cached':False}
 
 
+def browser_audio_mix(pr, target):
+    """Use the existing audio engine on the nominal browser timeline, not on draw_fps-rounded clips."""
+    scenes=pr['cenas']
+    if len(scenes)>20 or sum(c['duracao'] for c in scenes)>120:
+        raise StudioError('Exportação web experimental: até 120 segundos e 20 cenas.')
+    voices=[]
+    for scene in scenes:
+        voice=voice_source(scene,pr,required=True)
+        if voice and voice_required_seconds(scene,duration(voice))>scene['duracao']+.001:
+            raise StudioError('Locução excede a duração nominal de '+scene['titulo']+'. Use Tempo / áudio em lote antes de exportar.')
+        voices.append(voice)
+    paths=[make_scene_audio(scene,pr,scene['duracao'],voice)[0] for scene,voice in zip(scenes,voices)]
+    concat_audio(paths,target,pr)
+    return target
+
+
 def project_render(name,pr,progress=lambda *_:None,mode='render',scene_only=None,no_voice=False):
     scenes=pr['cenas'];total=len(scenes)
+    if mode not in ('audio','mix') and any((c.get('gil_nativo') or c.get('objetos_midia')) for c in scenes):
+        raise StudioError('Exportação visual legada indisponível com GIL nativa; use o Player vetorial local.')
     if mode=='mix':
         return project_audio_mix(name,pr,progress)
     if mode=='audio':
@@ -510,6 +530,7 @@ def scene_cached_media(pr,index,kind):
     """Somente mídias que correspondem ao JSON atual; nenhum trabalho dispendioso aqui."""
     if not 0<=index<len(pr['cenas']):raise StudioError('Cena inválida')
     c=pr['cenas'][index]
+    if (c.get('gil_nativo') or c.get('objetos_midia')) and kind in ('visual','poster'):return None
     v=voice_source(c,pr,required=False)
     seconds=scene_length(c,pr,voice=bool(v))
     if kind=='voice':return v

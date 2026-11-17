@@ -74,6 +74,36 @@ def gil_component_dict(raw):
     return {'format':'gil-timeline-0.1','origin':raw['origin'],'origin_sha256':original,'source':source,'source_sha256':digest,'duration':duration}
 
 
+def media_objects_dict(raw):
+    """Independent visual overlays, stored without replacing legacy scene media."""
+    if not isinstance(raw,list) or len(raw)>16:raise ValueError('Objetos: lista de até 16 camadas')
+    out=[]; ids=set()
+    for item in raw:
+        if not isinstance(item,dict):raise ValueError('Objeto inválido')
+        key=name(item.get('id'));kind=item.get('kind')
+        if key in ids or kind not in ('image','video','gil'):raise ValueError('ID duplicado ou tipo inválido')
+        ids.add(key)
+        obj={'id':key,'kind':kind,'label':str(item.get('label',key))[:120]}
+        for k,d,lo,hi in [('x',.5,-2,3),('y',.5,-2,3),('w',.7,.02,2),('h',.7,.02,2),('opacity',1,0,1),('start',0,0,600),('end',600,0,600),('offset',0,0,3600)]:
+            obj[k]=n(item.get(k,d),d,lo,hi)
+        if obj['end']<=obj['start']:raise ValueError('Intervalo do objeto inválido')
+        obj['fit']='contain' if item.get('fit')=='contain' else 'cover'
+        obj['loop']=item.get('loop',True) is not False;obj['opaque']=item.get('opaque') is True
+        motion=item.get('motion','')
+        if not isinstance(motion,str) or len(motion.encode('utf8'))>16000:raise ValueError('Fonte de movimento inválida')
+        obj['motion']=motion
+        if kind=='gil':
+            g=gil_component_dict(item.get('gil'))
+            if not g or g['origin']!='gil':raise ValueError('Fonte GIL inválida')
+            obj['gil']=g
+        else:
+            f=asset(item.get('file'));ext=f.rsplit('.',1)[-1].lower()
+            if ext not in (('jpg','jpeg','png','webp') if kind=='image' else ('mp4','webm','ogv','mov','m4v','mkv')):raise ValueError('Tipo de mídia incompatível')
+            obj['file']=f
+        out.append(obj)
+    return out
+
+
 def video_clip_dict(raw):
     """A video is an independently positioned layer above the scene artwork."""
     v=raw if isinstance(raw,dict) else {}
@@ -191,6 +221,13 @@ def normalize(data):
         if camadas:c['camadas']=camadas
         component=gil_component_dict(r.get('componente_gil'))
         if component and c['video_clipe']['arquivo']:c['componente_gil']=component
+        if 'gil_nativo' in r:
+            native=r['gil_nativo']; layer=gil_component_dict(native)
+            if layer is None or layer['origin']!='gil':raise ValueError(f'Cena {i+1}: camada GIL nativa inválida')
+            layer.update({k:n(native.get(k,d),d,lo,hi) for k,d,lo,hi in [('x',.5,0,1),('y',.5,0,1),('w',1,.08,1),('h',1,.08,1),('opacidade',1,0,1)]})
+            layer['opaque']=native.get('opaque') is True
+            c['gil_nativo']=layer
+        if 'objetos_midia' in r:c['objetos_midia']=media_objects_dict(r['objetos_midia'])
         if typ=='espacial': c['espacial']=normalize_spatial(r.get('espacial',default_spatial()))
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.
         c['fala']=c['audio']['voice_text']

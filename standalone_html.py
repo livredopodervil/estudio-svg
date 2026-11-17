@@ -45,6 +45,7 @@ def _convert_video(source, temp):
 
 def export_html(identifier, raw_project, media_dir, output_dir, progress=lambda *_:None, with_audio=True):
     project=normalize(raw_project)
+    if any((c.get("gil_nativo") or c.get("objetos_midia")) for c in project["cenas"]):raise StudioError("HTML independente ainda não suporta GIL nativa.")
     identifier=name(identifier)
     media_dir=Path(media_dir)
     for scene in project['cenas']:

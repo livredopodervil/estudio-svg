@@ -58,6 +58,8 @@ def work(job,project,mode,scene,no_voice):
                 now=time.monotonic()
                 if now-job.get('lastlog',0)>2 or q>=1 or msg.startswith('MP4'):
                     job['lastlog']=now;log_job(job,msg)
+            if mode in ('export-html','export-html-silent') and any((c.get('gil_nativo') or c.get('objetos_midia')) for c in pr['cenas']):
+                raise StudioError('HTML independente ainda não suporta GIL nativa; use Player vetorial local.')
             if mode in ('export-html','export-html-silent'):
                 from standalone_html import export_html
                 from studio_core import MEDIA as app_media, OUTPUT as app_output
@@ -353,6 +355,7 @@ class Handler(BaseHTTPRequestHandler):
             if route=='/api/presentation' and method=='GET':
                 identifier=name(q('name'))
                 project=read_project(identifier)
+                if any((c.get('gil_nativo') or c.get('objetos_midia')) for c in project['cenas']):raise StudioError('Captura legada não suporta GIL nativa; use Player vetorial local.')
                 mix_error=None
                 try:durations,mix=presentation_mix_status(identifier,project)
                 except StudioError as exc:
@@ -408,6 +411,7 @@ class Handler(BaseHTTPRequestHandler):
             if route=='/api/project/bundle' and method=='GET':
                 identifier=name(q('name'))
                 pr=read_project(identifier)
+                if any((c.get('gil_nativo') or c.get('objetos_midia')) for c in pr['cenas']):raise StudioError('ZIP com GIL nativa ainda não validado; preserve o JSON do projeto.')
                 # Unique temporary file avoids collisions between concurrent requests.
                 temporary=CACHE/('bundle-'+uuid.uuid4().hex+'.zip')
                 try:
@@ -467,9 +471,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.response(200,{'ok':True,'name':identifier})
             if route=='/api/workspace/gil-example' and method=='GET':
                 root=os.environ.get('RD_GIL_ROOT');key=q('id')
-                allowed={'orbit','kinetic','wave','pulse-network','field','datacenter'}
+                allowed={'orbit','kinetic','wave','pulse-network','field','datacenter','native-demo'}
                 if not root or key not in allowed:raise StudioError('Exemplo indisponível; inicie pelo RD Studio integrado')
-                base=ROOT/'examples'/'components' if key in ('pulse-network','field') else Path(root).resolve()/'examples';src=base/(key+'.gil')
+                base=ROOT/'examples'/'components' if key in ('pulse-network','field','native-demo') else Path(root).resolve()/'examples';src=base/(key+'.gil')
                 if not src.is_file() or src.is_symlink() or src.stat().st_size>250000:raise StudioError('Exemplo GIL ausente ou inválido')
                 return self.response(200,{'source':src.read_text('utf8'),'name':key+'.gil'})
             if route=='/api/projects' and method=='GET':return self.response(200,{'projects':[p.stem for p in sorted(PROJECTS.glob('*.json'))]})
@@ -491,6 +495,16 @@ class Handler(BaseHTTPRequestHandler):
                 if min(w,h)<320 or max(w,h)>1920:raise StudioError('Resolução inválida')
                 src=visualize(c,float(data.get('progress',0)),int(data.get('index',0)),int(data.get('total',1)),MEDIA,w,h)
                 return self.response(200,src,'image/svg+xml; charset=utf-8')
+            if route=='/api/browser-render/audio' and method=='POST':
+                import tempfile
+                from studio_core import browser_audio_mix
+                pr=normalize(self.payload(6_000_000)['project'])
+                with tempfile.TemporaryDirectory(prefix='estudio-web-audio-') as directory:
+                    path=Path(directory)/'mix.wav'
+                    if not ENGINE_LOCK.acquire(blocking=False):raise StudioError('Aguarde o fim da produção de áudio/vídeo.')
+                    try:browser_audio_mix(pr,path)
+                    finally:ENGINE_LOCK.release()
+                    return self.stream_file(path)
             if route=='/api/scene/media' and method=='GET':
                 pr=read_project(q('name'));idx=int(q('scene','1'))-1
                 kind=q('kind','voice')
@@ -597,6 +611,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs'):
+            return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
+        if r.startswith('/gil-runtime/'):
+            from gil_runtime_paths import MODULES
+            rel=r[len('/gil-runtime/'):]; configured=os.environ.get('RD_GIL_ROOT')
+            if rel not in MODULES or not configured:return self.response(404,'Runtime GIL não disponível','text/plain')
+            base=Path(configured).resolve(); f=(base/rel).resolve()
+            if not f.is_relative_to(base) or not f.is_file() or f.stat().st_size>2_000_000:return self.response(404,'Módulo GIL indisponível','text/plain')
+            return self.response(200,f.read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/vendor/svgedit/'):
             vendor=(ROOT/'web'/'vendor'/'svgedit').resolve()
             f=(vendor/r[len('/vendor/svgedit/'):]).resolve()

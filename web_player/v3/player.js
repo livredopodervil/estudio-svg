@@ -60,7 +60,7 @@ function sanitize(root){
 }
 async function loadScene(i,token){
   pendingScene=i;
-  window.StudioMedia?.pause();
+  window.StudioMedia?.pause();objectsModule?.pauseObjects($('stageShell'));
   const url=localPlayer?'/api/player-v3?name='+encodeURIComponent(slug)+'&revision='+encodeURIComponent(revision)+'&scene='+(i+1):'./cenas/cena-'+String(i+1).padStart(3,'0')+'.svg';
   const res=await fetch(url,{cache:'no-store'});
   if(!res.ok)throw Error(url+' → HTTP '+res.status);
@@ -119,8 +119,23 @@ function pivot(el,a){
     return [b.x+b.width/2,b.y+b.height/2];
   }catch(_){return [640,360];}
 }
+let nativeRuntime=null,nativeLoading=null,nativeFailed=false;
+let objectsModule=null,objectsLoading=false;
+function updateObjects(t){
+ if(!localPlayer||!project||index<0)return;const objects=project.cenas[index].objetos_midia||[];
+ if(objectsModule){objectsModule.syncObjects($('stageShell'),objects,Math.max(0,t-starts[index]),project.video,playing&&!waitingVoice,speed,out);return;}
+ if(!objects.length||objectsLoading)return;objectsLoading=true;import('/scene-objects.mjs').then(m=>{objectsModule=m;updateObjects(current);}).catch(e=>out('Objetos: '+e.message));
+}
+function updateNative(){
+  if(!localPlayer||!project||index<0)return;
+  const layer=project.cenas[index].gil_nativo||null,shell=$('stageShell');
+  if(nativeRuntime){nativeRuntime.updateLayer(shell,layer,Math.max(0,current-starts[index]),project.video);return;}
+  if(!layer||nativeLoading||nativeFailed)return;
+  nativeLoading=import('/gil-native.mjs').then(m=>{nativeRuntime=m;updateNative();}).catch(e=>{nativeFailed=true;out('GIL nativa indisponível: '+e.message);});
+}
 function apply(t){
   if(!project || !svg)return;
+  updateNative();updateObjects(t);
   const p=clamp((t-starts[index])/durations[index]);
   const tracks=new Map();
   const animations=[];
@@ -188,7 +203,7 @@ function loop(now){
   raf=requestAnimationFrame(loop);
 }
 function pause(){
-  playing=false;cancelAnimationFrame(raf);window.StudioMedia?.pause();
+  playing=false;cancelAnimationFrame(raf);window.StudioMedia?.pause();objectsModule?.pauseObjects($('stageShell'));
   voiceRuntime.pause();
   $('play').textContent='▶ Reproduzir';
 }

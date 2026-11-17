@@ -1,0 +1,18 @@
+gil timeline 0.1 {
+// Demonstração de camada audiovisual — 8 segundos, sem áudio nem assets.
+stage {"width":960,"height":540,"duration":8,"background":"#142433","camera":"cam"}
+resource camera camera {"z":14,"fov":45}
+resource group group {}
+resource disk shape.circle {"size":0.36,"color":"#80ead4","layer":4}
+resource core shape.circle {"size":0.72,"color":"#f6bd73","layer":3}
+resource caption text {"text":"GIL NATIVA","fontSize":30,"color":"#80ead4","layer":5}
+object cam camera - {}
+object ring group - {}
+object hub core - {}
+object label caption - {"y":-2.6}
+repeat point disk ring 12 {"x":{"expr":"2*cos(tau*i/count)"},"y":{"expr":"2*sin(tau*i/count)"}}
+animate ring rz {"expr":"120*t"}
+animate hub sx {"expr":"1+.25*sin(tau*t)"}
+animate hub sy {"expr":"1+.25*sin(tau*t)"}
+animate ring x {"expr":"1.4*sin(tau*t/4)"}
+}

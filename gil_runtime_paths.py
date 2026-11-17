@@ -1,0 +1,4 @@
+"""Allowlist of public GIL modules used by the local compositor; no private files."""
+MODULES = frozenset(
+('src/authoring.mjs', 'src/language.mjs', 'src/model.mjs', 'src/render-svg.mjs', 'src/spatialseed.mjs', 'src/timeline.mjs', 'vendor/spatialseed/packages/math-affine/src/Matrix4.js', 'vendor/spatialseed/packages/occurrence-contracts/src/OccurrenceRef.js', 'vendor/spatialseed/packages/property-registry/src/PropertyRegistry.js', 'vendor/spatialseed/packages/runtime-api/src/RuntimeCapabilities.js', 'vendor/spatialseed/packages/selection-operations/src/AffineAst.js', 'vendor/spatialseed/packages/selection-operations/src/AffineProgram.js', 'vendor/spatialseed/packages/temporal-runtime/src/AnalyticTimeDomains.js', 'vendor/spatialseed/packages/temporal-runtime/src/DependencyVersions.js', 'vendor/spatialseed/packages/temporal-runtime/src/EvolutionResult.js', 'vendor/spatialseed/packages/temporal-runtime/src/TemporalRuntime.js')
+)

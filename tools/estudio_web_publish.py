@@ -213,6 +213,8 @@ def export_project(project_file: Path, media_dir: Path, root: Path, slug: str,
     from schema import normalize
     parsed = json.loads(raw.decode("utf-8"))
     project = normalize(parsed)
+    if any((c.get("gil_nativo") or c.get("objetos_midia")) for c in project["cenas"]):
+        raise ValueError("Publicação estática ainda não suporta GIL nativa; use o player local.")
     # A missing referenced image must fail: never publish a visual placeholder.
     for scene in project.get("cenas", []):
         image = scene.get("imagem") or {}

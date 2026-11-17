@@ -547,6 +547,7 @@ def main():
     video=project.get('video') or {};width=int(video.get('width') or 1280);height=int(video.get('height') or 720)
     if width<1 or height<1:raise RuntimeError('Dimensões do vídeo inválidas')
     scenes=project['cenas']
+    if any((c.get("gil_nativo") or c.get("objetos_midia")) for c in scenes):raise RuntimeError("Player estático ainda não suporta GIL nativa; use o player local.")
     names=[(c.get('imagem') or {}).get('arquivo') for c in scenes if isinstance(c.get('imagem'),dict)]
     names=[n for n in names if isinstance(n,str) and n]
     roots=[repo/'midia',pub/'midia',stage/'midia']

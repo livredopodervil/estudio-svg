@@ -48,3 +48,15 @@ Autor: Rogério Duarte. Respeite licenças e créditos das dependências.
 - Planejamento temporal usa o mesmo `voice_required_seconds()` do renderizador. Medir não grava; aplicar exige snapshot íntegro e só altera durações. Voz ausente fica intacta. Redução pode encurtar outras trilhas e clipes; não apaga arquivos.
 - Projeto arquivado é JSON preservado em `projetos/.arquivados`, com nome reservado. Operações exigem confirmação, origem local, ausência de tarefa ativa e não sobrescrevem. Mídia/cache compartilhados não são coletados ou movidos automaticamente.
 - Inventário usa referências do documento, não varredura de diretórios privados. A biblioteca utiliza as faixas existentes, IDs próprios e o pipeline canônico SVG; a ponte GIL permanece dona do derivado, com fonte preservada. Não duplicar contratos de animação/voz ou executar código arbitrário.
+
+## GIL nativa V3.10.1 experimental
+- A camada opcional `gil_nativo` preserva fonte e digest sem exigir `video_clipe`. O relógio é o do editor/player; módulos do runtime GIL instalado são servidos por allowlist local. Não duplicar o compilador. O caminho legado e mídias existentes permanecem. Não exportar/publicar visual incompleto; composição com áudio GIL, assets externos e exportação direta ainda requerem integração. Testar em projeto de cópia antes da integração.
+
+## GIL nativa V3.10.2
+- Demonstração silenciosa autocontida; importação volta ao início da cena, abre a prévia e informa o estado. GIL3 3.0 tem gramática própria: não confundir extensão com conversão nem prometer animação de fonte estática.
+
+## V3.11 experimental · objetos de mídia
+- `objetos_midia` é opcional, com IDs únicos por cena, imagens, clipes mudos e composições GIL silenciosas. Não altera duração de cena nem áudio na inserção. Ordem da lista define empilhamento sobre as camadas legadas. Movimento externo usa um documento GIL (grupo `media`), avaliado no tempo local pelo mesmo Timeline; nunca `eval`. Não anunciar exportação visual até compositor final validado. Alterações puramente visuais não devem invalidar o transporte de áudio salvo. Preservar fonte e referências locais de mídia.
+
+## V3.12 experimental — exportação web
+- Exportar a composição do documento em canvas com MediaRecorder, sem intermediários MP4/PNG. Preservar o pipeline legado. A projeção de mídia usa o mesmo `motionProgram`, `rect` e `prepare` da GIL; não introduzir interpolador. O mix de áudio reutiliza o motor existente e a duração nominal do documento; nunca truncar voz excedente silenciosamente. A gravação em tempo real é experimental, não determinística; informar quadros desenhados e falhar em atraso persistente. Não confundir este caminho ainda dependente de `/api/preview` e mix Python com o objetivo estático. Não tratar a fusão GIL3/GIL/SpatialSeed como pré-requisito da primeira exportação.

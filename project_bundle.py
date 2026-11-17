@@ -21,6 +21,7 @@ def referenced_media(project):
     for scene in project['cenas']:
         add(scene.get('imagem', {}).get('arquivo', ''))
         add(scene.get('video_clipe', {}).get('arquivo', ''))
+        for obj in scene.get('objetos_midia',[]):add(obj.get('file',''))
         au=scene.get('audio', {})
         for key in ('voice_file', 'music_file'):add(au.get(key,''))
         for track in au.get('tracks', []):add(track.get('file', ''))

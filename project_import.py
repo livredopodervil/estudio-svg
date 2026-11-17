@@ -118,6 +118,7 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
             # MediaRecorder writes audio-only WebM too: infer stream kind from the
             # JSON field, not merely from the filename extension.
             video_files = {scene['video_clipe']['arquivo'] for scene in project['cenas'] if scene['video_clipe']['arquivo']}
+            video_files.update(obj['file'] for sc in project['cenas'] for obj in sc.get('objetos_midia',[]) if obj['kind']=='video')
             audio_files = ({project['trilha']} if project['trilha'] else set())
             for scene in project['cenas']:
                 au = scene['audio']
@@ -149,6 +150,8 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
             for scene in updated['cenas']:
                 scene['imagem']['arquivo'] = replace(scene['imagem']['arquivo'])
                 scene['video_clipe']['arquivo'] = replace(scene['video_clipe']['arquivo'])
+                for obj in scene.get('objetos_midia',[]):
+                    if obj['kind']!='gil':obj['file']=replace(obj['file'])
                 a = scene['audio']
                 a['voice_file'] = replace(a['voice_file'])
                 a['music_file'] = replace(a['music_file'])
