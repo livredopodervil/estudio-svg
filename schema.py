@@ -92,6 +92,13 @@ def media_objects_dict(raw):
         motion=item.get('motion','')
         if not isinstance(motion,str) or len(motion.encode('utf8'))>16000:raise ValueError('Fonte de movimento inválida')
         obj['motion']=motion
+        obj['rotation']=n(item.get('rotation',0),0,-360,360)
+        stack=item.get('motion_programs',[])
+        if not isinstance(stack,list) or len(stack)>8 or any(not isinstance(v,str) or len(v.encode('utf8'))>16000 for v in stack):raise ValueError('Programas GIL inválidos')
+        obj['motion_programs']=stack
+        if kind=='video':
+            obj['audio_enabled']=item.get('audio_enabled',True) is not False
+            obj['audio_volume']=n(item.get('audio_volume',1),1,0,3)
         if kind=='gil':
             g=gil_component_dict(item.get('gil'))
             if not g or g['origin']!='gil':raise ValueError('Fonte GIL inválida')
@@ -113,7 +120,9 @@ def video_clip_dict(raw):
       'fit':v.get('fit','cover') if v.get('fit') in ('cover','contain') else 'cover',
       'inicio':n(v.get('inicio',0),0,0,3600),
       'repetir':bool(v.get('repetir',True)),
-      'opacidade':n(v.get('opacidade',1),1,0,1)}
+      'opacidade':n(v.get('opacidade',1),1,0,1),
+      'audio_enabled':v.get('audio_enabled',False) is True,
+      'audio_volume':n(v.get('audio_volume',1),1,0,3)}
 
 
 def image_crop(raw):

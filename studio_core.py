@@ -157,13 +157,37 @@ def visual_key(scene,pr,seconds):
       asset_sha(clip),sha_file(ROOT/'graphics.py'),sha_file(ROOT/'scene_animation.py'),
       sha_file(ROOT/'scene_video.py'),sha_file(ROOT/'svg_engine_legacy.py')])
 
+def scene_clip_audio(scene, seconds):
+    """Audio contributions share the visual interval and source offset. Legacy is opt-in."""
+    au=scene['audio'];nominal=min(seconds,scene['duracao'])
+    if au.get('muted'):return []
+    voice=au.get('voice_file') if au.get('voice_enabled') else None
+    # A camera take already used as narration must not be doubled.
+    result=[]
+    def add(file,volume,start,end,offset,loop):
+        if file and file!=voice and volume>0 and end>start:
+            result.append((file,volume,start,end,offset,loop))
+    old=scene.get('video_clipe') or {}
+    if old.get('audio_enabled',False):add(old.get('arquivo'),old.get('audio_volume',1),0,nominal,old.get('inicio',0),old.get('repetir',False))
+    for o in scene.get('objetos_midia',[]):
+        if o.get('kind')=='video' and o.get('audio_enabled',True):add(o['file'],o.get('audio_volume',1),o['start'],min(nominal,o['end']),o['offset'],o['loop'])
+    return result
+
+@lru_cache(maxsize=256)
+def _clip_audio_info(path, size, mtime_ns):
+    info=json.loads(run(['ffprobe','-v','error','-show_entries','stream=codec_type:format=duration','-of','json',path],25).stdout)
+    return any(x.get('codec_type')=='audio' for x in info.get('streams',[])),float(info.get('format',{}).get('duration') or 0)
+
+def clip_audio_info(path):
+    stat=path.stat();return _clip_audio_info(str(path),stat.st_size,stat.st_mtime_ns)
+
 def audio_key(scene,pr,seconds,voice_path):
     au=scene['audio'];tracks=[(x,asset_sha(x['file'])) for x in au['tracks']]
     continuous=pr.get('trilha_continua',False)
     return digest(['audio-4',au,continuous,('' if continuous else pr['trilha']),('' if continuous else asset_sha(pr['trilha'])),
                    (0 if continuous else pr['volume_musica']),pr['volume_voz'],
                    voice_path.name if voice_path else '',(sha_file(voice_path) if voice_path else ''),
-                   asset_sha(au['music_file']),tracks,seconds])
+                   asset_sha(au['music_file']),tracks,seconds]+([[(v,asset_sha(v[0])) for v in scene_clip_audio(scene,seconds)]] if scene_clip_audio(scene,seconds) else []))
 
 def convert_svg(svg,width,height):
     b=svg.encode()
@@ -247,13 +271,14 @@ def make_scene_audio(scene,pr,seconds,voice_path):
         except wave.Error:pass
     au=scene['audio']
     inputs=[];filters=[];mixed=[];index=0
-    def add(file,volume,start=0,loop=False,fade_in=0,fade_out=0):
+    def add(file,volume,start=0,loop=False,fade_in=0,fade_out=0,offset=0,limit=None):
         nonlocal index
-        if not file or volume<=0:return
+        if not file or volume<=0 or start>=seconds:return
         if loop:inputs.extend(['-stream_loop','-1'])
+        if offset>0:inputs.extend(['-ss',str(offset)])
         inputs.extend(['-i',str(file)])
         tag=f't{index}';f=f'[{index}:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS,volume={volume:.5f}'
-        usable=max(.05,seconds-start)
+        usable=seconds-start if limit is None else min(seconds-start,limit)
         if fade_in>0:f+=f',afade=t=in:st=0:d={min(fade_in,usable):.3f}'
         if fade_out>0:f+=f',afade=t=out:st={max(0,usable-fade_out):.3f}:d={min(fade_out,usable):.3f}'
         f+=f',atrim=0:{usable:.5f},adelay={round(start*1000)}:all=1[{tag}]'
@@ -270,6 +295,12 @@ def make_scene_audio(scene,pr,seconds,voice_path):
         add(media_file(music),vol,loop=True)
     for t in ([] if au.get('muted') else au['tracks']):
         add(media_file(t['file']),t['volume'],t['start'],t['loop'],t['fade_in'],t['fade_out'])
+    for file,volume,start,end,offset,loop in scene_clip_audio(scene,seconds):
+        path=media_file(file);has_audio,length=clip_audio_info(path)
+        if not has_audio or length<=0:continue
+        if loop:offset=offset%length
+        elif offset>=length:continue
+        add(path,volume,start,loop,offset=offset,limit=end-start)
     tmp=out.with_suffix('.partial.wav')
     if not mixed:
         with wave.open(str(tmp),'wb') as f:
@@ -437,18 +468,26 @@ def project_audio_mix(name,pr,progress=lambda *_:None):
     return {'audio':final.name,'cached':False}
 
 
-def browser_audio_mix(pr, target):
-    """Use the existing audio engine on the nominal browser timeline, not on draw_fps-rounded clips."""
-    scenes=pr['cenas']
-    if len(scenes)>20 or sum(c['duracao'] for c in scenes)>120:
-        raise StudioError('Exportação web experimental: até 120 segundos e 20 cenas.')
-    voices=[]
+def browser_audio_plan(pr):
+    """Use the same measured/rounded lengths as the existing audio cache.
+
+    Nominal scene lengths remain saved unchanged. No implicit synthesis.
+    """
+    scenes=pr['cenas'];voices=[];lengths=[]
     for scene in scenes:
         voice=voice_source(scene,pr,required=True)
-        if voice and voice_required_seconds(scene,duration(voice))>scene['duracao']+.001:
-            raise StudioError('Locução excede a duração nominal de '+scene['titulo']+'. Use Tempo / áudio em lote antes de exportar.')
-        voices.append(voice)
-    paths=[make_scene_audio(scene,pr,scene['duracao'],voice)[0] for scene,voice in zip(scenes,voices)]
+        seconds=scene_length(scene,pr,voice=True)
+        voices.append(voice);lengths.append(seconds)
+    if len(scenes)>150 or sum(lengths)>900:
+        raise StudioError('Exportação web experimental: até 900 segundos e 150 cenas, incluindo a locução.')
+    return lengths,voices
+
+
+def browser_audio_mix(pr, target, planning=None):
+    """Mix exactly the effective timeline used by the preview's cached audio."""
+    lengths,voices=planning if planning is not None else browser_audio_plan(pr)
+    paths=[make_scene_audio(scene,pr,seconds,voice)[0]
+           for scene,seconds,voice in zip(pr['cenas'],lengths,voices)]
     concat_audio(paths,target,pr)
     return target
 
@@ -525,6 +564,13 @@ def clear_scene_cache(pr,scene_num):
     # Voz neural preservada; sua síntese é gerenciada separadamente.
     return True
 
+
+def prepare_preview_audio(pr,index):
+    """Prepare just the scene's audio, not the visual render or TTS."""
+    if not 0<=index<len(pr['cenas']):raise StudioError('Cena inválida')
+    c=pr['cenas'][index];voice=voice_source(c,pr,required=True)
+    seconds=scene_length(c,pr,voice=bool(voice))
+    return make_scene_audio(c,pr,seconds,voice)[0]
 
 def scene_cached_media(pr,index,kind):
     """Somente mídias que correspondem ao JSON atual; nenhum trabalho dispendioso aqui."""

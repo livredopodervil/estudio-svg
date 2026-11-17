@@ -60,3 +60,10 @@ Autor: Rogério Duarte. Respeite licenças e créditos das dependências.
 
 ## V3.12 experimental — exportação web
 - Exportar a composição do documento em canvas com MediaRecorder, sem intermediários MP4/PNG. Preservar o pipeline legado. A projeção de mídia usa o mesmo `motionProgram`, `rect` e `prepare` da GIL; não introduzir interpolador. O mix de áudio reutiliza o motor existente e a duração nominal do documento; nunca truncar voz excedente silenciosamente. A gravação em tempo real é experimental, não determinística; informar quadros desenhados e falhar em atraso persistente. Não confundir este caminho ainda dependente de `/api/preview` e mix Python com o objetivo estático. Não tratar a fusão GIL3/GIL/SpatialSeed como pré-requisito da primeira exportação.
+
+## V3.12.1 experimental — transporte e exportação longa
+- A duração efetiva da prévia e da exportação web segue `scene_length`, inclusive `encaixe_voz` e arredondamento de áudio legado. Não alterar duração nominal nem criar voz automaticamente. Na extensão, manter a última pose nominal, sem retemporizar animações. Player V3 continua preservado como referência, ainda não unificado.
+- Para exportações longas, mix WAV servido com token efêmero e Range, áudio em streaming, somente cena atual/seguinte carregadas e fragmentos do MediaRecorder em OPFS. Sem codificação intermediária de vídeo. Erros de sincronização/armazenamento interrompem o trabalho. Não afirmar gravação de dez minutos validada antes de teste real. Arquivos de vídeo de entrada e projetos não são apagados.
+
+### V3.12.2 — composição de movimentos e áudio de mídia
+Consultar `docs/CLIP_AUDIO_MOVIMENTO_V3122.md`. Não duplicar o áudio de câmera já incorporado à locução. A assinatura de áudio inclui somente os parâmetros sonoros/temporais dos clipes, não a pose ou a fonte GIL. A prévia e a exportação usam a mesma função de mixagem de cena; manter compatibilidade com o clipe original e com `motion`. Testar antes de promover: `python -m unittest discover -s tests` e `RD_GIL_ROOT=/caminho/confirmado/gil node --test tests/*.mjs`.

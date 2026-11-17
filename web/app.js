@@ -4,7 +4,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const types=['globo','linha','barras','numero','cartoes','arvore','svg','foto','espacial'];
 const names={globo:'Globo',linha:'Linhas',barras:'Barras',numero:'Número',cartoes:'Cartões',arvore:'Árvore fractal',svg:'SVG personalizado',foto:'Fotografia',espacial:'Espacial 3D (experimental)'};
 const presets={'16:9':[1280,720],'9:16':[720,1280],'1:1':[800,800],'4:5':[800,1000],'21:9':[1260,540]};
-const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',animacoes:[],video_clipe:{arquivo:'',x:.5,y:.56,w:.70,h:.40,fit:'cover',inicio:0,repetir:true,opacidade:1},imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[],modo:'quadro',x:.73,y:.58,w:.41,h:.65,frame:true},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,tracks:[]}});
+const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',animacoes:[],video_clipe:{arquivo:'',x:.5,y:.56,w:.70,h:.40,fit:'cover',inicio:0,repetir:true,opacidade:1,audio_enabled:false,audio_volume:1},imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[],modo:'quadro',x:.73,y:.58,w:.41,h:.65,frame:true},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,tracks:[]}});
 let previewRaf=0,lastPreviewDraw=-Infinity;
 let previewRate=1,timingHistory=null,fitResult=null,workspaceBusy=false,librarySerial=0;
 let clipPreviewFile='',clipPreviewScene=-1,clipEditing=false,clipGesture=null;
@@ -13,9 +13,12 @@ const api=async(path,options={})=>{const response=await fetch(path,options);cons
 const post=(path,body)=>api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 function toast(t,bad=false){const el=$('toast');el.textContent=t;el.style.borderColor=bad?'#e58b7d':'#c7996c';el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3600);}
 function sec(t){return Math.floor(t/60).toString().padStart(2,'0')+':'+Math.floor(t%60).toString().padStart(2,'0');}
-function totalDuration(){return project.cenas.reduce((n,c)=>n+Number(c.duracao),0);}
-function startOf(i){return project.cenas.slice(0,i).reduce((n,c)=>n+Number(c.duracao),0);}
-function sceneAt(t){let sum=0;for(let i=0;i<project.cenas.length;i++){let d=Number(project.cenas[i].duracao);if(t<sum+d||i===project.cenas.length-1)return {i,progress:Math.max(0,Math.min(1,(t-sum)/Math.max(.5,d)))};sum+=d;}return {i:0,progress:0};}
+let effectiveTiming=null;
+function effectiveLengths(){return effectiveTiming?.owner===project&&effectiveTiming.signature===audioSignature(project)?effectiveTiming.lengths:null;}
+function sceneSeconds(i,lengths=effectiveLengths()){const nominal=Number(project.cenas[i].duracao);return Math.max(nominal,lengths?.[i]||nominal);}
+function totalDuration(){const lengths=effectiveLengths();return project.cenas.reduce((n,c,i)=>n+sceneSeconds(i,lengths),0);}
+function startOf(i){const lengths=effectiveLengths();return project.cenas.slice(0,i).reduce((n,c,j)=>n+sceneSeconds(j,lengths),0);}
+function sceneAt(t){const lengths=effectiveLengths();let sum=0;for(let i=0;i<project.cenas.length;i++){let d=sceneSeconds(i,lengths),nominal=Number(project.cenas[i].duracao);if(t<sum+d||i===project.cenas.length-1)return {i,progress:Math.max(0,Math.min(1,(t-sum)/Math.max(.5,nominal)))};sum+=d;}return {i:0,progress:0};}
 function getPath(path){let keys=path.split('.'),obj=project;for(let k of keys)obj=obj[k];return obj;}
 function setPath(path,value){let ks=path.split('.'),obj=project;for(let j=0;j<ks.length-1;j++)obj=obj[ks[j]];obj[ks[ks.length-1]]=value;}
 const variant=(options,current)=>options.map(([v,t])=>`<option value="${esc(v)}" ${String(v)===String(current)?'selected':''}>${esc(t)}</option>`).join('');
@@ -101,8 +104,8 @@ function renderScene(){let h='<div class="sectionTitle">Cena '+(selected+1)+' ·
  if(project.cenas[selected].gil_nativo){h+='<p class="fieldHint">GIL nativa · '+Number(project.cenas[selected].gil_nativo.duration).toFixed(2)+' s · sem MP4 intermediário</p><div class="inline"><button id="editNativeGIL" type="button">Editar fonte nativa</button><button id="downloadNativeGIL" type="button">Baixar GIL</button><button id="removeNativeGIL" type="button">Remover camada GIL</button></div><div class="fieldGrid4">';
  for(const [key,title] of [['x','Centro X'],['y','Centro Y'],['w','Largura'],['h','Altura'],['opacidade','Opacidade']])h+=field(title+' (0 a 1)',`cenas.${selected}.gil_nativo.${key}`,'number');
  h+='</div>'+field('Fundo opaco',`cenas.${selected}.gil_nativo.opaque`,'checkbox');}
- h+=field('Arquivo do clipe',`cenas.${selected}.video_clipe.arquivo`);
- h+='<p class="fieldHint">O vídeo aparece como quadro móvel sobre o SVG. O som do clipe é independente: para usá-lo como narração, selecione a faixa no painel Áudio.</p>';
+ h+=field('Arquivo do clipe',`cenas.${selected}.video_clipe.arquivo`);h+=field('Incluir som original',`cenas.${selected}.video_clipe.audio_enabled`,'checkbox');h+=field('Volume do clipe',`cenas.${selected}.video_clipe.audio_volume`,'number');
+ h+='<p class="fieldHint">O som do clipe entra na mixagem. Salve alterações sonoras antes de reproduzir. Se a mídia já for a locução, não será duplicada.</p>';
  h+='<div class="fieldGrid4">';
  for(const [key,title] of [['x','Centro X'],['y','Centro Y'],['w','Largura'],['h','Altura']])h+=field(title+' (0 a 1)',`cenas.${selected}.video_clipe.${key}`,'number');
  h+='</div>';
@@ -205,9 +208,9 @@ function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da c
 function dirtyNow(redraw=false){dirty=true;$('saveInfo').textContent='● Há alterações não salvas';if(redraw)drawEverything();else showPreview();}
 async function save(force=false){if(!project||(!dirty&&!force))return;
  if(saving)return; saving=true;
- try{const name=projectName,snapshot=JSON.stringify(project);const saved=JSON.parse(snapshot);await post('/api/project',{name,project:saved});const signature=audioSignature(saved),audioChanged=signature!==savedAudioSignature;savedAudioSignature=signature;dirty=name!==projectName||JSON.stringify(project)!==snapshot;if(audioChanged||name!==projectName)stopTransport(true);$('saveInfo').textContent=dirty?'● Alterações posteriores ao salvamento':'✓ Salvo no aparelho';}finally{saving=false;}}
+ try{const name=projectName,snapshot=JSON.stringify(project);const saved=JSON.parse(snapshot);await post('/api/project',{name,project:saved});const signature=audioSignature(saved),audioChanged=signature!==savedAudioSignature;savedAudioSignature=signature;dirty=name!==projectName||JSON.stringify(project)!==snapshot;if(audioChanged||name!==projectName){stopWorkspace();stopTransport(true);effectiveTiming=null;await refreshEffectiveTiming();}$('saveInfo').textContent=dirty?'● Alterações posteriores ao salvamento':'✓ Salvo no aparelho';}finally{saving=false;}}
 function drawSceneList(){const l=$('sceneList');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneItem ${i===selected?'active':''}"><button class="scenePick" data-scene="${i}"><small>${String(i+1).padStart(2,'0')} · ${esc(names[s.tipo]||s.tipo)} · ${s.duracao}s</small><b>${esc(s.titulo||'Sem título')}</b><small>${s.audio.voice_enabled?'♫ voz':'sem voz'}</small></button><div class="sceneOrder"><button data-shift="-1" data-index="${i}">↑</button><button data-shift="1" data-index="${i}">↓</button></div></div>`).join('');$('sceneCount').textContent=project.cenas.length;}
-function drawTimeline(){const scale=Number($('timelineZoom')?.value)||12;const l=$('timeline');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneStrip ${selected===i?'active':''}" style="width:${Math.max(42,Number(s.duracao)*scale)}px"><button data-scene="${i}" title="${esc(s.titulo)}"><small>${i+1} · ${startOf(i).toFixed(1)}s</small><b>${esc(s.titulo)}</b><small>${Number(s.duracao).toFixed(2)}s ${s.audio.voice_enabled?'♫':''}</small></button><button class="trimHandle" data-trim="${i}" aria-label="Arrastar para ajustar duração da cena ${i+1}" title="Arraste para ajustar duração"></button></div>`).join('');}
+function drawTimeline(){const scale=Number($('timelineZoom')?.value)||12;const l=$('timeline');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneStrip ${selected===i?'active':''}" style="width:${Math.max(42,sceneSeconds(i)*scale)}px"><button data-scene="${i}" title="${esc(s.titulo)}"><small>${i+1} · ${startOf(i).toFixed(1)}s</small><b>${esc(s.titulo)}</b><small>${sceneSeconds(i).toFixed(2)}s${sceneSeconds(i)>Number(s.duracao)+.001?' (ajust.)':''} ${s.audio.voice_enabled?'♫':''}</small></button><button class="trimHandle" data-trim="${i}" aria-label="Arrastar para ajustar duração da cena ${i+1}" title="Arraste para ajustar duração"></button></div>`).join('');}
 function bindTimeline(){const l=$('timeline');$('timelineZoom').oninput=drawTimeline;l.addEventListener('pointerdown',e=>{const grip=e.target.closest('[data-trim]');if(!grip||e.button!==0||!project||saving||busy)return;e.preventDefault();e.stopPropagation();stopWorkspace();const target=project.cenas[Number(grip.dataset.trim)],orig=Number(target.duracao),owner=project,scale=Number($('timelineZoom').value)||12,x=e.clientX,strip=grip.parentElement;let val=orig;grip.setPointerCapture(e.pointerId);grip.onpointermove=ev=>{val=Math.max(.5,Math.min(600,Math.round((orig+(ev.clientX-x)/scale)*20)/20));strip.style.width=Math.max(42,val*scale)+'px';strip.querySelector('button small:last-child').textContent=val.toFixed(2)+'s';};const finish=ev=>{grip.onpointermove=grip.onpointerup=grip.onpointercancel=null;if(ev.type!=='pointercancel'&&owner===project&&project.cenas.includes(target)&&Math.abs(val-orig)>.001){target.duracao=val;selected=project.cenas.indexOf(target);playTime=startOf(selected);dirtyNow(true);}else drawTimeline();};grip.onpointerup=finish;grip.onpointercancel=finish;});}
 function drawEverything(){if(!project)return;drawSceneList();drawTimeline();drawEditor();objectEditor?.refresh();if(!$('workspaceLibrary').hidden)libraryTargets();$('stage').style.aspectRatio=project.video.width+'/'+project.video.height;const ratio=project.video.width/project.video.height;$('previewFullHost').style.setProperty('--preview-aspect',ratio);const shell=$('stageShell');shell.style.width=project.video.height>project.video.width?Math.max(160,Math.round(Math.min(window.innerWidth*.92,window.innerHeight*.70*ratio)))+'px':'';document.body.classList.toggle('portraitProject',project.video.height>project.video.width);$('formatInfo').textContent=`${project.video.width} × ${project.video.height} · ${project.video.fps} FPS`;showPreview();}
 function jump(i){clipEditingEnabled(false);clearMediaPlayers();selected=Math.max(0,Math.min(project.cenas.length-1,i));playTime=startOf(selected);drawEverything();}
@@ -277,24 +280,24 @@ function syncPreviewVideo(sceneIndex,position){
  Object.assign(host.style,{left:left+'%',top:top+'%',width:clip.w*100+'%',height:clip.h*100+'%',objectFit:clip.fit,opacity:String(clip.opacidade)});
  host.hidden=false;host.loop=!!clip.repetir;host.muted=true;host.playbackRate=previewRate;
  $('toggleClipEdit').hidden=false;updateClipBox();
- const t=Number(clip.inicio||0)+position*Number(project.cenas[sceneIndex].duracao);
+ const t=Number(clip.inicio||0)+Math.min(position,1-1e-8)*Number(project.cenas[sceneIndex].duracao);
  if(host.readyState>=1&&Number.isFinite(t)){
    const duration=host.duration;
    if(!clip.repetir&&Number.isFinite(duration)&&duration>0&&t>=duration){host.hidden=true;host.pause();return;}
    const target=clip.repetir&&Number.isFinite(duration)&&duration>0?t%duration:t;
    if(!host.seeking&&Math.abs(host.currentTime-target)>(playing?.65:.08))try{host.currentTime=target;}catch(e){}
  }
- if(playing){if(host.paused)host.play().catch(()=>{});}else if(!host.paused)host.pause();
+ if(playing&&position<1){if(host.paused)host.play().catch(()=>{});}else if(!host.paused)host.pause();
 }
 let nativeModule=null,nativePending=null,nativeFailed=false,nativeCurrent=null;
 let objectRuntime=null,objectEditor=null;
 function syncSceneObjects(scene,progress){
  if(!project)return;const layers=scene?.objetos_midia||[];
- if(objectRuntime)objectRuntime.syncObjects($('stageShell'),layers,Number(scene?.duracao||0)*progress,project.video,playing,previewRate,m=>gilStatus(m,true));
+ if(objectRuntime)objectRuntime.syncObjects($('stageShell'),layers,Number(scene?.duracao||0)*Math.min(progress,1-1e-8),project.video,playing&&progress<1,previewRate,m=>gilStatus(m,true));
  objectEditor?.paint();
 }
 async function initObjects(){
- try{objectRuntime=await import('/scene-objects.mjs');const editor=await import('/scene-object-editor.mjs');objectEditor=editor.installEditor({scene:()=>project?.cenas[selected],local:()=>project?Math.max(0,playTime-startOf(selected)):0,playing:()=>playing,stop:stopWorkspace,seek:t=>{stopWorkspace();playTime=startOf(selected)+Math.min(Number(project.cenas[selected].duracao)-.0001,Math.max(0,t));showPreview();},changed:()=>dirtyNow(true),activate:()=>switchPane('previewPanel'),preview:showPreview,notify:toast,example:id=>api('/api/workspace/gil-example?id='+encodeURIComponent(id)),upload:async(file,kind)=>{if(kind==='video')return (await uploadChunked(file,'video')).filename;const data=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(file);});return (await post('/api/upload',{kind:'image',data,filename:file.name})).filename;}});objectEditor.refresh();showPreview();}
+ try{objectRuntime=await import('/scene-objects.mjs');const editor=await import('/scene-object-editor.mjs');objectEditor=editor.installEditor({scene:()=>project?.cenas[selected],local:()=>project?Math.max(0,playTime-startOf(selected)):0,playing:()=>playing,stop:stopWorkspace,seek:t=>{stopWorkspace();playTime=startOf(selected)+Math.min(Number(project.cenas[selected].duracao)-.0001,Math.max(0,t));showPreview();},changed:()=>dirtyNow(true),activate:()=>{clipEditingEnabled(false);switchPane('previewPanel');},preview:showPreview,notify:toast,audio:()=>{tab='audio';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='audio'));drawEditor();switchPane('editPanel');},legacyClip:()=>{tab='scene';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='scene'));drawEditor();switchPane('editPanel');$('editClipVisual')?.scrollIntoView({block:'center'});},dimensions:()=>project.video,example:id=>api('/api/workspace/gil-example?id='+encodeURIComponent(id)),upload:async(file,kind)=>{if(kind==='video')return (await uploadChunked(file,'video')).filename;const data=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(file);});return (await post('/api/upload',{kind:'image',data,filename:file.name})).filename;}});objectEditor.refresh();showPreview();}
  catch(e){$('addSceneObject').disabled=true;gilStatus('Editor de objetos indisponível: '+e.message,true);}
 }
 
@@ -315,8 +318,13 @@ async function showPreview(){if(!project)return;
  finally{previewBusy=false;if(previewPending){previewPending=false;if(!playing)setTimeout(showPreview,80);}}
 }
 async function listProjects(){const r=await api('/api/projects');$('projectSelect').innerHTML=r.projects.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');return r.projects;}
-async function load(name){if(dirty)await save();fitResult=null;timingHistory=null;clipEditingEnabled(false);clearMediaPlayers();clipPreviewFile='';clipPreviewScene=-1;let r=await api('/api/project?name='+encodeURIComponent(name));project=r.project;savedAudioSignature=audioSignature(project);projectName=name;selected=0;playTime=0;playing=false;dirty=false;$('projectSelect').value=name;$('saveInfo').textContent='✓ Carregado';drawEverything();refreshCache();}
-async function refreshCache(){if(!project)return;try{let r=await api('/api/cache/status?name='+encodeURIComponent(projectName));cacheInfo=r.scenes;$('cacheTable').innerHTML=r.scenes.map(c=>`<div class="cacheItem"><b>${c.index}. ${esc(c.title)}</b><small><span class="${c.visual?'check':'missing'}">Visual ${c.visual?'✓':'·'}</span> · <span class="${c.audio?'check':'missing'}">Áudio ${c.audio?'✓':'·'}</span> · <span class="${c.voice?'check':'missing'}">Voz ${c.voice?'✓':'·'}</span></small><br><small>${c.seconds.toFixed(2)} s</small><br><button data-clear="${c.index}">Limpar cache desta cena</button></div>`).join('');}catch(e){$('cacheTable').textContent='Cache: '+e.message;}}
+async function load(name){if(dirty)await save();fitResult=null;timingHistory=null;clipEditingEnabled(false);clearMediaPlayers();clipPreviewFile='';clipPreviewScene=-1;let r=await api('/api/project?name='+encodeURIComponent(name));project=r.project;effectiveTiming=null;savedAudioSignature=audioSignature(project);projectName=name;selected=0;playTime=0;playing=false;dirty=false;$('projectSelect').value=name;$('saveInfo').textContent='✓ Carregado';await refreshEffectiveTiming();drawEverything();refreshCache();}
+function acceptEffectiveTiming(owner,name,signature,scenes){
+ if(project!==owner||name!==projectName||signature!==audioSignature(project)||playing||!audioSnapshotMatches()||scenes.length!==project.cenas.length||!scenes.every((c,i)=>c.id===project.cenas[i].id&&Number.isFinite(c.seconds)))return false;
+ const i=sceneAt(playTime).i,local=playTime-startOf(i);effectiveTiming={owner,signature,lengths:scenes.map(c=>c.seconds)};playTime=Math.min(totalDuration(),startOf(i)+Math.min(local,sceneSeconds(i)));return true;
+}
+async function refreshEffectiveTiming(){if(!project||!audioSnapshotMatches())return;const owner=project,name=projectName,signature=audioSignature(project);try{const r=await api('/api/preview/timing?name='+encodeURIComponent(name));if(acceptEffectiveTiming(owner,name,signature,r.scenes)){drawTimeline();showPreview();}}catch(e){$('transportStatus').textContent='Duração efetiva indisponível: '+e.message;}}
+async function refreshCache(){if(!project)return;const owner=project,name=projectName,signature=audioSignature(project);try{let r=await api('/api/cache/status?name='+encodeURIComponent(name));if(project!==owner||name!==projectName||signature!==audioSignature(project))return;cacheInfo=r.scenes;if(acceptEffectiveTiming(owner,name,signature,r.scenes)){drawTimeline();showPreview();}$('cacheTable').innerHTML=r.scenes.map(c=>`<div class="cacheItem"><b>${c.index}. ${esc(c.title)}</b><small><span class="${c.visual?'check':'missing'}">Visual ${c.visual?'✓':'·'}</span> · <span class="${c.audio?'check':'missing'}">Áudio ${c.audio?'✓':'·'}</span> · <span class="${c.voice?'check':'missing'}">Voz ${c.voice?'✓':'·'}</span></small><br><small>${c.seconds.toFixed(2)} s</small><br><button data-clear="${c.index}">Limpar cache desta cena</button></div>`).join('');}catch(e){$('cacheTable').textContent='Cache: '+e.message;}}
 async function begin(mode,no_voice=false){if(busy)return toast('Já existe um trabalho em execução',true);try{await save();let j=await post('/api/job',{name:projectName,mode,scene:['cena','voz-mp3','audio-cena'].includes(mode)?selected+1:undefined,no_voice});busy=true;$('downloads').innerHTML='';$('logBox').textContent='';trackJob(j.job);}catch(e){toast(e.message,true);}}
 function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBadge').textContent='Executando';
  const poll=async()=>{try{const j=await api('/api/job/'+id);$('progress').value=Math.round(j.progress*100);$('progressText').textContent=Math.round(j.progress*100)+'%';$('phase').textContent=j.phase;$('logBox').textContent=j.logs.join('\n');$('logBox').scrollTop=$('logBox').scrollHeight;
@@ -342,16 +350,16 @@ function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBad
 // The cached scene mix is the clock while it is audible. Seek only at an
 // explicit navigation/resume or source change, never on each visual frame.
 let savedAudioSignature='';
-function audioSignature(p){if(!p)return '';const keys=['voz','velocidade_voz','motor_voz','modelo_piper','voz_espeak','velocidade_espeak','encaixe_voz','trilha','trilha_continua','volume_musica','volume_voz'];return JSON.stringify([keys.map(k=>p[k]),p.video?.draw_fps,p.cenas.map(c=>[c.id,c.duracao,c.audio])]);}
+function audioSignature(p){if(!p)return '';const keys=['voz','velocidade_voz','motor_voz','modelo_piper','voz_espeak','velocidade_espeak','encaixe_voz','trilha','trilha_continua','volume_musica','volume_voz'];return JSON.stringify([keys.map(k=>p[k]),p.video?.draw_fps,p.cenas.map(c=>[c.id,c.duracao,c.audio, c.video_clipe?.arquivo&&c.video_clipe.audio_enabled?[c.video_clipe.arquivo,c.video_clipe.audio_volume,c.video_clipe.inicio,c.video_clipe.repetir]:null,(c.objetos_midia||[]).filter(o=>o.kind==='video'&&o.audio_enabled!==false).map(o=>[o.file,o.start,o.end,o.offset,o.loop,o.audio_volume??1])])]);}
 function audioSnapshotMatches(){return !!savedAudioSignature&&savedAudioSignature===audioSignature(project);}
 let transportKey='',transportFallback=false,transportEpoch=0,transportOffset=0,transportPending=false,transportBlocked=false,transportSeek=true,transportDeadline=0;
 function stopTransport(reset=false){const a=$('transportAudio');if(!a)return;a.pause();transportSeek=true;if(reset){transportEpoch++;transportKey='';transportPending=false;transportBlocked=false;a.onerror=null;a.removeAttribute('src');a.load();}}
 function transportTime(next){
  const a=$('transportAudio');if(!project||!playing||!$('previewSound').checked||(dirty&&!audioSnapshotMatches())){if(!a.paused)stopTransport();return next;}
- const {i}=sceneAt(playTime),c=project.cenas[i],key=projectName+'|'+i,begin=startOf(i),end=begin+Number(c.duracao),now=performance.now();
+ const {i}=sceneAt(playTime),c=project.cenas[i],key=projectName+'|'+i,begin=startOf(i),end=begin+sceneSeconds(i),now=performance.now();
  if(c.audio?.muted){if(!a.paused)stopTransport();return next;}
- function source(kind){transportOffset=kind==='voice'?Number(c.audio.voice_delay||0):0;transportSeek=true;transportPending=false;transportDeadline=performance.now()+5000;a.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+(i+1)+'&kind='+kind;a.load();}
- if(key!==transportKey){transportKey=key;transportFallback=false;transportBlocked=false;const epoch=++transportEpoch;a.onerror=()=>{if(epoch!==transportEpoch||key!==transportKey)return;if(!transportFallback&&c.audio.voice_enabled){transportFallback=true;source('voice');$('transportStatus').textContent='Sem mix em cache; tentando a voz.';}else{transportBlocked=true;$('transportStatus').textContent='Áudio da cena indisponível; gere a voz ou o mix.';}};$('transportStatus').textContent='Áudio da prévia: mix em cache';source('audio');}
+ function source(kind){transportOffset=kind==='voice'?Number(c.audio.voice_delay||0):0;transportSeek=true;transportPending=false;transportDeadline=performance.now()+(kind==='audio'?60000:5000);a.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+(i+1)+'&kind='+kind+(kind==='audio'?'&prepare=1':'');a.load();}
+ if(key!==transportKey){transportKey=key;transportFallback=false;transportBlocked=false;const epoch=++transportEpoch;a.onerror=()=>{if(epoch!==transportEpoch||key!==transportKey)return;if(!transportFallback&&c.audio.voice_enabled){transportFallback=true;source('voice');$('transportStatus').textContent='Sem mix em cache; tentando a voz.';}else{transportBlocked=true;$('transportStatus').textContent='Áudio da cena indisponível; gere a voz ou o mix.';}};$('transportStatus').textContent='Preparando áudio da cena (voz, clipes e faixas)…';source('audio');}
  const local=playTime-begin-transportOffset;
  if(transportBlocked||a.error)return next;
  if(local<0){transportDeadline=now+5000;return Math.min(next,begin+transportOffset);}
@@ -363,7 +371,7 @@ function transportTime(next){
  if(a.ended&&!a.seeking)return next;
  if(a.paused&&!transportPending){transportPending=true;const epoch=transportEpoch;a.play().catch(err=>{if(epoch!==transportEpoch||err.name==='AbortError')return;transportBlocked=true;$('transportStatus').textContent='Reprodução de áudio bloqueada; pause e reproduza novamente.';}).finally(()=>{if(epoch===transportEpoch)transportPending=false;});}
  if(a.seeking||a.paused||a.readyState<2)return playTime;
- transportDeadline=now+5000;
+ transportDeadline=now+5000;if(!transportFallback)$('transportStatus').textContent='Mix da cena sincronizado';
  const audioTime=begin+transportOffset+a.currentTime;
  // Avoid stalling at the end of a short voice-only file or a rounding error.
  if(audioTime>=end-.015)return Math.min(totalDuration(),end);
@@ -379,7 +387,7 @@ async function openPlayback(path){if(!project||saving)return;const name=projectN
 async function playSceneAudio(kind){
  stopWorkspace();try{
   await save(); const a=$('voicePlayer');$('scenePlayer').pause();$('scenePlayer').hidden=true;
-  a.pause();a.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+(selected+1)+'&kind='+kind+'&ts='+Date.now();
+  a.pause();a.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+(selected+1)+'&kind='+kind+(kind==='audio'?'&prepare=1':'')+'&ts='+Date.now();
   $('mediaStatus').textContent=kind==='voice'?'Locução gerada (sem música)':'Mixagem final da cena';
   await a.play();
  }catch(e){toast('Áudio indisponível: gere Áudio em lote ou Renderizar cena. '+e.message,true);}
@@ -448,13 +456,13 @@ async function uploadChunked(file,kind,desiredName=''){
  }catch(error){post('/api/upload/chunks',{op:'abort',upload_id:start.upload_id}).catch(()=>{});throw error;}
 }
 function attachVoice(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.audio.voice_file=filename;scene.audio.voice_enabled=true;scene.audio.muted=false;dirtyNow(true);toast('Gravação vinculada. Texto da narração preservado; use Salvar.');}
-function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;delete scene.componente_gil;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
+function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;scene.video_clipe.audio_enabled=true;scene.video_clipe.audio_volume=1;delete scene.componente_gil;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
 async function captureMedia(kind){const index=selected;
  if(!window.StudioRecorder)return toast('Módulo de gravação não disponível',true);
  window.StudioRecorder.open(kind,async(file,useCameraAudio)=>{
    const r=await uploadChunked(file,kind);
    if(kind==='audio')attachVoice(index,r.filename);
-   else{attachVideo(index,r.filename);if(useCameraAudio)attachVoice(index,r.filename);}
+   else{attachVideo(index,r.filename);if(useCameraAudio){attachVoice(index,r.filename);project.cenas[index].video_clipe.audio_enabled=false;dirtyNow(true);}else{project.cenas[index].video_clipe.audio_enabled=false;dirtyNow(true);}}
  },{script:String(project.cenas[index]?.audio?.voice_text||project.cenas[index]?.fala||''),title:project.cenas[index]?.titulo||''});
 }
 const WORKSPACE='http://127.0.0.1:8877';
@@ -733,14 +741,15 @@ async function syncVectorSave(name,scene){
   drawEverything();refreshCache();toast('Desenho vetorial atualizado no Estúdio');
  }catch(e){toast('Falha ao atualizar a cena: '+e.message,true);}
 }
-let browserExport=null,browserOutputURL=null;
+let browserExport=null,browserOutputURL=null,browserOutputCleanup=null;
+function clearBrowserOutput(){if(browserOutputURL)URL.revokeObjectURL(browserOutputURL);browserOutputURL=null;browserOutputCleanup?.().catch(console.warn);browserOutputCleanup=null;}
 async function initBrowserRender(){
  const b=$('browserExport'),cancel=$('browserExportCancel'),canvas=$('browserRenderCanvas'),report=$('browserExportStatus'),download=$('browserDownload');
  try{const {exportBrowser}=await import('/browser-render.mjs');b.disabled=false;
  b.onclick=async()=>{if(!project||browserExport||busy||saving)return toast('Aguarde concluir a operação atual.',true);
-  stopWorkspace();switchPane('previewPanel');const owner=cp(project),controller=new AbortController();browserExport=controller;b.disabled=true;cancel.hidden=false;canvas.hidden=false;report.textContent='Preparando exportação…';download.hidden=true;if(browserOutputURL){URL.revokeObjectURL(browserOutputURL);browserOutputURL=null;}
+  stopWorkspace();switchPane('previewPanel');const owner=cp(project),controller=new AbortController();browserExport=controller;b.disabled=true;cancel.hidden=false;canvas.hidden=false;report.textContent='Preparando exportação…';download.hidden=true;clearBrowserOutput();
   const play=$('playButton'),seek=$('seek'),wasPlay=play.disabled,wasSeek=seek.disabled;play.disabled=true;seek.disabled=true;
-  try{const result=await exportBrowser(owner,{canvas,signal:controller.signal,status:msg=>{report.textContent=msg;}});browserOutputURL=URL.createObjectURL(result.blob);download.href=browserOutputURL;download.download=(owner.titulo||'estudio').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,80)+'.'+result.ext;download.textContent='Baixar vídeo · '+result.ext.toUpperCase();download.hidden=false;report.textContent=`Concluído: ${(result.blob.size/1048576).toFixed(2)} MiB · ${result.frames}/${result.totalFrames} quadros desenhados · ${result.missed} passos perdidos (encoder não medido).`;}
+  try{const result=await exportBrowser(owner,{canvas,signal:controller.signal,status:msg=>{report.textContent=msg;}});browserOutputCleanup=result.cleanup||null;browserOutputURL=URL.createObjectURL(result.blob);download.href=browserOutputURL;download.download=(owner.titulo||'estudio').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,80)+'.'+result.ext;download.textContent='Baixar vídeo · '+result.ext.toUpperCase();download.hidden=false;report.textContent=`Concluído: ${(result.blob.size/1048576).toFixed(2)} MiB · ${result.frames}/${result.totalFrames} quadros desenhados · ${result.missed} passos perdidos (encoder não medido).`;}
   catch(e){report.textContent='Exportação não concluída: '+e.message;}
   finally{browserExport=null;b.disabled=false;cancel.hidden=true;canvas.hidden=true;play.disabled=wasPlay;seek.disabled=wasSeek;showPreview();}
  };cancel.onclick=()=>browserExport?.abort();

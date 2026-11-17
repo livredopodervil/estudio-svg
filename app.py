@@ -214,7 +214,7 @@ class Handler(BaseHTTPRequestHandler):
                     ('X-Content-Type-Options','nosniff')]:self.send_header(k,v)
         self.end_headers()
         if self.command!='HEAD':self.wfile.write(data)
-    def stream_file(self,path):
+    def stream_file(self,path,extra_headers=None):
         f=Path(path)
         if not f.is_file():return self.response(404,{'error':'Mídia ainda não disponível'})
         ext=f.suffix.lower();ctype={'.mp4':'video/mp4','.mp3':'audio/mpeg','.wav':'audio/wav',
@@ -242,6 +242,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control','no-store')
         self.send_header('X-Content-Type-Options','nosniff')
         if partial:self.send_header('Content-Range',f'bytes {start}-{end}/{size}')
+        for k,v in (extra_headers or {}).items():self.send_header(k,v)
         self.end_headers()
         if self.command=='HEAD':return
         try:
@@ -497,20 +498,51 @@ class Handler(BaseHTTPRequestHandler):
                 return self.response(200,src,'image/svg+xml; charset=utf-8')
             if route=='/api/browser-render/audio' and method=='POST':
                 import tempfile
-                from studio_core import browser_audio_mix
-                pr=normalize(self.payload(6_000_000)['project'])
+                from studio_core import browser_audio_mix, browser_audio_plan
+                data=self.payload(6_000_000);pr=normalize(data['project'])
+                if data.get('stream') is True:
+                    # Only this dedicated disposable directory; no project/media/cache eviction.
+                    import studio_core as core
+                    folder=core.CACHE/'browser-render';folder.mkdir(exist_ok=True)
+                    if folder.is_symlink():raise StudioError('Pasta de mix web insegura.')
+                    if not ENGINE_LOCK.acquire(blocking=False):raise StudioError('Aguarde o fim da produção de áudio/vídeo.')
+                    token=uuid.uuid4().hex;path=folder/(token+'.wav')
+                    try:
+                        for old in folder.glob('*.wav'):
+                            if re.fullmatch(r'[0-9a-f]{32}\.wav',old.name) and not old.is_symlink() and old.is_file() and time.time()-old.stat().st_mtime>86400:old.unlink(missing_ok=True)
+                        planning=browser_audio_plan(pr)
+                        browser_audio_mix(pr,path,planning)
+                    except Exception:
+                        path.unlink(missing_ok=True);raise
+                    finally:ENGINE_LOCK.release()
+                    return self.response(200,{'token':token,'durations':planning[0],'url':'/api/browser-render/mix?token='+token})
                 with tempfile.TemporaryDirectory(prefix='estudio-web-audio-') as directory:
                     path=Path(directory)/'mix.wav'
                     if not ENGINE_LOCK.acquire(blocking=False):raise StudioError('Aguarde o fim da produção de áudio/vídeo.')
-                    try:browser_audio_mix(pr,path)
+                    try:
+                        planning=browser_audio_plan(pr)
+                        browser_audio_mix(pr,path,planning)
                     finally:ENGINE_LOCK.release()
-                    return self.stream_file(path)
+                    return self.stream_file(path,{'X-Estudio-Durations':json.dumps(planning[0],separators=(',',':'))})
+            if route in ('/api/browser-render/mix','/api/browser-render/release'):
+                import studio_core as core
+                token=q('token','') if method=='GET' else self.payload(1024).get('token','')
+                if not isinstance(token,str) or not re.fullmatch(r'[0-9a-f]{32}',token):raise StudioError('Token de mix inválido')
+                folder=core.CACHE/'browser-render';path=folder/(token+'.wav')
+                if folder.is_symlink() or path.is_symlink():raise StudioError('Caminho de mix inseguro')
+                if route.endswith('/mix') and method=='GET':return self.stream_file(path)
+                if route.endswith('/release') and method=='POST':
+                    path.unlink(missing_ok=True);return self.response(200,{'ok':True})
+                return self.response(405,{'error':'Método inválido'})
             if route=='/api/scene/media' and method=='GET':
                 pr=read_project(q('name'));idx=int(q('scene','1'))-1
                 kind=q('kind','voice')
                 if kind not in ('voice','audio','visual','poster','image','music','voice_file'):
                     raise StudioError('Tipo de áudio/vídeo inválido')
                 path=scene_cached_media(pr,idx,kind)
+                if path is None and kind=='audio' and q('prepare')=='1':
+                    from studio_core import prepare_preview_audio
+                    with ENGINE_LOCK:path=prepare_preview_audio(pr,idx)
                 if path is None:return self.response(404,{'error':'Mídia não gerada ou não importada'})
                 return self.stream_file(path)
             if route=='/api/scene/preview' and method=='POST':
@@ -537,6 +569,10 @@ class Handler(BaseHTTPRequestHandler):
                 except subprocess.TimeoutExpired:raise StudioError('Termux:API não respondeu em 20 s')
                 if result.returncode:raise StudioError('Falha no TTS Android: '+result.stderr.decode(errors='replace')[-400:])
                 return self.response(200,{'ok':True,'message':'Solicitada reprodução no Android; sem arquivo exportado'})
+            if route=='/api/preview/timing' and method=='GET':
+                from studio_core import scene_length,voice_source
+                pr=read_project(q('name'))
+                return self.response(200,{'scenes':[{'id':c['id'],'seconds':scene_length(c,pr,voice=bool(voice_source(c,pr,required=False)))} for c in pr['cenas']]})
             if route=='/api/cache/status' and method=='GET':return self.response(200,{'scenes':cache_status(read_project(q('name')))})
             if route=='/api/cache/clear' and method=='POST':
                 v=self.payload();return self.response(200,{'ok':clear_scene_cache(read_project(v['name']),int(v['scene']))})
@@ -654,7 +690,7 @@ class Handler(BaseHTTPRequestHandler):
         return self.response(200,fn.read_bytes(),types[mime])
     def do_HEAD(self):
         # Media clients may probe length before requesting byte ranges.
-        if urlsplit(self.path).path in ('/api/media/clip','/api/player-v3/voice'):
+        if urlsplit(self.path).path in ('/api/media/clip','/api/player-v3/voice','/api/scene/media','/api/browser-render/mix'):
             return self.route('GET')
         self.send_response(200);self.send_header('Content-Length','0');self.end_headers()
 
