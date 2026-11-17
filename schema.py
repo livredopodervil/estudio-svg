@@ -93,6 +93,8 @@ def media_objects_dict(raw):
         if not isinstance(motion,str) or len(motion.encode('utf8'))>16000:raise ValueError('Fonte de movimento inválida')
         obj['motion']=motion
         obj['rotation']=n(item.get('rotation',0),0,-360,360)
+        for k,lo,hi in [('shear',-2,2),('pivot_x',-.5,.5),('pivot_y',-.5,.5)]:
+            if k in item:obj[k]=n(item[k],0,lo,hi)
         stack=item.get('motion_programs',[])
         if not isinstance(stack,list) or len(stack)>8 or any(not isinstance(v,str) or len(v.encode('utf8'))>16000 for v in stack):raise ValueError('Programas GIL inválidos')
         obj['motion_programs']=stack

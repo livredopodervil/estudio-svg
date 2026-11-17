@@ -1,5 +1,7 @@
 // Estúdio SVG · Rogério Duarte. Exportação local experimental, sem quadros PNG no servidor.
 import {objectMotion,localTime,rect} from './scene-objects.mjs';
+import {codecCandidates,codecs} from './platform-capabilities.mjs';
+import {affine} from './viewport-affine.mjs';
 import {prepare,frameTime} from './gil-native.mjs';
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 export function plan(project,durations=null){
@@ -21,7 +23,7 @@ export function boxFit(sw,sh,w,h,fit){
  return [0,0,sw,sh,-w/2,-h/2,w,h];
 }
 export function sourceTime(t,d,loop){if(!Number.isFinite(d)||d<=0)return null;return loop?((t%d)+d)%d:t<d?Math.max(0,t):null;}
-export function codecCandidates(){return ['video/mp4;codecs=avc1.420028,mp4a.40.2','video/mp4','video/webm;codecs=vp8,opus','video/webm;codecs=vp9,opus','video/webm'];}
+export {codecCandidates};
 function abortCheck(signal){if(signal.aborted)throw Error('Exportação cancelada.');}
 function timed(p,ms,message,signal){return new Promise((resolve,reject)=>{let done=false;const finish=(fn,x)=>{if(done)return;done=true;clearTimeout(timer);signal.removeEventListener('abort',abort);fn(x);};const abort=()=>finish(reject,Error('Exportação cancelada.'));const timer=setTimeout(()=>finish(reject,Error(message)),ms);signal.addEventListener('abort',abort,{once:true});if(signal.aborted){abort();return;}Promise.resolve(p).then(v=>finish(resolve,v),e=>finish(reject,e));});}
 async function response(path,body,signal){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal});if(!r.ok){let msg='HTTP '+r.status;try{msg=(await r.json()).error||msg;}catch{}throw Error(msg);}return r;}
@@ -33,7 +35,7 @@ async function svgImage(markup,signal,{transparent=false}={}){
 async function openImage(file,signal){const im=new Image();im.src='/api/media/image?file='+encodeURIComponent(file);await timed(im.decode(),15000,'Imagem não carregada: '+file,signal);return im;}
 function eventReady(el,event,ready,signal){return timed(new Promise((resolve,reject)=>{const ok=()=>{cleanup();resolve();},bad=()=>{cleanup();reject(Error('Mídia não decodificada: '+el.src));},cleanup=()=>{el.removeEventListener(event,ok);el.removeEventListener('error',bad);signal.removeEventListener('abort',bad);};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});signal.addEventListener('abort',bad,{once:true});if(ready())ok();}),15000,'Tempo excedido na leitura do clipe.',signal);}
 async function openVideo(file,offset,loop,signal,resources){const v=document.createElement('video');resources.add(v);v.muted=true;v.playsInline=true;v.preload='auto';v.loop=loop;v.src='/api/media/clip?file='+encodeURIComponent(file);v.load();await eventReady(v,'loadeddata',()=>v.readyState>=2,signal);if(!Number.isFinite(v.duration)||v.duration<=0)throw Error('Duração de clipe desconhecida: '+file);const target=sourceTime(offset,v.duration,loop);if(target!==null&&Math.abs(v.currentTime-target)>.025){v.currentTime=target;await eventReady(v,'seeked',()=>!v.seeking&&v.readyState>=2,signal);}return v;}
-function drawMedia(ctx,canvas,im,p,fit){const w=p.w*canvas.width,h=p.h*canvas.height;const args=boxFit(im.videoWidth||im.naturalWidth,im.videoHeight||im.naturalHeight,w,h,fit);if(!args)return;ctx.save();ctx.translate(p.x*canvas.width,p.y*canvas.height);ctx.rotate((p.rz||0)*Math.PI/180);ctx.globalAlpha=clamp(p.opacity,0,1);ctx.beginPath();ctx.rect(-w/2,-h/2,w,h);ctx.clip();ctx.drawImage(im,...args);ctx.restore();}
+function drawMedia(ctx,canvas,im,p,fit){const w=p.w*canvas.width,h=p.h*canvas.height;const args=boxFit(im.videoWidth||im.naturalWidth,im.videoHeight||im.naturalHeight,w,h,fit);if(!args)return;ctx.save();ctx.translate(p.x*canvas.width,p.y*canvas.height);ctx.transform(...affine(p,w,h));ctx.globalAlpha=clamp(p.opacity,0,1);ctx.beginPath();ctx.rect(-w/2,-h/2,w,h);ctx.clip();ctx.drawImage(im,...args);ctx.restore();}
 // Rasterizações assíncronas de SVG não interrompem o relógio de áudio. Atraso excessivo aborta.
 function frameSlot(first){return {image:first,at:0,requested:0,pending:false,error:null};}
 function requestFrame(slot,t,step,make,signal){if(slot.error)throw slot.error;if(t-slot.at>Math.max(.8,3*step))throw Error('Desenho SVG atrasado; reduza resolução/FPS de desenho.');if(slot.pending||t-slot.requested+1e-6<step)return;slot.pending=true;slot.requested=t;Promise.resolve().then(()=>make(t)).then(image=>{if(!signal.aborted){slot.image=image;slot.at=t;}},e=>{if(!signal.aborted)slot.error=e;}).finally(()=>{slot.pending=false;});}
@@ -87,7 +89,7 @@ export async function exportBrowser(project,{canvas,status=()=>{},signal}={}){
   status('Preparando primeiras cenas…');preload(0);preload(1);await Promise.all([...prepared.values()].map(x=>x.promise));ready(0);if(settings.entries.length>1)ready(1);
   abortCheck(signal);if(hidden)throw Error('A página perdeu visibilidade.');
   const captured=canvas.captureStream(fps);stream=new MediaStream([...captured.getVideoTracks(),...dest.stream.getAudioTracks()]);
-  for(const mimeType of codecCandidates()){if(!MediaRecorder.isTypeSupported(mimeType))continue;try{rec=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:6000000,audioBitsPerSecond:160000});break;}catch{}}
+  for(const mimeType of codecs()){try{rec=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:6000000,audioBitsPerSecond:160000});break;}catch{}}
   if(!rec)throw Error('Nenhum codec de vídeo com áudio aceito pelo navegador.');
   const type=rec.mimeType;if(!type)throw Error('Codec não identificado.');sink=await outputSink(duration,type);rec.ondataavailable=e=>sink.push(e.data);rec.onerror=e=>{recError=e.error||Error('Erro do codificador.');};stopped=new Promise(resolve=>{rec.onstop=resolve;});
   let previous=null,frames=0,missed=0,last=-1;const totalFrames=Math.ceil(duration*fps);

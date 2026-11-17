@@ -415,7 +415,7 @@
             "w": {"type": "number", "minimum": 0.02, "maximum": 2}, "h": {"type": "number", "minimum": 0.02, "maximum": 2},
             "opacity": {"type": "number", "minimum": 0, "maximum": 1}, "start": {"type": "number", "minimum": 0, "maximum": 600},
             "end": {"type": "number", "minimum": 0, "maximum": 600}, "offset": {"type": "number", "minimum": 0, "maximum": 3600},
-            "rotation": {"type":"number","minimum":-360,"maximum":360}, "motion_programs": {"type":"array","maxItems":8,"items":{"type":"string","maxLength":16000}}, "audio_enabled":{"type":"boolean"}, "audio_volume":{"type":"number","minimum":0,"maximum":3},
+            "rotation": {"type":"number","minimum":-360,"maximum":360}, "shear":{"type":"number","minimum":-2,"maximum":2}, "pivot_x":{"type":"number","minimum":-0.5,"maximum":0.5}, "pivot_y":{"type":"number","minimum":-0.5,"maximum":0.5}, "motion_programs": {"type":"array","maxItems":8,"items":{"type":"string","maxLength":16000}}, "audio_enabled":{"type":"boolean"}, "audio_volume":{"type":"number","minimum":0,"maximum":3},
             "fit": {"enum": ["contain", "cover"]}, "loop": {"type": "boolean"}, "opaque": {"type": "boolean"}, "motion": {"type": "string", "maxLength": 16000}
           }, "additionalProperties": false}
         },

@@ -67,3 +67,17 @@ Autor: Rogério Duarte. Respeite licenças e créditos das dependências.
 
 ### V3.12.2 — composição de movimentos e áudio de mídia
 Consultar `docs/CLIP_AUDIO_MOVIMENTO_V3122.md`. Não duplicar o áudio de câmera já incorporado à locução. A assinatura de áudio inclui somente os parâmetros sonoros/temporais dos clipes, não a pose ou a fonte GIL. A prévia e a exportação usam a mesma função de mixagem de cena; manter compatibilidade com o clipe original e com `motion`. Testar antes de promover: `python -m unittest discover -s tests` e `RD_GIL_ROOT=/caminho/confirmado/gil node --test tests/*.mjs`.
+
+### V3.13.0 — viewport e plataforma agnóstica
+Consultar `docs/VIEWPORT_PLATAFORMA_V313.md`. A matriz afim é compartilhada entre seleção, DOM e Canvas; campos novos opcionais. Não criar outra linguagem nem outro interpolador de tempo. APIs detectadas só se tornam backends selecionáveis quando há implementação e contrato testados; fallback deve conservar o conteúdo, informar limitações e não publicar ou produzir mídia incompleta. Medir performance no dispositivo antes de trocar motores. Preservar projetos, áudio, Player V3 e Ateliê. Revisão visual no Android antes de integrar.
+
+### V3.13.1 — viewport com ferramentas acessíveis
+- Barra compacta de ferramentas visível sobre o viewport: seleção, mover, escala, rotação, cisalhamento, pivô, inserir e inspecionar. Ferramentas não são menus de cenas e não alteram o áudio.
+- Arraste direto do objeto respeita o modo escolhido; alças de precisão da seleção continuam disponíveis. Alças são alvos de toque com `touch-action:none` para evitar scroll concorrente. O preview usa a mesma matriz afim dos objetos persistidos.
+- Em todas as próximas entregas, encerrar a resposta com um checklist objetivo de ações a executar e resultados a observar no Android. Testes isolados de DOM/Chromium não substituem validação no dispositivo. Revisão local antes de commit/push.
+
+### V3.13.3 — exportação e viewport (experimental)
+- A ferramenta de transformação é única: arraste do corpo translada e alças editam dimensões, rotação, cisalhamento e pivô. Barra e opções de empilhamento pertencem à interface, nunca ao quadro exportado.
+- HTML independente com GIL incorpora exclusivamente módulos autorizados do runtime instalado (`RD_GIL_ROOT`) e mídias locais referenciadas, sem buscar recursos externos. Se faltar qualquer dependência, interromper em vez de gerar HTML parcial.
+- O modo Apresentar deve utilizar os mesmos `syncObjects`/`updateLayer` do editor. Captura de tela usa `getDisplayMedia` apenas quando disponível e com gesto/permissão explícita; exportação Canvas pelo editor permanece o fallback no Android.
+- Após aplicar, validar em Android os gizmos, seleção, ordem de camadas, áudio, apresentação, gravação/exportação e HTML offline. Não publicar automaticamente.

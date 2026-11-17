@@ -101,3 +101,37 @@
 .objectGrip{right:auto;bottom:auto;width:20px;height:20px;min-height:0;transform:translate(-50%,-50%);border:1px solid #fff3df;border-radius:4px;box-shadow:0 0 2px #000;cursor:nwse-resize}.objectRotate{position:absolute;left:50%;top:-36px;transform:translateX(-50%);width:30px;height:30px;min-height:0;padding:0;border-radius:50%;background:#e8a770;color:#171514;font-size:22px;touch-action:none}.objectRotate:after{content:'';position:absolute;left:50%;top:100%;height:6px;border-left:1px solid #ffce8d}.motionProgramRow{display:flex;align-items:flex-start;gap:6px}.motionProgramRow details{flex:1;min-width:0}.motionProgramRow textarea{width:100%}#objectAudioFields[hidden]{display:none!important}#object_audio_volume{width:74px}.audioTrack .objectBar{background:#986782;opacity:1}.previewMedia summary,#objectInspector summary{cursor:pointer;padding:6px;color:var(--muted)}
 
 .compositionArea{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:8px;padding:4px 8px}.compositionArea #objectInspector{padding:8px;background:var(--field);border:1px solid var(--line);border-radius:8px;min-width:0}.objectMediaInfo{flex-basis:100%;color:var(--muted);font-size:11px;overflow-wrap:anywhere}.compositionArea #objectInspector .objectTools{gap:5px}.compositionArea #objectInspector button{font-size:11px;min-height:32px;padding:4px 7px}.compositionArea #objectInspector .objectFields{grid-template-columns:repeat(3,minmax(0,1fr))}.compositionArea #objectInspector .objectFields input{padding:5px;font-size:12px}.compositionArea #previewFullHost{min-width:0}@media(min-width:800px) and (max-height:600px){.compositionArea:has(#objectInspector:not([hidden])){grid-template-columns:minmax(0,1fr) minmax(230px,32%)}.compositionArea #objectInspector{max-height:58dvh;overflow:auto}.compositionArea .stageShell{max-width:100%}.compositionArea #objectInspector .objectFields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* V3.13 viewport: renderer-independent interactive SVG overlay, not part of output. */
+.viewportToolbar{display:flex;flex-wrap:wrap;gap:5px;padding:5px 8px}.viewportToolbar button{min-height:34px;font-size:12px;padding:4px 9px}.rdViewportGizmo{position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:12;pointer-events:none}.rdViewportGizmo[hidden]{display:none!important}.rdGizmoOutline,.rdGizmoStem{fill:none;stroke:#ffcd84;stroke-width:1.5;stroke-dasharray:4 3;pointer-events:none}.rdGizmoHandle{pointer-events:all;cursor:grab;touch-action:none}.rdGizmoHit{fill:transparent;stroke:none}.rdGizmoFace{fill:#ffe1ad;stroke:#4a3324;stroke-width:1}.rdGizmoHandle text{font:14px system-ui;fill:#271d17;pointer-events:none}#stageShell [data-scene-object-id]{touch-action:none}#viewportAPIs{margin:6px 12px;color:var(--muted)}#viewportAPIs pre{max-height:190px;overflow:auto;white-space:pre-wrap;font-size:11px}.viewportFocus .workspace{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:'preview' 'timeline';margin:0;padding:4px;gap:6px}.viewportFocus #previewPanel,.viewportFocus #videoTimelinePanel{display:block}.viewportFocus #scenesPanel,.viewportFocus #editPanel,.viewportFocus #workPanel,.viewportFocus .workspaceTools,.viewportFocus .mobileTabs,.viewportFocus #previewPanel>.inline:not(.browserExportBar):not(.transport-options),.viewportFocus #nativeDemoPreview,.viewportFocus #openLayersV36,.viewportFocus .previewMedia,.viewportFocus #viewportAPIs{display:none!important}.viewportFocus #previewPanel{min-width:0}.viewportFocus .compositionArea{grid-template-columns:minmax(0,1fr)}.viewportFocus .stageShell{margin:auto;max-width:min(100%,calc(58dvh * var(--preview-aspect,1.77778)))}.viewportFocus #videoTimelinePanel{position:static}@media(min-width:800px){.viewportFocus .compositionArea:has(#objectInspector:not([hidden])){grid-template-columns:minmax(0,1fr) minmax(230px,25%)}}
+
+/* V3.13.1: small, always-visible contextual tools next to the viewport. */
+.rdViewportToolDock{position:absolute;top:7px;left:7px;z-index:21;display:grid;grid-template-columns:repeat(2,34px);gap:4px;padding:5px;border:1px solid #9b806b;background:#1c2529e9;border-radius:9px;box-shadow:0 2px 10px #0008;max-height:calc(100% - 14px);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+.rdViewportToolDock button{display:grid;place-items:center;width:34px;height:34px;min-height:0!important;padding:0;border-radius:5px;border:1px solid #596965;background:#30383d;color:#f3e5d2;font:21px/1 system-ui;touch-action:manipulation;user-select:none}
+.rdViewportToolDock button[aria-pressed=true]{background:#976d45;color:#fff;border-color:#f1ca8d;outline:1px solid #f1ca8d}
+.rdViewportToolDock button:focus-visible{outline:2px solid #f5d49b;outline-offset:1px}
+.rdViewportGizmo{touch-action:none}.rdGizmoHandle,.rdGizmoHit,.rdGizmoFace{touch-action:none;pointer-events:all}.rdGizmoHit{fill:rgba(255,225,172,.015);stroke:none}
+@media(max-width:600px){.rdViewportToolDock{grid-template-columns:repeat(2,32px);gap:3px;padding:4px}.rdViewportToolDock button{width:32px;height:32px;font-size:19px}}
+
+/* V3.13.2: compact library, movable toolbar and viewport selection. */
+.projectRow #openProjectBrowser{max-width:min(58vw,300px);display:flex;align-items:center;gap:6px}
+#currentProjectName{display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:235px}
+#projectBrowser{width:min(690px,96vw);max-height:90dvh;overflow:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:14px}
+#projectBrowser::backdrop{background:#000a}
+#projectBrowserSearch{min-width:0;flex:1}
+.projectBrowserGroups{overflow-y:auto;max-height:52dvh;margin:8px 0;display:grid;gap:6px}
+.projectBrowserGroups details{border:1px solid var(--line);border-radius:7px;background:var(--field);padding:4px 9px}
+.projectBrowserGroups summary{cursor:pointer;font-weight:700;user-select:none;padding:5px 0}
+.projectBrowserGroups .projectEntry{display:block;width:100%;margin:3px 0;text-align:left;overflow-wrap:anywhere}
+.projectBrowserGroups .projectEntry.active{border-color:var(--accent);color:var(--accent)}
+#projectBrowserFolder{max-width:42vw}
+.rdViewportToolDock{overflow-y:auto;overflow-x:hidden;max-height:calc(100% - 6px);touch-action:pan-y}
+.rdViewportToolDock .rdDockHandle{grid-column:1/-1;height:19px;min-height:19px!important;display:flex;align-items:center;justify-content:center;background:#546267;color:#fff;touch-action:none;cursor:grab;font:700 12px/1 system-ui;border-radius:4px;user-select:none}
+.rdViewportToolDock .rdDockHandle:active{cursor:grabbing}
+.rdViewportToolDock button{touch-action:manipulation}
+
+/* V3.13.3: the tool palette is an editor control, not part of the video frame. */
+.rdViewportToolDock{position:fixed;inset:auto auto auto auto;z-index:1005;max-height:min(72dvh,400px);max-width:90vw;grid-template-columns:repeat(2,34px);overscroll-behavior:contain}
+.viewportFocus .rdViewportToolDock{display:grid}
+#previewFullHost:fullscreen .rdViewportToolDock{z-index:2000}
+.rdViewportToolDock .rdDockHandle{touch-action:none}
+@media(max-width:600px){.rdViewportToolDock{grid-template-columns:repeat(2,32px)}}

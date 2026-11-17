@@ -1,0 +1,19 @@
+gil timeline 0.1 {
+stage {"width":960,"height":540,"duration":8,"background":"#152a35","camera":"cam"}
+resource camera camera {"z":15,"fov":45}
+resource grp group {}
+resource sun light.directional {"x":-4,"y":6,"z":8,"intensity":1}
+resource dot shape.circle {"size":0.34,"color":"#86d5cb","layer":3}
+resource core shape.circle {"size":0.9,"color":"#e4b97a","layer":2}
+object cam camera - {}
+object light sun - {}
+object center core - {}
+object inner grp - {}
+object outer grp - {}
+repeat a dot inner 10 {"x":{"expr":"1.75*cos(tau*i/count)"},"y":{"expr":"1.75*sin(tau*i/count)"}}
+repeat b dot outer 16 {"x":{"expr":"3*cos(tau*i/count)"},"y":{"expr":"3*sin(tau*i/count)"}}
+animate inner rz {"expr":"64*t"}
+animate outer rz {"expr":"-32*t"}
+animate center sx {"expr":"1+.15*sin(t*4)"}
+animate center sy {"expr":"1+.15*sin(t*4)"}
+}

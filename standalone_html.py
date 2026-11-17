@@ -45,7 +45,7 @@ def _convert_video(source, temp):
 
 def export_html(identifier, raw_project, media_dir, output_dir, progress=lambda *_:None, with_audio=True):
     project=normalize(raw_project)
-    if any((c.get("gil_nativo") or c.get("objetos_midia")) for c in project["cenas"]):raise StudioError("HTML independente ainda não suporta GIL nativa.")
+    has_native=any((c.get("gil_nativo") or c.get("objetos_midia")) for c in project["cenas"])
     identifier=name(identifier)
     media_dir=Path(media_dir)
     for scene in project['cenas']:
@@ -115,6 +115,7 @@ def export_html(identifier, raw_project, media_dir, output_dir, progress=lambda 
             enabled=bool(audio_spec.get('voice_enabled',True)) and not bool(audio_spec.get('muted'))
             speech=str(audio_spec.get('voice_text') or scene.get('fala') or '').strip() if enabled else ''
             timeline.append({'seconds':seconds,'fps':fps,'frames':samples,'clip':scene.get('video_clipe',{}),
+                             'gil_native':scene.get('gil_nativo'),'objects':scene.get('objetos_midia',[]),
                              'title':scene.get('titulo',''),'id':scene.get('id',str(i)),
                              'speech':speech,'voiceEnabled':enabled})
             progress(.33+.60*(i+1)/len(durations),f'Preparando quadros offline {i+1}/{len(durations)}')
@@ -122,6 +123,10 @@ def export_html(identifier, raw_project, media_dir, output_dir, progress=lambda 
               'scenes':timeline,'images':images,'clips':clips,'audio':audio_uri,
                'locale':str(project.get('idioma') or project.get('language') or 'pt-BR'),
                'locales':raw_project.get('locale_packs',{}) if isinstance(raw_project.get('locale_packs',{}),dict) else {}}
+        if has_native:
+            from standalone_native import embed_media
+            try:data['native_assets']=embed_media(project,media_dir)
+            except ValueError as e:raise StudioError(str(e)) from e
         serialized=json.dumps(data,ensure_ascii=False,separators=(',',':'))
         encoded=base64.b64encode(serialized.encode('utf8')).decode('ascii')
         runtime_path=Path(__file__).resolve().parent/'web_player/v3/v34/voice_locale.js'
@@ -132,6 +137,11 @@ def export_html(identifier, raw_project, media_dir, output_dir, progress=lambda 
             raise StudioError('Controlador de voz contém término de script inesperado')
         page=(HTML_TEMPLATE.replace('%%TITLE%%',html.escape(project['titulo'],quote=True))
               .replace('%%PAYLOAD%%',encoded).replace('%%VOICE_RUNTIME%%',voice_runtime))
+        if has_native:
+            from standalone_native import attach_native
+            import os
+            try:page=attach_native(page,os.environ.get('RD_GIL_ROOT',''),Path(__file__).resolve().parent)
+            except (ValueError, OSError) as e:raise StudioError(str(e)) from e
         if len(page.encode('utf8'))>MAX_HTML_SIZE:
             raise StudioError('HTML excede 145 MB. Reduza duração, draw_fps ou tamanho dos vídeos.')
         target=output_dir/(identifier+('_standalone.html' if with_audio else '_standalone_sem_audio.html'))

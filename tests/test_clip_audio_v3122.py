@@ -25,6 +25,8 @@ class ClipAudioTests(unittest.TestCase):
                         f.setpos(int(t*48000));return max(map(abs,struct.unpack('<9600h',f.readframes(4800))))
                     self.assertGreater(peak(.05),100);self.assertLess(peak(.5),10);self.assertGreater(peak(1.4),100);self.assertLess(peak(3),10)
                 c['objetos_midia'][0]['rotation']=45
+                c['objetos_midia'][0]['shear']=.4
+                c['objetos_midia'][0]['pivot_x']=.2
                 self.assertEqual(path,core.prepare_preview_audio(p,0))
                 c['objetos_midia'][0]['audio_enabled']=False
                 self.assertNotEqual(path,core.prepare_preview_audio(p,0))

@@ -58,8 +58,6 @@ def work(job,project,mode,scene,no_voice):
                 now=time.monotonic()
                 if now-job.get('lastlog',0)>2 or q>=1 or msg.startswith('MP4'):
                     job['lastlog']=now;log_job(job,msg)
-            if mode in ('export-html','export-html-silent') and any((c.get('gil_nativo') or c.get('objetos_midia')) for c in pr['cenas']):
-                raise StudioError('HTML independente ainda não suporta GIL nativa; use Player vetorial local.')
             if mode in ('export-html','export-html-silent'):
                 from standalone_html import export_html
                 from studio_core import MEDIA as app_media, OUTPUT as app_output
@@ -356,7 +354,6 @@ class Handler(BaseHTTPRequestHandler):
             if route=='/api/presentation' and method=='GET':
                 identifier=name(q('name'))
                 project=read_project(identifier)
-                if any((c.get('gil_nativo') or c.get('objetos_midia')) for c in project['cenas']):raise StudioError('Captura legada não suporta GIL nativa; use Player vetorial local.')
                 mix_error=None
                 try:durations,mix=presentation_mix_status(identifier,project)
                 except StudioError as exc:
@@ -472,9 +469,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.response(200,{'ok':True,'name':identifier})
             if route=='/api/workspace/gil-example' and method=='GET':
                 root=os.environ.get('RD_GIL_ROOT');key=q('id')
-                allowed={'orbit','kinetic','wave','pulse-network','field','datacenter','native-demo'}
+                allowed={'native-demo','basic-geometry','orbit-simple','pulse-simple'}
                 if not root or key not in allowed:raise StudioError('Exemplo indisponível; inicie pelo RD Studio integrado')
-                base=ROOT/'examples'/'components' if key in ('pulse-network','field','native-demo') else Path(root).resolve()/'examples';src=base/(key+'.gil')
+                base=ROOT/'examples'/'components';src=base/(key+'.gil')
                 if not src.is_file() or src.is_symlink() or src.stat().st_size>250000:raise StudioError('Exemplo GIL ausente ou inválido')
                 return self.response(200,{'source':src.read_text('utf8'),'name':key+'.gil'})
             if route=='/api/projects' and method=='GET':return self.response(200,{'projects':[p.stem for p in sorted(PROJECTS.glob('*.json'))]})
@@ -647,7 +644,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES
@@ -671,11 +668,12 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,128*1024)
             return
-        filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/espacial':'espacial.html','/espacial.html':'espacial.html','/espacial.js':'espacial.js','/espacial.css':'espacial.css','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
+        filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/captura-record.js':'captura-record.js','/espacial':'espacial.html','/espacial.html':'espacial.html','/espacial.js':'espacial.js','/espacial.css':'espacial.css','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
         filemap['/media-recorder-v35.js']='media-recorder-v35.js'
         filemap['/layers-v36.js']='layers-v36.js'
         filemap['/timing-v37.js']='timing-v37.js'
         filemap['/workspace-v38.js']='workspace-v38.js'
+        filemap['/edit-history.js']='edit-history.js'
         # Explicit allowlist: never serve arbitrary repository files.
         player_files={'/player-v3/':'index.html','/player-v3/index.html':'index.html',
           '/player-v3/player.js':'player.js','/player-v3/runtime.js':'runtime.js',

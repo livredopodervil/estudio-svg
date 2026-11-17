@@ -15,6 +15,8 @@
   let lastUpdate = 0;
   let epoch = 0;
   let raf = 0;
+  let nativeModules = null;
+  const getNative = () => nativeModules || (nativeModules = Promise.all([import('/gil-native.mjs'),import('/scene-objects.mjs')]));
 
   const say = message => { $('msg').textContent = message; };
   const narrator = new window.StudioV34.Narrator({synth:window.speechSynthesis||null,status:say});
@@ -129,6 +131,16 @@
         element.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       }
       syncVideo(i, sceneTime);
+      const scene = data.project.cenas[i];
+      if (scene.gil_nativo || (scene.objetos_midia||[]).length) {
+        const [gil,objects] = await getNative();
+        gil.updateLayer($('visualFrame'), scene.gil_nativo||null, sceneTime, data.project.video);
+        objects.syncObjects($('visualFrame'), scene.objetos_midia||[], sceneTime, data.project.video, playing, speed, msg => say(msg));
+      } else if(nativeModules){
+        const [gil,objects]=await nativeModules;
+        gil.updateLayer($('visualFrame'),null,0,data.project.video);
+        objects.syncObjects($('visualFrame'),[],0,data.project.video);
+      }
     } catch (error) {
       stop();
       say('Erro na prévia: ' + error.message);
@@ -147,6 +159,7 @@
         ? `${data.project.cenas.length} cenas, ${duration().toFixed(1)}s. Áudio pronto para reprodução.`
         : `${data.project.cenas.length} cenas. Use Voz do navegador sem preparar áudio. Para mix WAV, prepare o áudio. ${data.mix_error||''}`);
     }
+    if(data.project.cenas.some(c=>c.gil_nativo||c.objetos_midia?.length))await getNative();
     frame(0);
   }
 
@@ -243,6 +256,7 @@
     cancelAnimationFrame(raf);
     audio.pause();
     video.pause();
+    if(nativeModules)nativeModules.then(([gil,objects])=>objects.pauseObjects($('visualFrame'))).catch(()=>{});
     if (controlsTimer) clearTimeout(controlsTimer);
     document.body.classList.remove('presenting', 'controls-visible');
     say('Apresentação parada.');

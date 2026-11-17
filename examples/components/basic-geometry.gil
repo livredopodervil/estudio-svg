@@ -1,0 +1,16 @@
+gil timeline 0.1 {
+stage {"width":960,"height":540,"duration":8,"background":"#122b36","camera":"cam"}
+resource camera camera {"z":14,"fov":45}
+resource sun light.directional {"x":-4,"y":6,"z":8,"intensity":1}
+resource grp group {}
+resource disk shape.circle {"size":0.32,"color":"#86d6c1","layer":2}
+resource hub shape.circle {"size":1.1,"color":"#e5bb83","layer":3}
+object cam camera - {}
+object lamp sun - {}
+object ring grp - {}
+object center hub - {}
+repeat tile disk ring 12 {"x":{"expr":"2.4*cos(tau*i/count)"},"y":{"expr":"2.4*sin(tau*i/count)"}}
+animate ring rz {"expr":"45*t"}
+animate center sx {"expr":"1+0.25*sin(t*3)"}
+animate center sy {"expr":"1+0.25*sin(t*3)"}
+}
