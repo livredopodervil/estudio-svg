@@ -116,3 +116,35 @@ body.rdStudioUnified:has(#workspaceProjects:not([hidden])) .rdViewportToolDock{d
 @media(max-width:760px),(max-height:600px){
   .rdStudioUnified .rdComposeNav{justify-content:flex-start;overflow-x:auto}
 }
+
+/* M1R2: integrated insertion; object inspector follows the player, never between player and viewport. */
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer{display:block;margin:6px 7px 10px;padding:10px;border:1px solid var(--line);border-radius:9px;max-height:min(72dvh,760px);overflow:auto;background:var(--panel,#302824)}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer[hidden]{display:none!important}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer .objectFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer .objectFields label{min-width:0}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer input{max-width:100%;box-sizing:border-box}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer .rdQuickMotion{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:8px 0;padding:7px;border:1px solid var(--line);border-radius:8px}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer .rdQuickMotion strong{flex-basis:100%;font-size:12px}
+.rdStudioUnified #previewPanel .rdObjectBelowPlayer .rdQuickMotion button{font-size:12px;padding:5px 8px}
+.rdInsertHub{margin:10px 0;padding:9px;background:#172b35;border:1px solid #335767;border-radius:9px}
+.rdInsertTypes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0}
+.rdInsertTypes button,.rdInsertFamilyGrid button{text-align:left;font-size:12px;white-space:normal;min-height:40px}
+.rdInsertFamilyGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;max-height:170px;overflow:auto}
+.rdInsertFamilies strong{display:block;margin:8px 0 4px;font-size:12px}
+#objectInsert{max-height:90dvh;overflow-y:auto;max-width:min(660px,96vw)}
+
+/* M1S: viewport-cropped editing handles and actual modal scroll confinement. */
+#stageShell{overflow:hidden;contain:paint;}
+.rdViewportGizmo{overflow:hidden!important;}
+.rdSvgDirectOutline{max-width:100%;max-height:100%;}
+html.rdObjectModalOpen,html.rdObjectModalOpen body{overflow:hidden!important;overscroll-behavior:none!important;}
+#objectInsert[open]{box-sizing:border-box;width:min(680px,calc(100vw - 16px));max-width:calc(100vw - 16px);max-height:calc(100dvh - 20px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;}
+#objectInsert::backdrop{background:rgba(0,0,0,.78);}
+#objectInsert .rdUniversalSearch{width:100%;min-height:42px;margin:5px 0 10px;box-sizing:border-box;}
+#objectInsert .rdUniversalSvg,#objectInsert .rdUniversalGil{margin:8px 0;border:1px solid #456575;border-radius:8px;padding:7px;}
+#objectInsert .rdUniversalSvg>summary,#objectInsert .rdUniversalGil>summary{cursor:pointer;font-size:13px;padding:7px 5px;}
+#objectInsert .rdInsertFamilyGrid{max-height:38dvh;overflow-y:auto;overscroll-behavior:contain;}
+#objectInsert .rdInsertFamilyGrid button[hidden],#objectInsert .rdInsertTypes button[hidden]{display:none!important;}
+#objectInsert .rdInsertFamilyGrid button{min-width:0;overflow-wrap:anywhere;}
+#objectInsertPreview{max-height:min(30dvh,320px);overflow:hidden;}
+@media(max-width:600px){#objectInsert .rdInsertFamilyGrid{grid-template-columns:repeat(2,minmax(0,1fr));}#objectInsert .rdInsertTypes{grid-template-columns:repeat(2,minmax(0,1fr));}}

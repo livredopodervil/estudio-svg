@@ -18,6 +18,9 @@
  function button(key,icon,label){const b=doc.createElement('button');b.type='button';b.dataset.rdAction=key;const glyph=doc.createElement('span');glyph.className='rdNavGlyph';glyph.textContent=icon;const word=doc.createElement('span');word.className='rdNavLabel';word.textContent=label;b.append(glyph,word);b.title=label;b.setAttribute('aria-label',label);b.setAttribute('aria-expanded','false');buttons.set(key,b);nav.append(b);return b;}
  for(const [id,icon,label] of actions)button(id,icon,label);
  preview.querySelector('.panelHead').after(nav);
+ // M1R2_INSPECTOR_AFTER_PLAYER: controls stay immediately after viewport on mobile.
+ const inspector=by('objectInspector'),player=preview.querySelector('.player');
+ if(inspector&&player&&player.nextElementSibling!==inspector){player.after(inspector);inspector.classList.add('rdObjectBelowPlayer');}
  // Keep legacy commands available, but not permanently in the composition canvas.
  const legacy=doc.createElement('details');legacy.id='rdLegacyTools';legacy.className='rdLegacyTools';
  const legacySummary=doc.createElement('summary');legacySummary.textContent='Ferramentas avançadas (SVG, imagem da cena, camadas)';legacy.append(legacySummary);
@@ -54,7 +57,8 @@
   if(name==='roteiro'){close();by('rdRoteiroButton')?.click();return;}
   if(name==='insert'){close();by('viewportInsert')?.click();return;}
   if(name==='properties'){
-   const inspect=by('viewportInspector');if(inspect&&!inspect.disabled){close();inspect.click();by('objectInspector')?.scrollIntoView?.({block:'nearest'});return;}
+   const inspect=by('viewportInspector');
+   if(inspect&&!inspect.disabled){if(by('objectInspector')?.hidden)inspect.click();close();by('objectInspector')?.scrollIntoView?.({block:'nearest'});return;}
    editorTab('scene');return toggle('properties');
   }
   if(name==='audio'){editorTab('audio');return toggle('audio');}
@@ -107,9 +111,9 @@
  const gilHost=by('workspaceLibrary');
  if(gilHost&&by('objectExamples')&&by('gilLibrarySelect')){
   const section=doc.createElement('section');section.className='rdUnifiedCatalog';
-  const heading=doc.createElement('h4');heading.textContent='GIL nativa · selecionar e visualizar antes de inserir';section.append(heading);
+  const heading=doc.createElement('h4');heading.textContent='GIL nativa · biblioteca completa com prévia animada';section.append(heading);
   const grid=doc.createElement('div');grid.className='rdNativeCards';
-  for(const o of by('objectExamples').options){const b=doc.createElement('button');b.type='button';b.dataset.example=o.value;b.textContent='◇ '+o.textContent;
+  for(const o of by('gilLibrarySelect').options){const b=doc.createElement('button');b.type='button';b.dataset.example=o.value;b.textContent='◇ '+o.textContent;
    b.onclick=()=>{const select=by('gilLibrarySelect');const found=[...select.options].some(opt=>opt.value===o.value);
     if(!found){const opt=doc.createElement('option');opt.value=o.value;opt.textContent=o.textContent;select.append(opt);}
     select.value=o.value;by('gilLibraryInsert')?.click();

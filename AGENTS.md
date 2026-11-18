@@ -180,3 +180,23 @@ Esperado para ambos: HTTP 200. **Se `subtitle-frame.mjs` responder 404, parar e 
 
 Checkpoint confirmado no GitHub: `fb3d580`, branch experimental `feat/studio-interface-m1b`; backups remotos `backup/studio-before-m1k-20261118T123108Z-01b5761d` e `backup/studio-after-m1k-20261118T123108Z-fb3d580f`. A partir desse checkpoint foram oferecidos patches locais M1L e M1M; **não presumir sua aplicação ou sucesso sem verificar o checkout**. Em 18/11/2026, o usuário relatou legendas invisíveis e uma falha do M1M original em `app.py:644`; houve entrega de M1M v2 para aplicação localizada da rota, ainda sem confirmação de aceitação no Android. Preservar `docs/CONSOLE_M1I.md`, `standalone_html.py.before-v34-browservoice.bak.sha256` e demais alterações locais. Pendências: testes ignorados e auditoria M1j.
 <!-- /studio-start-test-contract-v1 -->
+
+## M1P — Gestão e legendas em lote
+
+Consultar `docs/M1P_LOTES_ELEMENTOS_PROJETOS.md` ao continuar a evolução de projetos, narração em lote, legendas e elementos. Cada patch deve preservar diretórios, mídias, caches e trabalhos não commitados; entregar comando completo de início do servidor e testes visuais no Android. A publicação no GitHub só ocorre após aprovação; `SKIP` nunca significa `PASS`.
+
+
+## Continuidade M1R — roteiro cinematográfico e matemática espacial
+
+- O roteiro existente (0.2/0.3/0.4), o plano transacional e o GIL são a única base; NÃO criar linguagem/relógio/editor alternativo. Refatorar incrementalmente os módulos existentes.
+- Composição paramétrica: objetos genéricos + parâmetros + programas GIL; instâncias, transformações afins e 3D devem reutilizar contratos reais do SpatialSeed após verificação de versões e licenças.
+- A primeira etapa M1R-1a corrige novos títulos GIL 9:16 e acrescenta presets de movimento; não migra automaticamente títulos antigos nem promete o parser cinematográfico completo.
+- Todo patch: conferir Git e arquivos alterados, aplicar apenas trechos verificáveis, testes afetados, iniciar `RD_GIL_ROOT="$HOME/rd_studio_gil_v01/gil" bash iniciar.sh` no checkout real, verificar a porta informada e testar no Android antes do commit/push. Preservar projetos, backups e mudanças não versionadas; SKIP não é PASS.
+
+## Continuidade M1R-2
+- Consulte `docs/M1R2_INSERCAO_TIPOGRAFIA.md`: inserção unificada, inspector fora do viewport e títulos com kerning via agrupamento de palavras. LaTeX/TTF ainda exigem adaptadores específicos. Testar Android antes de commit/push.
+
+## M1S — seleção e compositor (2026-11-18)
+- Ver `docs/M1S_EDITOR_SELECTION_UNIVERSAL.md` para estado real, testes, limites e reversão.
+- Antes de publicar: iniciar servidor Android, conferir visual, testar renderização, salvar/reabrir e auditar stage.
+- Não declarar instância/grupo persistente: o esquema atual só aceita image/video/gil; exige migração versionada para scene graph.
