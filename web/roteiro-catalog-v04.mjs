@@ -22,6 +22,13 @@ export const CATALOG=Object.freeze([
  ...TITLE_STYLES.flatMap(style=>TITLE_ENTRIES.map(entry=>({id:`title:${style}:${entry}`,type:'title',name:`Título ${style} · ${entry}`,style,entry,license:'original'}))),
  ...SFX_FAMILIES.flatMap(family=>Array.from({length:12},(_,variant)=>({id:`sfx:${family}:${variant+1}`,type:'sound',name:`${family} · variação ${variant+1}`,family,variant,license:'original-procedural'})))
 ]);
+// Só as famílias aparecem no catálogo. Estilo, paleta, movimento e timbre são parâmetros.
+// CATALOG permanece como índice legado para compatibilidade e regressões existentes.
+export const CATALOG_FAMILIES=Object.freeze([
+ ...MOTIFS.map(([id,name])=>({id:`geo:${id}`,type:'geometry',name,motif:id,license:'original'})),
+ {id:'title:text',type:'title',name:'Texto / título animado',license:'original'},
+ ...SFX_FAMILIES.map(family=>({id:`sfx:${family}`,type:'sound',name:`Som · ${family}`,family,license:'original-procedural'}))
+]);
 const f=n=>Math.round(n*10000)/10000;
 export function createMotifGIL({motif='seta',palette='oceano',duration=6,label='UM CONCEITO'}={}){
  const p=PALETTES.find(a=>a.id===palette);if(!p||!MOTIFS.some(x=>x[0]===motif))throw Error('Geometria/paleta desconhecida');
@@ -64,16 +71,16 @@ export function createMotifGIL({motif='seta',palette='oceano',duration=6,label='
  const animation=`animate conjunto y ${JSON.stringify({keys:[[0,0],[d/2,.12],[d,0]],ease:'smooth'})}`;
  return `gil timeline 0.1 {\nstage ${JSON.stringify({width:1280,height:720,duration:d,background:p.bg,camera:'cam'})}\n${res.join('\n')}\n${obj.join('\n')}\n${animation}\n}\n`;
 }
-export function sourceFor(item,{duration=6,label='UM CONCEITO'}={}){
- if(item.type==='geometry')return createMotifGIL({motif:item.motif,palette:item.palette,duration,label});
- if(item.type==='title')return createTitleGIL({text:label,style:item.style,entry:item.entry,duration});
+export function sourceFor(item,{duration=6,label='UM CONCEITO',palette,style,entry}={}){
+ if(item.type==='geometry')return createMotifGIL({motif:item.motif,palette:palette||item.palette||'oceano',duration,label});
+ if(item.type==='title')return createTitleGIL({text:label,style:style||item.style||'editorial',entry:entry||item.entry||'cascade',duration});
  throw Error('Este item não é um objeto GIL');
 }
 // PCM synthesis: original short samples, exportable as WAV for the EXISTING audio track importer.
 // This intentionally does not create a second audio transport or synthesize speech.
 export function soundSamples(item,{rate=22050}={}){
  if(item.type!=='sound'||!SFX_FAMILIES.includes(item.family))throw Error('Efeito inexistente');
- const v=item.variant,family=item.family,seconds=.22+v*.035,length=Math.round(seconds*rate),pcm=new Float32Array(length);
+ const v=Number(item.variant??0),family=item.family;if(!Number.isInteger(v)||v<0||v>11)throw Error('Variante sonora inválida');const seconds=.22+v*.035,length=Math.round(seconds*rate),pcm=new Float32Array(length);
  let seed=222+(v+1)*571+SFX_FAMILIES.indexOf(family)*173;const rnd=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return (seed>>>0)/4294967296*2-1;};
  const tone=(family==='sino'?730:family==='impacto'?130:family==='sopro'?280:family==='erro'?180:family==='whoosh'?225:350)+v*19;
  for(let i=0;i<length;i++){

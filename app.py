@@ -13,7 +13,9 @@ from studio_core import (StudioError,ROOT,PROJECTS,MEDIA,CACHE,OUTPUT,project_re
                          clear_scene_cache,duration,scene_cached_media,scene_preview)
 from graphics import visualize
 from svg_graphic import clean_svg
+from offline_export import OfflineExport, OfflineError, MAX_FRAME_BYTES
 
+OFFLINE_EXPORT=OfflineExport(OUTPUT/'.offline-checkpoints',OUTPUT,MEDIA)
 BUNDLE_IMPORT_LOCK=threading.RLock()
 PROJECT_LOCK=threading.RLock()
 JOBS={};JOB_LOCK=threading.RLock();ENGINE_LOCK=threading.Lock();PREVIEW_LOCK=threading.Lock();SVG_LOCK=threading.RLock()
@@ -77,6 +79,17 @@ def work(job,project,mode,scene,no_voice):
                     res=export_scene_voice(actual_name,pr,scene,progress)
                 else:
                     res=export_project_audio(actual_name,pr,mode.removeprefix('audio-'),progress)
+            elif mode=='legendas-cena':
+                from studio_core import batch_audio
+                if not isinstance(scene,int) or not 1<=scene<=len(pr['cenas']):
+                    raise StudioError('Cena inválida para geração de tempos')
+                current=pr['cenas'][scene-1]
+                if pr.get('motor_voz')!='edge-tts' or current['audio'].get('voice_file'):
+                    raise StudioError('Geração de tempos exige locução Edge-TTS, não gravação importada')
+                if not current['audio']['voice_enabled'] or not current['audio']['voice_text'].strip():
+                    raise StudioError('Ative a narração e preencha o texto da cena')
+                batch_audio({**pr,'cenas':[current]},progress,export_zip=False,force_timing=True)
+                res={'scene':scene,'timings':True}
             elif mode=='apresentacao-audio':
                 from studio_core import batch_audio, project_audio_mix
                 batch_audio(pr,lambda pc,msg:progress(pc*.45,msg))
@@ -90,8 +103,8 @@ def work(job,project,mode,scene,no_voice):
 
 def queue_job(project,mode,scene=None,no_voice=False):
     name(project)
-    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','audio-cena','export-html','export-html-silent'):raise StudioError('Modo inválido')
-    if mode in ('cena','voz-mp3','audio-cena'):
+    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','audio-cena','legendas-cena','export-html','export-html-silent'):raise StudioError('Modo inválido')
+    if mode in ('cena','voz-mp3','audio-cena','legendas-cena'):
         try:scene=int(scene)
         except (ValueError,TypeError):raise StudioError('Informe o número da cena')
     else:scene=None
@@ -493,6 +506,43 @@ class Handler(BaseHTTPRequestHandler):
                 if min(w,h)<320 or max(w,h)>1920:raise StudioError('Resolução inválida')
                 src=visualize(c,float(data.get('progress',0)),int(data.get('index',0)),int(data.get('total',1)),MEDIA,w,h)
                 return self.response(200,src,'image/svg+xml; charset=utf-8')
+            if route.startswith('/api/offline-export/'):
+                # API de escrita restrita ao host/origem do Studio; token não previsível.
+                port=self.server.server_port
+                allowed=(f'http://127.0.0.1:{port}',f'http://localhost:{port}')
+                if self.headers.get('Origin') not in allowed or self.headers.get('Host') not in (f'127.0.0.1:{port}',f'localhost:{port}'):
+                    return self.response(403,{'error':'Exportação offline exige origem e host locais explícitos'})
+                if route=='/api/offline-export/plan' and method=='POST':
+                    from studio_core import browser_audio_plan
+                    v=self.payload(6_000_000);pr=normalize(v['project'])
+                    with ENGINE_LOCK: lengths,_=browser_audio_plan(pr)
+                    return self.response(200,{'durations':lengths})
+                if route=='/api/offline-export/start' and method=='POST':
+                    from studio_core import browser_audio_plan,browser_audio_mix
+                    v=self.payload(6_000_000);pr=normalize(v['project'])
+                    if not ENGINE_LOCK.acquire(blocking=False):
+                        raise StudioError('Produção de áudio ocupada; tente novamente após sua conclusão')
+                    try:
+                        planning=browser_audio_plan(pr)
+                        return self.response(200,OFFLINE_EXPORT.start(
+                            pr,durations=planning[0],voices=planning[1],
+                            build_mix=lambda dest:browser_audio_mix(pr,dest,planning),
+                            gil_events=v.get('gil_audio',[]),fps=int(pr['video']['fps']),
+                            width=int(pr['video']['width']),height=int(pr['video']['height'])))
+                    finally:ENGINE_LOCK.release()
+                if route=='/api/offline-export/frame' and method=='POST':
+                    if self.headers.get('Content-Type')!='image/png':
+                        raise OfflineError('Quadro precisa ser PNG')
+                    try:n=int(self.headers.get('Content-Length','0'))
+                    except (TypeError,ValueError):raise OfflineError('Content-Length inválido')
+                    if not 100<=n<=MAX_FRAME_BYTES:raise OfflineError('Quadro ultrapassa limite de upload')
+                    return self.response(200,OFFLINE_EXPORT.upload(q('token'),int(q('index','-1')),self.rfile.read(n)))
+                if route=='/api/offline-export/status' and method=='GET':
+                    return self.response(200,OFFLINE_EXPORT.status(q('token')))
+                if route=='/api/offline-export/finish' and method=='POST':
+                    v=self.payload(2048)
+                    return self.response(200,OFFLINE_EXPORT.finish(v.get('token')))
+                return self.response(405,{'error':'Método de exportação offline não autorizado'})
             if route=='/api/browser-render/audio' and method=='POST':
                 import tempfile
                 from studio_core import browser_audio_mix, browser_audio_plan
@@ -570,6 +620,15 @@ class Handler(BaseHTTPRequestHandler):
                 from studio_core import scene_length,voice_source
                 pr=read_project(q('name'))
                 return self.response(200,{'scenes':[{'id':c['id'],'seconds':scene_length(c,pr,voice=bool(voice_source(c,pr,required=False)))} for c in pr['cenas']]})
+            if route=='/api/subtitles/voice-cues' and method=='GET':
+                identifier=name(q('name'))
+                pr=read_project(identifier)
+                i=int(q('scene','0'))-1
+                if not 0<=i<len(pr['cenas']):raise StudioError('Cena inválida')
+                from subtitle_times import cues_for_voice
+                cues=cues_for_voice(pr['cenas'][i],pr)
+                if not cues:return self.response(404,{'error':'Tempos de palavras indisponíveis. Gere a locução com tempos ou importe SRT/VTT.'})
+                return self.response(200,{'source':'edge-tts','cues':cues,'count':len(cues)})
             if route=='/api/cache/status' and method=='GET':return self.response(200,{'scenes':cache_status(read_project(q('name')))})
             if route=='/api/cache/clear' and method=='POST':
                 v=self.payload();return self.response(200,{'ok':clear_scene_cache(read_project(v['name']),int(v['scene']))})
@@ -636,7 +695,7 @@ class Handler(BaseHTTPRequestHandler):
                 with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,256*1024)
                 return
             return self.response(404,{'error':'Rota não encontrada'})
-        except (ValueError,TypeError,StudioError,KeyError,OverflowError,binascii.Error,json.JSONDecodeError,zipfile.BadZipFile,UnicodeError) as e:
+        except (ValueError,TypeError,StudioError,OfflineError,KeyError,OverflowError,binascii.Error,json.JSONDecodeError,zipfile.BadZipFile,UnicodeError) as e:
             return self.response(400,{'error':str(e)})
         except Exception as e:
             traceback.print_exc();return self.response(500,{'error':'Erro interno: '+str(e)})
@@ -644,7 +703,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/voice-bulk.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES

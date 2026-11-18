@@ -89,12 +89,14 @@ def voice_source(scene,pr,required=True):
     if required:raise StudioError(f'Falta a locução da cena "{scene["titulo"]}". Execute primeiro Áudio em lote.')
     return None
 
-def synthesize(text,pr,tmp):
+def synthesize(text,pr,tmp,subtitles=None):
     engine=pr.get('motor_voz','edge-tts')
     if engine=='edge-tts':
         if not shutil.which('edge-tts'):raise StudioError('Instale edge-tts: python -m pip install edge-tts')
-        run(['edge-tts','--voice',pr['voz'],'--rate',pr['velocidade_voz'],
-            '--text',text,'--write-media',tmp],timeout=210)
+        cmd=['edge-tts','--voice',pr['voz'],'--rate',pr['velocidade_voz'],
+             '--text',text,'--write-media',tmp]
+        if subtitles is not None:cmd.extend(['--write-subtitles',str(subtitles)])
+        run(cmd,timeout=210)
     elif engine=='espeak-ng':
         exe=shutil.which('espeak-ng') or shutil.which('espeak')
         if not exe:raise StudioError('Instale voz offline: pkg install espeak')
@@ -106,7 +108,8 @@ def synthesize(text,pr,tmp):
         run(['piper','--model',model,'--output_file',tmp],input_bytes=(text.strip()+'\n').encode('utf8'),timeout=300)
     else:raise StudioError('Motor desconhecido: '+engine)
 
-def batch_audio(pr,progress=lambda *_:None,*,export_zip=True):
+def batch_audio(pr,progress=lambda *_:None,*,export_zip=True,force_timing=False):
+    if force_timing and pr.get('motor_voz')!='edge-tts':raise StudioError('Tempos exatos exigem Edge-TTS')
     voices=[];counts=len(pr['cenas'])
     for i,scene in enumerate(pr['cenas']):
         au=scene['audio']
@@ -119,14 +122,24 @@ def batch_audio(pr,progress=lambda *_:None,*,export_zip=True):
             voices.append((i,f))
         elif au['voice_enabled'] and au['voice_text'].strip():
             f=CACHE/'voices'/(tts_key(scene,pr)+voice_extension(pr))
-            if not f.is_file() or f.stat().st_size<500 or duration(f)<.2:
+            srt=f.with_suffix('.srt')
+            synth_needed=force_timing or not f.is_file() or f.stat().st_size<500 or duration(f)<.2
+            if synth_needed:
                 tmp=CACHE/'voices'/(f.stem+'.part'+f.suffix)
+                tmp_srt=CACHE/'voices'/(f.stem+'.part.srt')
                 progress(i/counts,f'Gerando voz {i+1}/{counts} via {pr.get("motor_voz","edge-tts")}')
                 try:
-                    synthesize(au['voice_text'],pr,tmp)
+                    synthesize(au['voice_text'],pr,tmp,subtitles=tmp_srt if pr.get('motor_voz')=='edge-tts' else None)
                     if duration(tmp)<.2:raise StudioError(f'Locução {i+1} vazia')
+                    # The original cached voice survives until synthesis succeeds.
                     tmp.replace(f)
-                finally:tmp.unlink(missing_ok=True)
+                    if tmp_srt.is_file() and tmp_srt.stat().st_size:
+                        tmp_srt.replace(srt)
+                    else:
+                        srt.unlink(missing_ok=True)  # no stale timing for a new voice
+                finally:
+                    tmp.unlink(missing_ok=True)
+                    tmp_srt.unlink(missing_ok=True)
             voices.append((i,f))
         progress((i+1)/counts,f'Voz {i+1}/{counts}: cache pronto')
     if not export_zip:return None

@@ -49,6 +49,43 @@ def audio_dict(v,legacy_fala=''):
             'duck_music':bool(v.get('duck_music',False)),'muted':bool(v.get('muted',False)),
             'scene_fade_in':n(v.get('scene_fade_in',0),0,0,5),'scene_fade_out':n(v.get('scene_fade_out',0),0,0,5),'tracks':tracks}
 
+def subtitle_dict(value):
+    """Configuração declarativa de legendas, sem scripts ou HTML do usuário."""
+    v = value if isinstance(value, dict) else {}
+    modes = {'phrase', 'karaoke', 'word'}
+    effects = {'none', 'fade', 'rise', 'pop', 'slide', 'typewriter'}
+    positions = {'bottom', 'center', 'top'}
+    raw_cues = v.get('cues', [])
+    cues = []
+    if isinstance(raw_cues, list):
+        for item in raw_cues[:800]:
+            if not isinstance(item, dict):
+                continue
+            try:
+                start = float(item['start'])
+                end = float(item['end'])
+            except (KeyError, ValueError, TypeError):
+                continue
+            text = str(item.get('text', '')).strip()[:180]
+            if not all(map(math.isfinite, (start, end))) or not (0 <= start < end <= 3600) or not text:
+                continue
+            cues.append({'start': start, 'end': end, 'text': text})
+    cues.sort(key=lambda cue: (cue['start'], cue['end']))
+    return {
+        'enabled': v.get('enabled') is True,
+        'mode': v.get('mode') if v.get('mode') in modes else 'karaoke',
+        'effect': v.get('effect') if v.get('effect') in effects else 'rise',
+        'position': v.get('position') if v.get('position') in positions else 'bottom',
+        'font_scale': n(v.get('font_scale', 1), 1, .55, 1.6),
+        'max_words': int(n(v.get('max_words', 6), 6, 1, 10)),
+        'text_color': color(v.get('text_color'), '#ffffff'),
+        'highlight_color': color(v.get('highlight_color'), '#ffe49a'),
+        'background_color': color(v.get('background_color'), '#091627'),
+        'background_opacity': n(v.get('background_opacity', .80), .80, 0, 1),
+        'cues': cues,
+    }
+
+
 def image_dict(v, portrait=False, photo=False):
     if isinstance(v,str):v={'arquivo':v}
     v=v if isinstance(v,dict) else {}
@@ -244,7 +281,7 @@ def normalize(data):
             'video_clipe':video_clip_dict(r.get('video_clipe',{})),
             'imagem':image_dict(image,h>w,typ=='foto'),
             'cores':{k:color(cs.get(k),COLORS[k]) for k in COLORS},
-            'audio':audio_dict(r.get('audio'),r.get('fala',''))}
+            'audio':audio_dict(r.get('audio'),r.get('fala','')),'legendas':subtitle_dict(r.get('legendas'))}
         camadas=layers_dict(r.get('camadas'),c['imagem']['modo'])
         if camadas:c['camadas']=camadas
         component=gil_component_dict(r.get('componente_gil'))

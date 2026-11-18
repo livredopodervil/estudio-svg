@@ -119,3 +119,64 @@ Consultar `docs/VIEWPORT_PLATAFORMA_V313.md`. A matriz afim é compartilhada ent
 
 ## Roteiro 0.4 / Catálogo paramétrico experimental
 A evolução 0.4 reutiliza o runtime GIL, o mixer e o histórico. Operações sobre projetos exigem simulação, IDs explícitos e confirmação. Não afirmar que LaTeX, importação automática de packs de terceiros, crossfade inter-cenas ou edição DOM arbitrária estejam implementados. Licenças variam por asset. Ver docs/ROTEIRO_04_CATALOGO.md.
+
+<!-- studio-continuity-m1k -->
+## Continuidade obrigatória — Estúdio SVG / M1k
+
+Consulte `docs/CONTINUIDADE_STUDIO_M1K.md` antes de modificar, testar ou
+publicar o projeto. Confirme Git, alterações locais, caminhos, ambiente,
+scripts e funcionalidades no checkout real. Priorize revisão visual local
+no Android e patches incrementais. Separe testes, aceite humano, commit e
+push. Preserve os backups no GitHub e nunca promova automaticamente para
+`main`. Mantenha registradas as omissões `SKIP` e a auditoria M1j pendente.
+
+<!-- studio-start-test-contract-v1 -->
+## CONTRATO OBRIGATÓRIO: rodar, visualizar e testar a versão mais recente
+
+**Em TODA entrega de patch, correção ou incremento:** fornecer no mesmo retorno:
+1. Arquivos efetivamente alterados, checkpoint Git, dependências e status dos testes (contar `SKIP` separadamente).
+2. O comando **completo, executável e conferido** para iniciar o serviço atualizado no Android/Termux; incluir diretório, variáveis, porta e endereço acessível no próprio aparelho. Nunca presumir IP/porta externa.
+3. O checklist concreto e específico da novidade: onde tocar, que ação executar, comportamento esperado e sinais de regressão; testar também abrir, salvar/reabrir, timeline, áudio e exportação.
+4. Procedimento reversível e explícito; separar preparação, prévia visual e autorização de commit/push. Não publicar automaticamente, não apagar nem sobrescrever trabalho local.
+5. Atualizar `AGENTS.md` e `docs/CONTINUIDADE_STUDIO_M1K.md` com o novo checkpoint, decisões, testes observados no Termux, pendências e próximos passos, sem declarar validado o que não foi observado no dispositivo.
+
+### Executar serviço atual (verificar no checkout real antes de repetir em futuras sessões)
+
+No Termux, em um terminal dedicado:
+
+```bash
+cd "$HOME/estudio_svg_v3_git" || exit 1
+git branch --show-current
+git log -1 --oneline
+git status --short
+GIL="$HOME/rd_studio_gil_v01/gil"
+test -f "$GIL/src/model.mjs" && test -f "$GIL/src/timeline.mjs" || { echo 'GIL ausente'; exit 1; }
+RD_GIL_ROOT="$GIL" bash iniciar.sh
+```
+
+O `iniciar.sh` inspecionado em 18/11/2026 executa `python app.py servir --port 8771`. **Conferir no terminal a porta efetiva**: caso permaneça 8771, abrir **no mesmo Android** `http://127.0.0.1:8771/`. `127.0.0.1` não é URL para outro aparelho. `Ctrl+C` encerra o serviço. Nunca confundir serviço Python com Node: Node apenas testa os módulos JS.
+
+Em outro terminal Termux (com a porta 8771 confirmada):
+
+```bash
+curl -fsS -o /dev/null -w 'pagina: HTTP %{http_code}\n' http://127.0.0.1:8771/
+curl -fsS -o /dev/null -w 'legendas: HTTP %{http_code}\n' http://127.0.0.1:8771/subtitle-frame.mjs
+```
+
+Esperado para ambos: HTTP 200. **Se `subtitle-frame.mjs` responder 404, parar e corrigir a rota antes de confiar na prévia.** Em versões sem M1L/M1M, a segunda rota pode não existir; confirmar qual patch está realmente aplicado.
+
+### Checklist visual obrigatório — M1L/M1M (experimental)
+
+- Abrir a interface em Android retrato e paisagem; verificar barra de ferramentas, viewport, inspector, timeline e console, sem menus sobrepostos ou botões inacessíveis.
+- Confirmar na cena narrada que **Legendas animadas** estão ativadas e que **a legenda realmente aparece na prévia** durante a reprodução/seek; ativar a caixa sem renderizar não conta como sucesso.
+- Usar **Gerar voz e tempos Edge-TTS** em uma cena (após M1M efetivamente aplicado): conferir MP3 audível e metadados por palavra; sincronizar início, meio, fim, pausas e destaque karaoke com a fala. Não recorrer a eSpeak.
+- Testar importação SRT/VTT/JSON, se disponibilizada pelo patch presente; confirmar que importar tempos não altera o conteúdo da locução ou de outra cena.
+- Abrir o catálogo: variantes de cor, fonte, escala, entrada e som devem ser **parâmetros do mesmo tipo de objeto**, não entradas independentes; inserir, alterar, desfazer e refazer.
+- Conferir 16:9 e 9:16; textos não devem sair do quadro; salvar, reabrir, reproduzir e exportar **pelo navegador** conferindo texto/áudio e diferenças da prévia.
+- Testar explicitamente e relatar limites conhecidos: locuções antigas sem timestamps usam estimativas até nova síntese; renderizador Python legado ainda pode não incorporar legendas; tempos reais dependem de suporte funcional Edge-TTS no aparelho.
+- Registrar resultados com evidências (captura/erro/HTTP e testes), incluindo `pass`, `fail`, `skip`. **Sem aprovação visual não comitar nem fazer push.**
+
+### Estado mínimo para continuidade
+
+Checkpoint confirmado no GitHub: `fb3d580`, branch experimental `feat/studio-interface-m1b`; backups remotos `backup/studio-before-m1k-20261118T123108Z-01b5761d` e `backup/studio-after-m1k-20261118T123108Z-fb3d580f`. A partir desse checkpoint foram oferecidos patches locais M1L e M1M; **não presumir sua aplicação ou sucesso sem verificar o checkout**. Em 18/11/2026, o usuário relatou legendas invisíveis e uma falha do M1M original em `app.py:644`; houve entrega de M1M v2 para aplicação localizada da rota, ainda sem confirmação de aceitação no Android. Preservar `docs/CONSOLE_M1I.md`, `standalone_html.py.before-v34-browservoice.bak.sha256` e demais alterações locais. Pendências: testes ignorados e auditoria M1j.
+<!-- /studio-start-test-contract-v1 -->
