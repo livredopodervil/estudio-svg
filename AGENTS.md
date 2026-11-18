@@ -88,3 +88,34 @@ Consultar `docs/VIEWPORT_PLATAFORMA_V313.md`. A matriz afim é compartilhada ent
 - Seleção de SVG legado abre ferramentas existentes de SVG/animação, preservando IDs. Não gravar mudanças temporárias no SVG da prévia como se fossem edição persistente.
 - Programas de movimento usam exclusivamente `motionSource`/`motionProgram` com `Timeline` GIL; múltiplos programas podem coexistir. `visual-effects.mjs` contém a apresentação de moldura, cantos e sombra para DOM e Canvas. Evitar criar efeitos incompatíveis entre exportadores.
 - O pipeline legado de frames SVG não está unificado com a avaliação nativa de objetos; não afirmar unidade completa de renderer até retirar a duplicação com testes de paridade. Testar vídeo de 10 min e áudio no Android antes de promover estabilidade.
+
+## M1a — interface integrada (experimental)
+
+- O documento, runtime audiovisual e exportadores existentes permanecem como fonte de verdade: `studio-layout-v1.js` gerencia **somente apresentação e navegação**, nunca quadros ou áudio.
+- Movimentar nós DOM já vinculados não altera seus IDs/handlers. A alteração do layout deve preservar `previewPanel`, `videoTimelinePanel`, `scenesPanel`, `editPanel`, `workPanel` e `objectInsert`.
+- A barra de transformação só deve ser mostrada na composição e não durante a abertura de painéis externos.
+- Inserção pela biblioteca exige prévia/confirmacão; recursos incompatíveis não são convertidos silenciosamente.
+- Testar em Android retrato/paisagem, validar áudio, clipes, exportação, salvar/reabrir e undo/redo antes de commit ou push.
+
+## RD Studio M1b (experimental)
+- Títulos são criados como PNG transparente importado pelo mesmo fluxo de `objetos_midia` do tipo `image`; os movimentos são programas GIL do runtime existente. Não criar segundo renderer ou relógio para títulos.
+- A conversão explícita da imagem legada para objeto independente preserva a mídia e usa histórico do documento. Recortes ativos não podem ser descartados silenciosamente; a conversão é bloqueada nesse caso.
+- Transformação SVG no viewport atua somente sobre elementos com ID persistido na fonte SVG e serializa mudanças no documento; ferramentas vetoriais avançadas permanecem no Ateliê.
+- Editor de fonte GIL embutido valida com `gil-native.mjs` e nunca pressupõe uma porta de serviço. GIL3 e áudio GIL continuam fora do contrato.
+- Antes de integrar, verificar importação, seleção, transformação, desfazer/refazer, áudio e exportação no Chrome Android. Não fazer commit/push sem aprovação.
+
+## M1d — Roteiro 0.2 e estilos (experimental)
+- `web/roteiro-v02.mjs` compila a linguagem Roteiro 0.1/0.2 para GIL Timeline 0.1; **sem relógio, player ou renderizador próprios**. `web/roteiro-editor.mjs` é apenas interface e usa `scene-object-editor.openSource()` para inserir mediante confirmação.
+- O catálogo `web/roteiro-styles.mjs` contém perfis próprios de aparência e movimentos, sem copiar prompts, assets ou scripts das bibliotecas externas. `docs/ROTEIRO_02.md` registra fontes e limites.
+- Fontes Roteiro editáveis não são persistidas no JSON: salvar/importar arquivo `.roteiro` separadamente; o JSON guarda a fonte GIL compilada. Não afirmar o contrário.
+- Preservar o comportamento de áudio e transições das versões anteriores e os limites reais do runtime GIL. Não usar eSpeak nas demonstrações.
+
+## V3.14.4 — Roteiro 0.3, planos de agente (experimental)
+- O script 0.3 estende 0.2 sem executar JavaScript. As diretivas para clipes, áudio e transições apenas planejam alterações tipadas na cena; uma simulação integral e confirmação humana precedem a aplicação.
+- O plano JSON `rd-studio-plan-0.3` aceita apenas operações em campos conhecidos; mídia deve existir no documento, e clipes legados precisam ser convertidos explicitamente para `objetos_midia`. Nunca buscar arquivos externos, publicar, exportar ou executar comandos em nome do plano.
+- Transformações e transições por objeto usam `scene-objects.mjs`/GIL; fades de áudio usam os campos já lidos pelo mixer. Crossfade entre cenas continua não implementado. Não introduzir motor paralelo de renderização, áudio ou temporização.
+- O editor Roteiro 0.3 separa `seekScene` (cursor da cena) de `seekSlider` (prévia), evitando importação inválida do módulo.
+
+
+## Roteiro 0.4 / Catálogo paramétrico experimental
+A evolução 0.4 reutiliza o runtime GIL, o mixer e o histórico. Operações sobre projetos exigem simulação, IDs explícitos e confirmação. Não afirmar que LaTeX, importação automática de packs de terceiros, crossfade inter-cenas ou edição DOM arbitrária estejam implementados. Licenças variam por asset. Ver docs/ROTEIRO_04_CATALOGO.md.

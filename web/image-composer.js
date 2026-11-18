@@ -132,7 +132,7 @@ $('icRename').onclick=async()=>{
  }catch(e){$('icStatus').textContent=e.message;}
 };
 const close=()=>dlg.close();$('icClose').onclick=close;$('icCancel').onclick=close;
-$('icApply').onclick=()=>{if(onApply){const result=onApply({...copy(model),arquivo:imageFile});if(result!==false)close();}};
+$('icApply').onclick=async()=>{if(!onApply)return;const button=$('icApply');button.disabled=true;try{const result=await onApply({...copy(model),arquivo:imageFile});if(result!==false)close();}catch(e){$('icStatus').textContent=e.message;}finally{button.disabled=false;}};
 async function open({url,config,video,onChange}){
  if(!url)throw Error('Importe uma imagem antes de recortar');
  onApply=onChange;pic=null;model=copy(config);imageFile=model.arquivo||'';

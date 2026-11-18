@@ -46,7 +46,8 @@ def audio_dict(v,legacy_fala=''):
             'voice_file':asset(v.get('voice_file','')),'voice_volume':n(v.get('voice_volume',1),1,0,3),
             'voice_delay':n(v.get('voice_delay',.12),.12,0,30),
             'music_file':asset(v.get('music_file','')),'music_volume':n(v.get('music_volume',.16),.16,0,2),
-            'duck_music':bool(v.get('duck_music',False)),'muted':bool(v.get('muted',False)),'tracks':tracks}
+            'duck_music':bool(v.get('duck_music',False)),'muted':bool(v.get('muted',False)),
+            'scene_fade_in':n(v.get('scene_fade_in',0),0,0,5),'scene_fade_out':n(v.get('scene_fade_out',0),0,0,5),'tracks':tracks}
 
 def image_dict(v, portrait=False, photo=False):
     if isinstance(v,str):v={'arquivo':v}
@@ -104,9 +105,14 @@ def media_objects_dict(raw):
         stack=item.get('motion_programs',[])
         if not isinstance(stack,list) or len(stack)>8 or any(not isinstance(v,str) or len(v.encode('utf8'))>16000 for v in stack):raise ValueError('Programas GIL inválidos')
         obj['motion_programs']=stack
+        if kind=='gil':
+            t=item.get('title_spec')
+            if isinstance(t,dict):obj['title_spec']={k:str(t.get(k,''))[:cap] for k,cap in [('text',110),('subtitle',100),('style',30),('entry',32),('exit',32)]}
         if kind=='video':
             obj['audio_enabled']=item.get('audio_enabled',True) is not False
             obj['audio_volume']=n(item.get('audio_volume',1),1,0,3)
+            obj['audio_fade_in']=n(item.get('audio_fade_in',.12),.12,0,5)
+            obj['audio_fade_out']=n(item.get('audio_fade_out',.12),.12,0,5)
         if kind=='gil':
             g=gil_component_dict(item.get('gil'))
             if not g or g['origin']!='gil':raise ValueError('Fonte GIL inválida')
@@ -115,6 +121,9 @@ def media_objects_dict(raw):
             f=asset(item.get('file'));ext=f.rsplit('.',1)[-1].lower()
             if ext not in (('jpg','jpeg','png','webp') if kind=='image' else ('mp4','webm','ogv','mov','m4v','mkv')):raise ValueError('Tipo de mídia incompatível')
             obj['file']=f
+            if kind=='image':
+                obj['source_file']=asset(item.get('source_file',f))
+                obj['source_crop']=image_crop(item.get('source_crop',[]))
         out.append(obj)
     return out
 
@@ -130,7 +139,9 @@ def video_clip_dict(raw):
       'repetir':bool(v.get('repetir',True)),
       'opacidade':n(v.get('opacidade',1),1,0,1),
       'audio_enabled':v.get('audio_enabled',False) is True,
-      'audio_volume':n(v.get('audio_volume',1),1,0,3)}
+      'audio_volume':n(v.get('audio_volume',1),1,0,3),
+      'audio_fade_in':n(v.get('audio_fade_in',.12),.12,0,5),
+      'audio_fade_out':n(v.get('audio_fade_out',.12),.12,0,5)}
 
 
 def image_crop(raw):

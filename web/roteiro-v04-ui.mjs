@@ -1,0 +1,53 @@
+// RD Studio — incremental project editing and parametric visual/audio catalog.
+// Presentation layer only. Same GIL preview and existing media project/history.
+import {CATALOG,sourceFor,wavBlob,PALETTES,MOTIFS,SFX_FAMILIES} from './roteiro-catalog-v04.mjs';
+import {previewProjectPlan,validateProjectPlan} from './roteiro-project-v04.mjs';
+import {prepare} from './gil-native.mjs';
+import {parseFrame} from './scene-objects.mjs';
+export function installRoteiro04({getProject,selectedScene,insertGIL,commit,stop,notify}={}){
+ if(document.getElementById('rdLibrary04Button'))return;
+ const nav=document.getElementById('rdComposeNav')||document.querySelector('.workspaceTools');if(!nav)return;
+ const btn=document.createElement('button');
+ btn.id='rdLibrary04Button';btn.type='button';
+ btn.title='Catálogo + Agente — elementos e plano incremental 0.4';
+ btn.setAttribute('aria-label','Catálogo + Agente');
+ btn.textContent='✧';
+ nav.append(btn);
+ const dlg=document.createElement('dialog');dlg.id='rdLibrary04Dialog';dlg.setAttribute('aria-label','Biblioteca e roteiro incremental 0.4');
+ dlg.innerHTML=`<header><b>RD Studio · Catálogo paramétrico / Plano 0.4</b><button data-close type="button">× Fechar</button></header>
+ <p>Catálogo experimental: formas e títulos GIL; efeitos sonoros WAV originais. Variantes não são arquivos externos distintos. A inserção exige confirmação pelo editor atual.</p>
+ <div class="rd04row"><label>Pesquisar <input data-search placeholder="seta, gráfico, boneco, ciência, som..."></label><label>Categoria <select data-type><option value="all">Todas</option><option value="geometry">Geometrias</option><option value="title">Títulos</option><option value="sound">Efeitos sonoros</option></select></label><label>Texto do elemento<input data-label value="UM CONCEITO" maxlength="70"></label><label>Duração (s)<input data-duration type="number" min="0.5" max="60" value="6" step="0.5"></label></div>
+ <p data-count></p><div class="rd04grid" data-list></div><div class="rd04preview" data-preview></div><p data-message role="status"></p>
+ <section><h3>Plano incremental por agente</h3><p>Edite por IDs. Simular não altera o projeto. A aplicação exige confirmação; o histórico normal do Estúdio permite desfazer.</p>
+ <textarea data-plan spellcheck="false" rows="11" aria-label="Plano JSON 0.4"></textarea>
+ <div class="rd04row"><button data-example>Exemplo seguro para a cena atual</button><button data-simulate>Simular</button><button data-apply disabled>Aplicar plano</button><button data-export>Exportar JSON</button></div>
+ <pre data-report aria-live="polite"></pre></section>`;
+ const css=document.createElement('style');css.textContent=`#rdLibrary04Dialog{max-width:min(98vw,900px);width:900px;max-height:94dvh;overflow:auto;background:#172128;color:#f3f4ee;border:1px solid #68807e;border-radius:12px;padding:16px;font:14px system-ui}#rdLibrary04Dialog::backdrop{background:#000a}#rdLibrary04Dialog header{display:flex;justify-content:space-between;gap:10px;align-items:center}#rdLibrary04Dialog button,#rdLibrary04Dialog input,#rdLibrary04Dialog textarea,#rdLibrary04Dialog select{font:inherit;max-width:100%}#rdLibrary04Dialog button{padding:7px;border:1px solid #76908c;border-radius:7px;background:#2d4445;color:#fff;cursor:pointer}#rdLibrary04Dialog input,#rdLibrary04Dialog select,#rdLibrary04Dialog textarea{background:#101c22;color:#fff;border:1px solid #54706e;border-radius:6px;padding:6px}#rdLibrary04Dialog textarea{width:100%}#rdLibrary04Dialog p{color:#c3d3d1}#rdLibrary04Dialog .rd04row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}#rdLibrary04Dialog label{display:flex;flex:1 1 160px;flex-direction:column;gap:4px}#rdLibrary04Dialog .rd04grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:7px;max-height:220px;overflow-y:auto}#rdLibrary04Dialog .rd04tile{display:flex;flex-direction:column;text-align:left;min-height:58px;justify-content:center}#rdLibrary04Dialog .rd04preview{min-height:120px;background:#0b161b;display:flex;justify-content:center;align-items:center;border:1px solid #54706e;overflow:hidden;margin-top:8px}#rdLibrary04Dialog .rd04preview svg{width:100%;height:auto;max-height:280px}#rdLibrary04Dialog section{margin-top:16px;border-top:1px solid #54706e;padding-top:12px}#rdLibrary04Dialog pre{white-space:pre-wrap;overflow-wrap:anywhere}`;document.head.append(css);document.body.append(dlg);
+ const q=x=>dlg.querySelector('[data-'+x+']'),status=q('message'),preview=q('preview'),list=q('list'),report=q('report'),apply=q('apply');
+ let active=null,proposal=null,snapshot='',planSnapshot='',audio=null,audioUrl='';
+ const clearAudio=()=>{if(audio){audio.pause();audio=null;}if(audioUrl){URL.revokeObjectURL(audioUrl);audioUrl='';}};
+ const cancel=()=>{clearAudio();dlg.close();};q('close').onclick=cancel;dlg.addEventListener('close',clearAudio);
+ btn.onclick=()=>{if(!getProject()?.cenas?.length)return notify('Abra um projeto antes de usar o catálogo.',true);stop?.();dlg.showModal();update();};
+ function update(){const search=q('search').value.trim().toLocaleLowerCase('pt-BR'),type=q('type').value;const matched=CATALOG.filter(a=>(type==='all'||a.type===type)&&(!search||a.name.toLocaleLowerCase('pt-BR').includes(search)||a.id.includes(search)));q('count').textContent=`${matched.length} resultados / ${CATALOG.length} variantes paramétricas · exibidos até 90 por vez`;
+  list.replaceChildren(...matched.slice(0,90).map(a=>{const el=document.createElement('button');el.className='rd04tile';el.textContent=a.name;el.title=a.id;el.onclick=()=>choose(a);return el;}));}
+ q('search').oninput=update;q('type').onchange=update;
+ const download=(blob,name)=>{const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),8000);};
+ function choose(a){active=a;clearAudio();preview.replaceChildren();const d=Number(q('duration').value),label=q('label').value;
+  try{if(a.type==='sound'){const blob=wavBlob(a);const block=document.createElement('div');block.className='rd04row';const play=document.createElement('button');play.textContent='▶ Ouvir efeito';const save=document.createElement('button');save.textContent='↓ Baixar WAV para importar';play.onclick=async()=>{clearAudio();audioUrl=URL.createObjectURL(blob);audio=new Audio(audioUrl);try{await audio.play();}catch(e){status.textContent='Reprodução indisponível: '+e.message;}};save.onclick=()=>download(blob,'rd-'+a.id.replaceAll(':','-')+'.wav');block.append(play,save);preview.append(block);status.textContent='WAV mono PCM gerado no aparelho. Importe o arquivo como efeito na faixa de áudio existente.';return;}
+   const source=sourceFor(a,{duration:d,label});const compiled=prepare(source);if(compiled.cues)throw Error('Áudio GIL não suportado');
+   const frame=parseFrame(compiled.frame(d*.35),false);frame.style.cssText='width:100%;max-height:280px';preview.append(frame);
+   const block=document.createElement('div'),insert=document.createElement('button'),save=document.createElement('button');block.className='rd04row';insert.textContent='Inserir GIL na cena';save.textContent='↓ Baixar fonte GIL';insert.onclick=()=>{if(!insertGIL)return status.textContent='Editor de objetos ainda não carregou.';if(!confirm('Abrir inserção da camada GIL nesta cena?'))return;dlg.close();insertGIL(source);};save.onclick=()=>download(new Blob([source],{type:'text/plain;charset=utf-8'}),'rd-'+a.id.replaceAll(':','-')+'.gil');block.append(insert,save);preview.append(block);status.textContent='Fonte GIL compilada no mesmo runtime do editor. Prévia em 35% da duração.';
+  }catch(e){status.textContent='Não foi possível visualizar: '+e.message;}}
+ q('label').onchange=()=>active&&choose(active);q('duration').onchange=()=>active&&choose(active);
+ function sample(){const p=getProject(),s=p.cenas[selectedScene()];return {format:'rd-studio-project-plan-0.4',expect:{title:p.titulo,scene_ids:p.cenas.map(s=>s.id)},operations:[{type:'scene.text',id:s.id,field:'subtitulo',text:'Animação construída por etapas'},{type:'scene.duration',id:s.id,seconds:Math.min(600,Math.max(.5,Number(s.duracao)||8))}]};}
+ q('example').onclick=()=>{if(q('plan').value.trim()&&!confirm('Substituir o plano digitado (sem alterar o projeto)?'))return;q('plan').value=JSON.stringify(sample(),null,2);proposal=null;apply.disabled=true;report.textContent='Exemplo carregado. Simule antes de aplicar.';};
+ q('plan').oninput=()=>{proposal=null;apply.disabled=true;report.textContent='Plano editado; simule novamente.';};
+ q('simulate').onclick=()=>{try{const p=getProject(),raw=q('plan').value,plan=validateProjectPlan(raw),next=previewProjectPlan(p,plan);proposal=next;snapshot=JSON.stringify(p);planSnapshot=raw;apply.disabled=!next.changes.length;report.textContent=next.changes.map(c=>`${c.index}. ${c.type} · ${c.id||''}`).join('\n')+'\nNADA FOI ALTERADO.';}catch(e){proposal=null;apply.disabled=true;report.textContent='Recusado: '+e.message;}};
+ apply.onclick=()=>{try{if(!proposal||JSON.stringify(getProject())!==snapshot||q('plan').value!==planSnapshot)throw Error('Projeto ou plano alterado; simule novamente.');if(!confirm('Aplicar '+proposal.changes.length+' operações no projeto? Use Desfazer para reverter.'))return;const p=proposal.project;proposal=null;apply.disabled=true;commit(p);report.textContent='Operações aplicadas ao projeto local, ainda não salvas. Revise e salve.';}catch(e){report.textContent='Não aplicado: '+e.message;}};
+ q('export').onclick=()=>{try{download(new Blob([JSON.stringify(validateProjectPlan(q('plan').value),null,2)],{type:'application/json'}),'rd-plano-v04.json');}catch(e){report.textContent=e.message;}};
+ import('./studio-console-v1.mjs').then(({installStudioConsole})=>{
+  installStudioConsole({dlg,getProject,validateProjectPlan});
+ }).catch(e=>{const p=document.createElement('p');p.setAttribute('role','alert');
+  p.textContent='Console incremental indisponível: '+e.message;dlg.append(p);});
+ return {open:()=>btn.click()};
+}

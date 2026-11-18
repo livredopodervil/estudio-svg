@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtempSync,copyFileSync,symlinkSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import {pathToFileURL} from 'node:url';
 const root=process.env.RD_GIL_ROOT;
 let api=null;let dir=null;
-if(root){dir=mkdtempSync(join(tmpdir(),'scene-objects-'));for(const name of ['scene-objects.mjs','gil-native.mjs','viewport-affine.mjs'])copyFileSync(new URL('../web/'+name,import.meta.url),join(dir,name));symlinkSync(root,join(dir,'gil-runtime'),'dir');api=await import(pathToFileURL(join(dir,'scene-objects.mjs')));process.on('exit',()=>rmSync(dir,{recursive:true,force:true}));}
+if(root){dir=mkdtempSync(join(tmpdir(),'scene-objects-'));for(const name of ['scene-objects.mjs','gil-native.mjs','viewport-affine.mjs','visual-effects.mjs'])copyFileSync(new URL('../web/'+name,import.meta.url),join(dir,name));symlinkSync(root,join(dir,'gil-runtime'),'dir');api=await import(pathToFileURL(join(dir,'scene-objects.mjs')));process.on('exit',()=>rmSync(dir,{recursive:true,force:true}));}
 const {motionSource,motionProgram,rect,localTime}=api||{};
 test('GIL evaluates enter and expansion with deterministic seek',{skip:!root},()=>{const f=motionProgram(motionSource('enter',8)),o={x:.5,y:.5,w:1,h:1,opacity:1};assert.equal(rect(o,f(0)).w,.25);assert.equal(rect(o,f(1.5)).w,1);assert.deepEqual(rect(o,f(0)),{x:-.4,y:.5,w:.25,h:.25,rz:-0,opacity:1});assert.deepEqual(f(.3),f(.3));});
 test('object interval independent of scene duration',{skip:!root},()=>{const o={start:2,end:5};assert.equal(localTime(o,1),null);assert.equal(localTime(o,2),0);assert.equal(localTime(o,4),2);assert.equal(localTime(o,5),null);});

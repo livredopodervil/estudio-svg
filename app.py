@@ -644,7 +644,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/voice-bulk.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES
@@ -675,6 +675,8 @@ class Handler(BaseHTTPRequestHandler):
         filemap['/workspace-v38.js']='workspace-v38.js'
         filemap['/edit-history.js']='edit-history.js'
         filemap['/media-start-gate.js']='media-start-gate.js'
+        filemap['/studio-layout-v1.js']='studio-layout-v1.js'
+        filemap['/studio-layout-v1.css']='studio-layout-v1.css'
         # Explicit allowlist: never serve arbitrary repository files.
         player_files={'/player-v3/':'index.html','/player-v3/index.html':'index.html',
           '/player-v3/player.js':'player.js','/player-v3/runtime.js':'runtime.js',
@@ -724,10 +726,13 @@ def cli():
         print('Projetos:',*[f.stem for f in PROJECTS.glob('*.json')])
     elif args.acao=='migrar':migrate(args.origem)
     elif args.acao=='servir':
-        print('Estúdio SVG V3 alpha: http://127.0.0.1:'+str(args.port),flush=True)
-        server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
-        try:server.serve_forever()
-        except KeyboardInterrupt:print('\nServidor encerrado')
+        # O contexto fecha explicitamente o socket também no Ctrl+C.
+        with ThreadingHTTPServer(('127.0.0.1',args.port),Handler) as server:
+            print('Estúdio SVG V3 alpha: http://127.0.0.1:'+str(args.port),flush=True)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                print('\nServidor encerrado (Ctrl+C)',flush=True)
     elif args.acao=='cache-status':
         for x in cache_status(read_project(args.projeto)):
             print(f"{x['index']:02d} {x['title'][:35]:35} | visual={x['visual']} audio={x['audio']} voz={x['voice']} {x['seconds']:.2f}s")

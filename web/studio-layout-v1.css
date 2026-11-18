@@ -1,0 +1,118 @@
+/* M1a: purely presentational layout. Existing preview, timeline and renderers remain unchanged. */
+body.rdStudioUnified{--rd-side-w:min(310px,86vw)}
+.rdStudioUnified .top{gap:8px;min-height:52px;padding:7px 12px}
+.rdStudioUnified .topactions{gap:5px}
+.rdStudioUnified #rdHeaderMore{position:relative}
+.rdStudioUnified #rdHeaderMore>summary{list-style:none;cursor:pointer;border:1px solid #745746;padding:8px 11px;border-radius:8px;background:#3c3029;font-size:12px}
+.rdStudioUnified #rdHeaderMore[open]{z-index:45}
+.rdStudioUnified #rdHeaderMore .rdHeaderMenu{position:absolute;right:0;top:calc(100% + 3px);z-index:45;min-width:190px;max-width:260px;background:#302824;border:1px solid var(--line);border-radius:8px;padding:7px;box-shadow:0 8px 24px #000a}
+.rdStudioUnified #rdHeaderMore .rdHeaderMenu>button{display:block;width:100%;margin:3px 0;font-size:12px;text-align:left}
+.rdStudioUnified #rdHeaderMore{max-width:min(260px,76vw)}
+.rdStudioUnified .workspaceTools,.rdStudioUnified .mobileTabs{display:none!important}
+.rdStudioUnified .workspace{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-areas:'preview' 'timeline'!important;gap:6px;max-width:1700px;margin:4px auto;padding:0 7px}
+.rdStudioUnified #previewPanel{grid-area:preview;display:block!important;min-height:0}
+.rdStudioUnified #videoTimelinePanel{grid-area:timeline;display:block!important;position:relative!important;bottom:auto!important;max-width:100%;min-width:0}
+.rdStudioUnified #scenesPanel,.rdStudioUnified #editPanel,.rdStudioUnified #workPanel{display:none!important;position:fixed;top:64px;bottom:8px;width:var(--rd-side-w);max-width:calc(100vw - 12px);height:auto;max-height:calc(100dvh - 72px);overflow:auto;z-index:1100;box-shadow:0 8px 36px #000c;min-height:0}
+.rdStudioUnified[data-rd-drawer=scenes] #scenesPanel{display:block!important;left:7px}
+.rdStudioUnified[data-rd-drawer=properties] #editPanel,.rdStudioUnified[data-rd-drawer=audio] #editPanel{display:block!important;right:7px}
+.rdStudioUnified[data-rd-drawer=production] #workPanel{display:block!important;right:7px;width:min(480px,94vw)}
+.rdStudioUnified .rdCloseSide{margin-left:auto;border-radius:50%;width:30px;height:30px;padding:0;font-size:21px;line-height:1}
+.rdStudioUnified .rdComposeNav{display:flex;align-items:center;gap:5px;overflow-x:auto;padding:5px 8px;scrollbar-width:thin;border-bottom:1px solid var(--line);background:#282724;white-space:nowrap;position:relative;z-index:2}
+.rdStudioUnified .rdComposeNav button{font-size:12px;min-height:33px;padding:5px 9px;border-radius:7px;flex:none}
+.rdStudioUnified .rdComposeNav button[aria-expanded=true]{background:var(--accent);color:#261a12}
+.rdStudioUnified .viewportToolbar{display:none}
+.rdStudioUnified #workspaceLibrary:not([hidden]),.rdStudioUnified #workspaceProjects:not([hidden]),.rdStudioUnified #timingDialog:not([hidden]){position:fixed;z-index:1120;left:8px;top:62px;width:min(420px,calc(100vw - 16px));height:auto;max-height:calc(100dvh - 72px);overflow:auto;margin:0;box-shadow:0 10px 35px #000c}
+.rdStudioUnified .rdNativeCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:8px 0}
+.rdStudioUnified .rdNativeCards button{text-align:left;font-size:12px;min-width:0}
+.rdStudioUnified .rdUnifiedCatalog{border-top:1px solid var(--line);margin:8px 0;padding-top:4px}
+.rdStudioUnified .rdUnifiedCatalog h4{margin:4px 0}
+.rdSvgPreview{background:#2b2522;color:#fff0d6;border:1px solid #86674f;border-radius:12px;width:min(560px,95vw);max-height:90dvh;overflow:auto;padding:12px}
+.rdSvgPreview::backdrop{background:#000b}
+.rdSvgPreviewHead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#rdSvgPreviewStage{background:#14262e;min-height:190px;margin-top:10px;border-radius:8px;overflow:hidden}
+#rdSvgPreviewStage svg{display:block;width:100%;height:auto;aspect-ratio:16/9}
+body.rdStudioUnified:not([data-rd-drawer=none]) .rdViewportToolDock{display:none!important}
+body.rdStudioUnified:not([data-rd-pane=previewPanel]) .rdViewportToolDock{display:none!important}
+body.rdStudioUnified:has(#workspaceLibrary:not([hidden])) .rdViewportToolDock{display:none!important}
+body.rdStudioUnified:has(#workspaceProjects:not([hidden])) .rdViewportToolDock{display:none!important}
+.rdStudioUnified .stageShell{max-width:100%;}
+.rdStudioUnified .compositionArea{max-width:1600px;margin:0 auto}
+.rdStudioUnified .rdStudioComposeBar{display:block}
+@media(max-width:760px),(max-height:600px){
+ .rdStudioUnified .workspace{padding:0 3px}
+ .rdStudioUnified .rdComposeNav button{font-size:11px;min-height:34px;padding:4px 7px}
+ .rdStudioUnified .topactions{flex-wrap:nowrap}
+ .rdStudioUnified .top{padding:5px 7px;min-height:44px}
+ .rdStudioUnified #scenesPanel,.rdStudioUnified #editPanel,.rdStudioUnified #workPanel{top:49px;max-height:calc(100dvh - 56px)}
+ .rdStudioUnified #workspaceLibrary:not([hidden]),.rdStudioUnified #workspaceProjects:not([hidden]),.rdStudioUnified #timingDialog:not([hidden]){top:50px;max-height:calc(100dvh - 60px)}
+ .rdStudioUnified #videoTimelinePanel{position:relative!important;bottom:auto!important;box-shadow:none}
+ .rdStudioUnified .stageShell{width:calc(100% - 12px)}
+}
+@media(prefers-reduced-motion:reduce){.rdStudioUnified *{scroll-behavior:auto!important}}
+
+.rdStudioUnified .rdComposeNav{position:sticky;top:0;z-index:10}
+.rdStudioUnified .rdLegacyTools{margin:3px 9px 4px;border:1px solid #514037;border-radius:7px;background:#261f1d}
+.rdStudioUnified .rdLegacyTools summary{padding:5px 9px;font-size:11px;color:#d4bcaa;cursor:pointer}
+.rdStudioUnified .rdLegacyToolsContent{display:flex;flex-wrap:wrap;gap:5px;padding:7px}
+.rdStudioUnified .rdLegacyToolsContent button{min-height:30px;font-size:12px;padding:4px 8px}
+
+.rdStudioUnified .rdComposeNav button{display:inline-flex;align-items:center;justify-content:center;gap:5px}
+@media(max-width:760px),(max-height:600px){
+ .rdStudioUnified .rdComposeNav{gap:4px;justify-content:space-between}
+ .rdStudioUnified .rdComposeNav button{width:36px;min-width:36px;height:38px;min-height:38px;padding:2px;font-size:19px}
+ .rdStudioUnified .rdComposeNav .rdNavLabel{display:none}
+}
+/* M1b: title gallery and direct SVG editing. No media/player engines here. */
+.rdTitleGallery{border-top:1px solid var(--line);padding:12px 0 7px}
+.rdTitleGallery h4{margin:0 0 4px}
+.rdTitleTiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.rdTitleTile{padding:4px;border:1px solid #6b5145;background:#251f1e;color:#f6e1c9;text-align:center;border-radius:9px;min-width:0}
+.rdTitleTile canvas{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#13242a;border-radius:5px}
+.rdTitleTile span{display:block;padding-top:4px;font-size:12px}
+.rdTitleDialog,.rdGilSourceDialog{width:min(650px,95vw);max-height:93dvh;overflow:auto;border:1px solid #8b6650;border-radius:12px;background:#282321;color:#faefde;padding:14px}
+.rdTitleDialog::backdrop,.rdGilSourceDialog::backdrop{background:#000b}
+.rdTitleDialog label{display:block;margin:8px 0;font-size:13px}
+.rdTitleDialog input,.rdTitleDialog select{display:block;width:100%;max-width:100%;margin-top:3px}
+.rdTitleDialog canvas{display:block;width:100%;height:auto;background:#14202a;border:1px solid #624838;border-radius:7px}
+.rdTitleActions,.rdTitleHead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rdGilSourceDialog textarea{width:100%;min-height:160px;resize:vertical;tab-size:2;font-family:monospace;font-size:12px}
+.rdGilSourceDialog [data-gil-preview]{height:min(35dvh,270px);background:#14212b;overflow:hidden;border:1px solid #5f5951}
+.rdGilSourceDialog [data-gil-preview] svg{display:block;width:100%;height:100%}
+.rdTitleLive{width:100%;aspect-ratio:16/9;background:#14202a;overflow:hidden;border:1px solid #586a6d;border-radius:8px;max-height:34dvh;min-height:110px}.rdTitleDialog [data-preview]{display:none}.rdSvgDirectOutline{position:absolute;z-index:14;box-sizing:border-box;pointer-events:none;border:2px dashed #ecc68e;background:#f0dcb00a}
+.rdSvgDirectOutline[hidden]{display:none!important}
+.rdSvgDirectOutline button{position:absolute;pointer-events:auto;width:30px;height:30px;padding:0;border-radius:50%;font-size:17px;background:#26363c;color:#ffd9a8;touch-action:none}
+.rdSvgDirectOutline [data-svg-handle=scale]{right:-15px;bottom:-15px}
+.rdSvgDirectOutline [data-svg-handle=rotate]{right:-15px;top:-38px}
+/* M1d: editor integrado da linguagem Roteiro 0.2. Nenhum elemento entra no vídeo. */
+.rdRoteiroDialog{width:min(95vw,1100px);max-width:1100px;max-height:94dvh;overflow:auto;box-sizing:border-box;background:#1c282f;color:#edf2e9;border:1px solid #6d817a;border-radius:12px;padding:14px;box-shadow:0 22px 80px #0009}
+.rdRoteiroDialog::backdrop{background:#000a}.rdRoteiroHeader{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px}.rdRoteiroNote{font-size:12px;color:#b9c8c2;line-height:1.4}
+.rdRoteiroInputs{display:grid;grid-template-columns:1fr 140px;gap:9px}.rdRoteiroInputs .rdWide{grid-column:span 2}
+.rdRoteiroInputs label,.rdRoteiroEditors label{display:grid;gap:4px;font-size:12px;color:#cad7d2}.rdRoteiroInputs input,.rdRoteiroInputs select,.rdRoteiroEditors textarea{box-sizing:border-box;width:100%;background:#111d24;color:#f4f6ef;border:1px solid #59716c;border-radius:6px;padding:8px}
+.rdRoteiroGallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:8px;margin:10px 0;max-height:200px;overflow:auto}.rdRoteiroTile{color:inherit;border:1px solid #425650;border-radius:8px;background:#28363a;padding:5px;text-align:left;font:inherit;cursor:pointer}.rdRoteiroTile.selected{outline:2px solid #d8b274}.rdRoteiroThumb{height:55px;display:flex;gap:8px;align-items:center;padding:8px;overflow:hidden}.rdRoteiroThumb i{width:5px;height:85%;flex-shrink:0}.rdRoteiroThumb b{font-size:14px;line-height:1.05}.rdRoteiroTile span{font-size:10px;display:block;margin:5px 2px;color:#d5dfd8}
+.rdRoteiroActions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:10px 0}.rdRoteiroActions label{display:flex;gap:6px;align-items:center;font-size:12px}.rdRoteiroActions input[type=range]{width:145px}.rdRoteiroEditors{display:grid;grid-template-columns:1fr 1fr;gap:9px}.rdRoteiroEditors textarea{height:170px;resize:vertical;font:11px/1.5 ui-monospace,monospace}.rdRoteiroFrame{background:#131d23;aspect-ratio:16/9;max-height:250px;display:grid;place-items:center;overflow:hidden;border-radius:6px}
+@media(max-width:620px){.rdRoteiroEditors{grid-template-columns:1fr}.rdRoteiroEditors textarea{height:145px}.rdRoteiroGallery{grid-template-columns:repeat(2,minmax(0,1fr));max-height:155px}.rdRoteiroDialog{padding:10px}.rdRoteiroFrame{max-height:180px}}
+
+/* M1e: declarative video/audio scene operations and agent proposals in existing script editor. */
+.rdRoteiroAgent{margin:12px 0 2px;padding:10px;border:1px solid #536a65;border-radius:9px;background:#18272d}
+.rdRoteiroAgent>summary{cursor:pointer;color:#f0dab5;font-size:13px}
+.rdRoteiroAgent label{display:grid;gap:5px;font-size:12px;color:#dce4df}
+.rdRoteiroAgent textarea{width:100%;box-sizing:border-box;min-height:115px;max-height:250px;resize:vertical;background:#101e25;color:#e9f1ef;border:1px solid #52716b;border-radius:6px;font:12px/1.45 ui-monospace,monospace;padding:8px}
+.rdRoteiroAgent [data-agent-report]{white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow-y:auto}
+
+/* M1h: botão de catálogo compacto, sem cobrir os comandos vizinhos. */
+.rdStudioUnified .rdComposeNav #rdLibrary04Button{
+  flex:0 0 36px;
+  inline-size:36px;
+  min-inline-size:36px;
+  max-inline-size:36px;
+  min-height:36px;
+  height:36px;
+  padding:0;
+  overflow:hidden;
+  white-space:nowrap;
+  font-size:19px;
+  line-height:1;
+}
+@media(max-width:760px),(max-height:600px){
+  .rdStudioUnified .rdComposeNav{justify-content:flex-start;overflow-x:auto}
+}

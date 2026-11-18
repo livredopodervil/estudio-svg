@@ -4,7 +4,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const types=['globo','linha','barras','numero','cartoes','arvore','svg','foto','espacial'];
 const names={globo:'Globo',linha:'Linhas',barras:'Barras',numero:'Número',cartoes:'Cartões',arvore:'Árvore fractal',svg:'SVG personalizado',foto:'Fotografia',espacial:'Espacial 3D (experimental)'};
 const presets={'16:9':[1280,720],'9:16':[720,1280],'1:1':[800,800],'4:5':[800,1000],'21:9':[1260,540]};
-const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',animacoes:[],video_clipe:{arquivo:'',x:.5,y:.56,w:.70,h:.40,fit:'cover',inicio:0,repetir:true,opacidade:1,audio_enabled:false,audio_volume:1},imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[],modo:'quadro',x:.73,y:.58,w:.41,h:.65,frame:true},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,tracks:[]}});
+const sceneBase=()=>({id:'cena_'+Date.now(),tipo:'cartoes',duracao:7,titulo:'NOVA CENA',subtitulo:'Descreva o assunto',fala:'',categoria:'ESTÚDIO SVG',fonte:'',movimento:'suave',itens:['Novo item','Mais uma informação'],dados:[[1,1],[2,2],[3,3]],valor:'',unidade:'',sufixo:'',destaque:'',svg:'<circle cx="650" cy="350" r="160" fill="#e8a770"/>',animacoes:[],video_clipe:{arquivo:'',x:.5,y:.56,w:.70,h:.40,fit:'cover',inicio:0,repetir:true,opacidade:1,audio_enabled:false,audio_volume:1,audio_fade_in:.12,audio_fade_out:.12},imagem:{arquivo:'',fit:'cover',align_x:.5,align_y:.5,bg:'#241b1a',crop:[],modo:'quadro',x:.73,y:.58,w:.41,h:.65,frame:true},cores:{fundo:'#241b1a',destaque:'#d99a62',texto:'#fff1da'},audio:{voice_text:'',voice_enabled:false,voice_file:'',voice_volume:1,voice_delay:.12,music_file:'',music_volume:.16,duck_music:false,scene_fade_in:.12,scene_fade_out:.12,tracks:[]}});
 let previewRaf=0,lastPreviewDraw=-Infinity;
 let previewRate=1,timingHistory=null,fitResult=null,workspaceBusy=false,librarySerial=0;
 const documentHistory=new window.StudioDocumentHistory(64);let projectCatalog=[];
@@ -105,7 +105,7 @@ function renderScene(){let h='<div class="sectionTitle">Cena '+(selected+1)+' ·
  if(project.cenas[selected].gil_nativo){h+='<p class="fieldHint">GIL nativa · '+Number(project.cenas[selected].gil_nativo.duration).toFixed(2)+' s · sem MP4 intermediário</p><div class="inline"><button id="editNativeGIL" type="button">Editar fonte nativa</button><button id="downloadNativeGIL" type="button">Baixar GIL</button><button id="removeNativeGIL" type="button">Remover camada GIL</button></div><div class="fieldGrid4">';
  for(const [key,title] of [['x','Centro X'],['y','Centro Y'],['w','Largura'],['h','Altura'],['opacidade','Opacidade']])h+=field(title+' (0 a 1)',`cenas.${selected}.gil_nativo.${key}`,'number');
  h+='</div>'+field('Fundo opaco',`cenas.${selected}.gil_nativo.opaque`,'checkbox');}
- h+=field('Arquivo do clipe',`cenas.${selected}.video_clipe.arquivo`);h+=field('Incluir som original',`cenas.${selected}.video_clipe.audio_enabled`,'checkbox');h+=field('Volume do clipe',`cenas.${selected}.video_clipe.audio_volume`,'number');
+ h+=field('Arquivo do clipe',`cenas.${selected}.video_clipe.arquivo`);h+=field('Incluir som original',`cenas.${selected}.video_clipe.audio_enabled`,'checkbox');h+=field('Volume do clipe',`cenas.${selected}.video_clipe.audio_volume`,'number');h+=field('Entrada suave do clipe (s)',`cenas.${selected}.video_clipe.audio_fade_in`,'number');h+=field('Saída suave do clipe (s)',`cenas.${selected}.video_clipe.audio_fade_out`,'number');
  h+='<p class="fieldHint">O som do clipe entra na mixagem. Salve alterações sonoras antes de reproduzir. Se a mídia já for a locução, não será duplicada.</p>';
  h+='<div class="fieldGrid4">';
  for(const [key,title] of [['x','Centro X'],['y','Centro Y'],['w','Largura'],['h','Altura']])h+=field(title+' (0 a 1)',`cenas.${selected}.video_clipe.${key}`,'number');
@@ -179,7 +179,7 @@ function openOrCreateSVG(){
 }
 function sType(...choices){return choices.includes(project.cenas[selected].tipo);}
 function sImgCrop(){return (project.cenas[selected].imagem.crop||[]).join(', ');}
-function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da cena '+(selected+1)+'</div><div class="inline"><button id="voiceThisShortcut">Gerar voz desta cena</button><button id="voiceAllShortcut">Gerar todas as vozes</button><button id="voiceTimingShortcut">Adequar duração à voz</button></div>';
+function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da cena '+(selected+1)+'</div><div class="inline"><button id="activateAllVoicesEditor" type="button">♫ Ativar narração em todas as cenas</button><button id="voiceThisShortcut">Gerar voz desta cena</button><button id="voiceAllShortcut">Gerar todas as vozes</button><button id="voiceTimingShortcut">Adequar duração à voz</button></div>';
  h+=field('Ativar narração',`cenas.${selected}.audio.voice_enabled`,'checkbox');
  h+=field('Texto para voz neural',`cenas.${selected}.audio.voice_text`,'textarea','', 'Síntese gerada apenas quando você tocar em Áudio em lote.');
  h+=field('Voz gravada (substitui o texto neural)',`cenas.${selected}.audio.voice_file`);
@@ -194,6 +194,9 @@ function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da c
  h+=action(`cenas.${selected}.audio.music_file`,'Importar trilha da cena');
  h+=field('Volume da trilha específica',`cenas.${selected}.audio.music_volume`,'number');
  h+=field('Abaixar música com voz',`cenas.${selected}.audio.duck_music`,'checkbox');
+ h+=field('Fade de entrada da cena (s)',`cenas.${selected}.audio.scene_fade_in`,'number');
+ h+=field('Fade de saída da cena (s)',`cenas.${selected}.audio.scene_fade_out`,'number');
+ h+='<p class="fieldHint">Esses fades suavizam o corte, mas não sobrepõem cenas. Trilha global contínua permanece ininterrupta.</p>';
  h+='<div class="sectionTitle">Faixas extras: efeitos, ambientes e outras vozes</div>';
  for(let [i,tr] of project.cenas[selected].audio.tracks.entries()){
    let p=`cenas.${selected}.audio.tracks.${i}`;
@@ -215,8 +218,8 @@ function dirtyNow(redraw=false,historyKey=''){documentHistory.record(project,his
 async function save(force=false){if(!project||(!dirty&&!force))return;
  if(saving)return; saving=true;
  try{const name=projectName,snapshot=JSON.stringify(project);const saved=JSON.parse(snapshot);await post('/api/project',{name,project:saved});const signature=audioSignature(saved),audioChanged=signature!==savedAudioSignature;savedAudioSignature=signature;dirty=name!==projectName||JSON.stringify(project)!==snapshot;if(audioChanged||name!==projectName){stopWorkspace();stopTransport(true);effectiveTiming=null;await refreshEffectiveTiming();}$('saveInfo').textContent=dirty?'● Alterações posteriores ao salvamento':'✓ Salvo no aparelho';}finally{saving=false;}}
-function drawSceneList(){const l=$('sceneList');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneItem ${i===selected?'active':''}"><button class="scenePick" data-scene="${i}"><small>${String(i+1).padStart(2,'0')} · ${esc(names[s.tipo]||s.tipo)} · ${s.duracao}s</small><b>${esc(s.titulo||'Sem título')}</b><small>${s.audio.voice_enabled?'♫ voz':'sem voz'}</small></button><div class="sceneOrder"><button data-shift="-1" data-index="${i}">↑</button><button data-shift="1" data-index="${i}">↓</button></div></div>`).join('');$('sceneCount').textContent=project.cenas.length;}
-function drawTimeline(){const scale=Number($('timelineZoom')?.value)||12;const l=$('timeline');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneStrip ${selected===i?'active':''}" style="width:${Math.max(42,sceneSeconds(i)*scale)}px"><button data-scene="${i}" title="${esc(s.titulo)}"><small>${i+1} · ${startOf(i).toFixed(1)}s</small><b>${esc(s.titulo)}</b><small>${sceneSeconds(i).toFixed(2)}s${sceneSeconds(i)>Number(s.duracao)+.001?' (ajust.)':''} ${s.audio.voice_enabled?'♫':''}</small></button><button class="trimHandle" data-trim="${i}" aria-label="Arrastar para ajustar duração da cena ${i+1}" title="Arraste para ajustar duração"></button></div>`).join('');}
+function drawSceneList(){const l=$('sceneList');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneItem ${i===selected?'active':''}"><button class="scenePick" data-scene="${i}"><small>${String(i+1).padStart(2,'0')} · ${esc(names[s.tipo]||s.tipo)} · ${s.duracao}s</small><b>${esc(s.titulo||'Sem título')}</b><small>${s.audio.voice_enabled&&!s.audio.muted&&Number(s.audio.voice_volume)>0&&Number(project.volume_voz)>0?'♫ voz':(s.audio.voice_text?'voz inativa':'sem voz')}</small></button><div class="sceneOrder"><button data-shift="-1" data-index="${i}">↑</button><button data-shift="1" data-index="${i}">↓</button></div></div>`).join('');$('sceneCount').textContent=project.cenas.length;}
+function drawTimeline(){const scale=Number($('timelineZoom')?.value)||12;const l=$('timeline');l.innerHTML=project.cenas.map((s,i)=>`<div class="sceneStrip ${selected===i?'active':''}" style="width:${Math.max(42,sceneSeconds(i)*scale)}px"><button data-scene="${i}" title="${esc(s.titulo)}"><small>${i+1} · ${startOf(i).toFixed(1)}s</small><b>${esc(s.titulo)}</b><small>${sceneSeconds(i).toFixed(2)}s${sceneSeconds(i)>Number(s.duracao)+.001?' (ajust.)':''} ${s.audio.voice_enabled&&!s.audio.muted&&Number(s.audio.voice_volume)>0&&Number(project.volume_voz)>0?'♫':''}</small></button><button class="trimHandle" data-trim="${i}" aria-label="Arrastar para ajustar duração da cena ${i+1}" title="Arraste para ajustar duração"></button></div>`).join('');}
 function bindTimeline(){const l=$('timeline');$('timelineZoom').oninput=drawTimeline;l.addEventListener('pointerdown',e=>{const grip=e.target.closest('[data-trim]');if(!grip||e.button!==0||!project||saving||busy)return;e.preventDefault();e.stopPropagation();stopWorkspace();const target=project.cenas[Number(grip.dataset.trim)],orig=Number(target.duracao),owner=project,scale=Number($('timelineZoom').value)||12,x=e.clientX,strip=grip.parentElement;let val=orig;grip.setPointerCapture(e.pointerId);grip.onpointermove=ev=>{val=Math.max(.5,Math.min(600,Math.round((orig+(ev.clientX-x)/scale)*20)/20));strip.style.width=Math.max(42,val*scale)+'px';strip.querySelector('button small:last-child').textContent=val.toFixed(2)+'s';};const finish=ev=>{grip.onpointermove=grip.onpointerup=grip.onpointercancel=null;if(ev.type!=='pointercancel'&&owner===project&&project.cenas.includes(target)&&Math.abs(val-orig)>.001){target.duracao=val;selected=project.cenas.indexOf(target);playTime=startOf(selected);dirtyNow(true);}else drawTimeline();};grip.onpointerup=finish;grip.onpointercancel=finish;});}
 function drawEverything(){if(!project)return;drawSceneList();drawTimeline();drawEditor();objectEditor?.refresh();if(!$('workspaceLibrary').hidden)libraryTargets();$('stage').style.aspectRatio=project.video.width+'/'+project.video.height;const ratio=project.video.width/project.video.height;$('previewFullHost').style.setProperty('--preview-aspect',ratio);const shell=$('stageShell');shell.style.width=project.video.height>project.video.width?Math.max(160,Math.round(Math.min(window.innerWidth*.92,window.innerHeight*.70*ratio)))+'px':'';document.body.classList.toggle('portraitProject',project.video.height>project.video.width);$('formatInfo').textContent=`${project.video.width} × ${project.video.height} · ${project.video.fps} FPS`;showPreview();}
 function jump(i){clipEditingEnabled(false);clearMediaPlayers();selected=Math.max(0,Math.min(project.cenas.length-1,i));playTime=startOf(selected);drawEverything();}
@@ -323,7 +326,7 @@ async function showPreview(){if(!project)return;
  const nativeScene=sceneAt(playTime);syncNative(project.cenas[nativeScene.i],nativeScene.progress);syncSceneObjects(project.cenas[nativeScene.i],nativeScene.progress);
  $('timeInfo').textContent=sec(playTime)+' / '+sec(totalDuration());$('seek').value=totalDuration()?Math.round(playTime/totalDuration()*1000):0;
  const now=performance.now();if(playing&&now-lastPreviewDraw<100)return;if(previewBusy){previewPending=true;return;}lastPreviewDraw=now;previewBusy=true;const s=sceneAt(playTime),owner=project;
- try{const requestStart=performance.now();const svg=await post('/api/preview',{scene:project.cenas[s.i],video:project.video,progress:s.progress,index:s.i,total:project.cenas.length});viewportMetrics?.record('preview_http',performance.now()-requestStart);if(project===owner&&sceneAt(playTime).i===s.i){$('stage').innerHTML=svg;syncPreviewVideo(s.i,sceneAt(playTime).progress);syncSceneObjects(project.cenas[s.i],sceneAt(playTime).progress);}}
+ try{const requestStart=performance.now();const svg=await post('/api/preview',{scene:project.cenas[s.i],video:project.video,progress:s.progress,index:s.i,total:project.cenas.length});viewportMetrics?.record('preview_http',performance.now()-requestStart);if(project===owner&&sceneAt(playTime).i===s.i){$('stage').innerHTML=svg;syncPreviewVideo(s.i,sceneAt(playTime).progress);syncSceneObjects(project.cenas[s.i],sceneAt(playTime).progress);objectEditor?.paint();}}
  catch(e){$('stage').textContent='Falha na prévia: '+e.message;}
  finally{previewBusy=false;if(previewPending){previewPending=false;if(!playing)setTimeout(showPreview,80);}}
 }
@@ -352,7 +355,29 @@ function acceptEffectiveTiming(owner,name,signature,scenes){
 }
 async function refreshEffectiveTiming(){if(!project||!audioSnapshotMatches())return;const owner=project,name=projectName,signature=audioSignature(project);try{const r=await api('/api/preview/timing?name='+encodeURIComponent(name));if(acceptEffectiveTiming(owner,name,signature,r.scenes)){drawTimeline();showPreview();}}catch(e){$('transportStatus').textContent='Duração efetiva indisponível: '+e.message;}}
 async function refreshCache(){if(!project)return;const owner=project,name=projectName,signature=audioSignature(project);try{let r=await api('/api/cache/status?name='+encodeURIComponent(name));if(project!==owner||name!==projectName||signature!==audioSignature(project))return;cacheInfo=r.scenes;if(acceptEffectiveTiming(owner,name,signature,r.scenes)){drawTimeline();showPreview();}$('cacheTable').innerHTML=r.scenes.map(c=>`<div class="cacheItem"><b>${c.index}. ${esc(c.title)}</b><small><span class="${c.visual?'check':'missing'}">Visual ${c.visual?'✓':'·'}</span> · <span class="${c.audio?'check':'missing'}">Áudio ${c.audio?'✓':'·'}</span> · <span class="${c.voice?'check':'missing'}">Voz ${c.voice?'✓':'·'}</span></small><br><small>${c.seconds.toFixed(2)} s</small><br><button data-clear="${c.index}">Limpar cache desta cena</button></div>`).join('');}catch(e){$('cacheTable').textContent='Cache: '+e.message;}}
-async function begin(mode,no_voice=false){if(busy)return toast('Já existe um trabalho em execução',true);try{await save();let j=await post('/api/job',{name:projectName,mode,scene:['cena','voz-mp3','audio-cena'].includes(mode)?selected+1:undefined,no_voice});busy=true;$('downloads').innerHTML='';$('logBox').textContent='';trackJob(j.job);}catch(e){toast(e.message,true);}}
+async function prepareNarrations(purpose='manual'){
+ if(!project||saving||workspaceBusy||busy)return false;
+ const {inspectNarrations,enableNarrations}=await import('/voice-bulk.mjs');
+ const report=inspectNarrations(project);
+ if(!report.eligible.length){if(purpose==='manual')toast('Não há texto ou arquivo de locução nas cenas.');return true;}
+ if(!report.needsFix){if(purpose==='manual')toast('Narrações já habilitadas. Use Salvar antes de reproduzir.');return true;}
+ const reasons=[];
+ if(report.disabled.length)reasons.push(report.disabled.length+' com narração desativada');
+ if(report.muted.length)reasons.push(report.muted.length+' silenciadas');
+ if(report.zeroGlobalVolume)reasons.push('volume global da voz = 0');
+ if(report.zeroSceneVolume.length)reasons.push(report.zeroSceneVolume.length+' com volume individual = 0');
+ const question='Foram encontradas '+report.eligible.length+' cenas com texto ou arquivo de narração.\n'+reasons.join('; ')+'.\n\nAtivar essas vozes, retirar o silêncio e corrigir volumes zerados, preservando os arquivos existentes?';
+ if(!confirm(question)){
+  if(purpose!=='manual')toast('Operação cancelada: configure a narração ou use uma exportação explicitamente sem voz.',true);
+  return false;
+ }
+ stopWorkspace();
+ const changed=enableNarrations(project);
+ if(changed.changed){dirtyNow(true,'enable-narration-batch');await save();}
+ toast('Narração habilitada e salva para '+report.eligible.length+' cenas. Nenhuma voz foi sintetizada.');
+ return true;
+}
+async function begin(mode,no_voice=false){if(busy)return toast('Já existe um trabalho em execução',true);try{if(!no_voice&&['audio','mix','render','render-leve','cena','audio-cena'].includes(mode)&&!(await prepareNarrations('produce')))return;await save();let j=await post('/api/job',{name:projectName,mode,scene:['cena','voz-mp3','audio-cena'].includes(mode)?selected+1:undefined,no_voice});busy=true;$('downloads').innerHTML='';$('logBox').textContent='';trackJob(j.job);}catch(e){toast(e.message,true);}}
 function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBadge').textContent='Executando';
  const poll=async()=>{try{const j=await api('/api/job/'+id);$('progress').value=Math.round(j.progress*100);$('progressText').textContent=Math.round(j.progress*100)+'%';$('phase').textContent=j.phase;$('logBox').textContent=j.logs.join('\n');$('logBox').scrollTop=$('logBox').scrollHeight;
  if(['done','error'].includes(j.status)){
@@ -377,7 +402,7 @@ function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBad
 // The cached scene mix is the clock while it is audible. Seek only at an
 // explicit navigation/resume or source change, never on each visual frame.
 let savedAudioSignature='';
-function audioSignature(p){if(!p)return '';const keys=['voz','velocidade_voz','motor_voz','modelo_piper','voz_espeak','velocidade_espeak','encaixe_voz','trilha','trilha_continua','volume_musica','volume_voz'];return JSON.stringify([keys.map(k=>p[k]),p.video?.draw_fps,p.cenas.map(c=>[c.id,c.duracao,c.audio, c.video_clipe?.arquivo&&c.video_clipe.audio_enabled?[c.video_clipe.arquivo,c.video_clipe.audio_volume,c.video_clipe.inicio,c.video_clipe.repetir]:null,(c.objetos_midia||[]).filter(o=>o.kind==='video'&&o.audio_enabled!==false).map(o=>[o.file,o.start,o.end,o.offset,o.loop,o.audio_volume??1])])]);}
+function audioSignature(p){if(!p)return '';const keys=['voz','velocidade_voz','motor_voz','modelo_piper','voz_espeak','velocidade_espeak','encaixe_voz','trilha','trilha_continua','volume_musica','volume_voz'];return JSON.stringify([keys.map(k=>p[k]),p.video?.draw_fps,p.cenas.map(c=>[c.id,c.duracao,c.audio, c.video_clipe?.arquivo&&c.video_clipe.audio_enabled?[c.video_clipe.arquivo,c.video_clipe.audio_volume,c.video_clipe.audio_fade_in,c.video_clipe.audio_fade_out,c.video_clipe.inicio,c.video_clipe.repetir]:null,(c.objetos_midia||[]).filter(o=>o.kind==='video'&&o.audio_enabled!==false).map(o=>[o.file,o.start,o.end,o.offset,o.loop,o.audio_volume??1,o.audio_fade_in??.12,o.audio_fade_out??.12])])]);}
 function audioSnapshotMatches(){return !!savedAudioSignature&&savedAudioSignature===audioSignature(project);}
 let transportGate=null;
 const getTransportGate=()=>transportGate??=globalThis.RDMediaGate.create($('transportAudio'));
@@ -434,7 +459,7 @@ async function listenAndroid(){
  $('mediaStatus').textContent=r.message;toast('Reprodução solicitada ao motor do Android');}
  catch(e){toast(e.message,true);}
 }
-function switchPane(id){if(id!=='previewPanel'&&document.body.classList.contains('viewportFocus')){document.body.classList.remove('viewportFocus');$('viewportFocus').setAttribute('aria-pressed','false');$('viewportFocus').textContent='Modo foco';}selectedPane=id;document.querySelectorAll('.mobileTabs button').forEach(b=>b.classList.toggle('on',b.dataset.pane===id));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('mobileActive',p.id===id));}
+function switchPane(id){if(id!=='previewPanel'&&document.body.classList.contains('viewportFocus')){document.body.classList.remove('viewportFocus');$('viewportFocus').setAttribute('aria-pressed','false');$('viewportFocus').textContent='Modo foco';}selectedPane=id;document.body.dataset.rdPane=id;document.querySelectorAll('.mobileTabs button').forEach(b=>b.classList.toggle('on',b.dataset.pane===id));document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('mobileActive',p.id===id));window.dispatchEvent(new CustomEvent('rd-studio-pane',{detail:id}));}
 function exportJSON(){let blob=new Blob([JSON.stringify(project,null,2)],{type:'application/json'});let u=URL.createObjectURL(blob);let a=document.createElement('a');a.href=u;a.download=projectName+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);}
 function jsonDocument(){return $('jsonMode').value==='scene'?project.cenas[selected]:project;}
 function fillJsonText(){
@@ -485,7 +510,7 @@ async function uploadChunked(file,kind,desiredName=''){
  }catch(error){post('/api/upload/chunks',{op:'abort',upload_id:start.upload_id}).catch(()=>{});throw error;}
 }
 function attachVoice(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.audio.voice_file=filename;scene.audio.voice_enabled=true;scene.audio.muted=false;dirtyNow(true);toast('Gravação vinculada. Texto da narração preservado; use Salvar.');}
-function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;scene.video_clipe.audio_enabled=true;scene.video_clipe.audio_volume=1;delete scene.componente_gil;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
+function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;scene.video_clipe.audio_enabled=true;scene.video_clipe.audio_volume=1;scene.video_clipe.audio_fade_in=.12;scene.video_clipe.audio_fade_out=.12;delete scene.componente_gil;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
 async function captureMedia(kind){const index=selected;
  if(!window.StudioRecorder)return toast('Módulo de gravação não disponível',true);
  window.StudioRecorder.open(kind,async(file,useCameraAudio)=>{
@@ -639,7 +664,7 @@ function bindWorkspace(){
  $('motionPreset').innerHTML=window.StudioWorkspaceV38.motions.map(([k,t])=>`<option value="${k}">${esc(t)}</option>`).join('');
  $('applyMotion').onclick=()=>{if(!project||saving)return;try{const c=project.cenas[selected],target=$('motionTarget').value;if(!animationTargets(c).some(([id])=>id===target))throw Error('Selecione novamente o objeto');const a=window.StudioWorkspaceV38.motion(target,$('motionPreset').value,Number(c.duracao));if(c.animacoes.length+a.length>32)throw Error('Limite de 32 faixas da cena');c.animacoes.push(...a);stopWorkspace();playTime=startOf(selected);dirtyNow(true);toast('Movimento aplicado. Salve para persistir.');}catch(e){toast(e.message,true);}};
  $('gilLibraryDownload').onclick=async()=>{try{const r=await api('/api/workspace/gil-example?id='+encodeURIComponent($('gilLibrarySelect').value));const url=URL.createObjectURL(new Blob([r.source],{type:'text/plain'}));const link=document.createElement('a');link.href=url;link.download=r.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),3000);toast('Fonte GIL baixada. Abra no editor GIL para exportar componente HTML nativo.');}catch(e){toast(e.message,true);}};
- $('workspaceGILLink').onclick=e=>{if(inWorkspace()){e.preventDefault();parent.postMessage({protocol:'rd-workspace-1',type:'navigate',to:'gil'},WORKSPACE);}}; $('gilLibraryFile').onclick=()=>{if(objectEditor)objectEditor.open();else{forceGilLegacy=false;$('gilFile').click();}};$('gilLibraryInsert').onclick=async()=>{if(objectEditor){objectEditor.open($('gilLibrarySelect').value);return;}if(gilRendering||!project)return;const scene=project.cenas[selected];try{const r=await api('/api/workspace/gil-example?id='+encodeURIComponent($('gilLibrarySelect').value));if(project.cenas[selected]!==scene)throw Error('A cena mudou durante a leitura');await importGIL(new File([r.source],r.name,{type:'text/plain'}));}catch(e){toast(e.message,true);}};
+ $('workspaceGILLink').onclick=e=>{e.preventDefault();if(objectEditor)objectEditor.editGil();else toast('Editor GIL indisponível; confira RD_GIL_ROOT.',true);}; $('gilLibraryFile').onclick=()=>{if(objectEditor)objectEditor.open();else{forceGilLegacy=false;$('gilFile').click();}};$('gilLibraryInsert').onclick=async()=>{if(objectEditor){objectEditor.open($('gilLibrarySelect').value);return;}if(gilRendering||!project)return;const scene=project.cenas[selected];try{const r=await api('/api/workspace/gil-example?id='+encodeURIComponent($('gilLibrarySelect').value));if(project.cenas[selected]!==scene)throw Error('A cena mudou durante a leitura');await importGIL(new File([r.source],r.name,{type:'text/plain'}));}catch(e){toast(e.message,true);}};
  $('quickNarration').onclick=()=>{if(!project)return;showDrawer(null);tab='audio';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='audio'));drawEditor();switchPane('editPanel');$('editPanel').scrollIntoView({block:'start'});};
 }
 function bind(){
@@ -648,7 +673,7 @@ function bind(){
    const clip=$('stageClip'),r=clip.getBoundingClientRect();
    if(!clip.hidden&&r.width>0&&r.height>0&&e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){objectEditor.selectLegacy('clip');return;}
    const svg=e.target.closest?.('#stage svg');
-   if(svg){const item=e.target.closest?.('[id]');const id=item&&item!==svg&&item.id&&item.id!=='stage'?item.id:'';objectEditor.selectLegacy(project.cenas[selected].tipo==='svg'?'svg':'scene',id);}
+   if(svg){const item=e.target.closest?.('[id]');const id=item&&item!==svg&&item.id&&item.id!=='stage'?item.id:'';const image=e.target.closest?.('image');if(image&&project.cenas[selected].imagem?.arquivo)objectEditor.selectLegacy('image',id);else objectEditor.selectLegacy(project.cenas[selected].tipo==='svg'?'svg':'scene',id);}
  },false);
  bindTiming();bindWorkspace();bindProjectBrowser();
  $('documentUndo').onclick=()=>restoreHistory(false);$('documentRedo').onclick=()=>restoreHistory(true);
@@ -706,6 +731,7 @@ function bind(){
    return;
   }
   if(t.id==='imageComposerOpen'){openImageComposer();return;}
+  if(t.id==='activateAllVoicesEditor'){try{await prepareNarrations('manual');}catch(e){toast(e.message,true);}return;}
   if(t.id==='voiceThisShortcut'){begin('audio-cena');return;}
   if(t.id==='voiceAllShortcut'){begin('audio');return;}
   if(t.id==='voiceTimingShortcut'){$('batchTiming').click();$('timingMode').value='fit';$('timingMode').dispatchEvent(new Event('input'));return;}
@@ -714,9 +740,9 @@ function bind(){
   if(t.id==='insertNativeDemo'){if(objectEditor)objectEditor.open('native-demo');else await demoNativeGIL();return;}
   if(t.id==='insertGIL'){if(objectEditor)objectEditor.open();else toast('Editor de objetos indisponível',true);return;}if(t.id==='insertGILLegacy'){if(!gilRendering){forceGilLegacy=true;$('gilFile').click();}return;}
   if(t.id==='removeNativeGIL'){if(confirm('Remover somente a camada GIL nativa?')){delete project.cenas[selected].gil_nativo;dirtyNow(true);}return;}
-  if(t.id==='editNativeGIL'||t.id==='downloadNativeGIL'){const c=project.cenas[selected].gil_nativo;if(!c)return;if(t.id==='editNativeGIL'&&inWorkspace()){parent.postMessage({protocol:'rd-workspace-1',type:'edit-gil',source:c.source},WORKSPACE);return;}const url=URL.createObjectURL(new Blob([c.source],{type:'text/plain'}));const a=document.createElement('a');a.href=url;a.download='nativo-'+c.source_sha256.slice(0,12)+'.gil';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);return;}
+  if(t.id==='editNativeGIL'||t.id==='downloadNativeGIL'){const c=project.cenas[selected].gil_nativo;if(!c)return;if(t.id==='editNativeGIL'){if(objectEditor){objectEditor.editGil();return;}if(inWorkspace()){parent.postMessage({protocol:'rd-workspace-1',type:'edit-gil',source:c.source},WORKSPACE);return;}}const url=URL.createObjectURL(new Blob([c.source],{type:'text/plain'}));const a=document.createElement('a');a.href=url;a.download='nativo-'+c.source_sha256.slice(0,12)+'.gil';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);return;}
   if(t.id==='sourceGIL'){downloadGIL();return;}
-  if(t.id==='openGIL'){if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'navigate',to:'gil'},WORKSPACE);else location.href='http://127.0.0.1:8791/';return;}
+  if(t.id==='openGIL'){if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'navigate',to:'gil'},WORKSPACE);else objectEditor?objectEditor.editGil():toast('Editor GIL indisponível; confira RD_GIL_ROOT.',true);return;}
   if(t.id==='editGILWorkspace'){const source=project?.cenas[selected]?.componente_gil?.source;if(inWorkspace()&&source)parent.postMessage({protocol:'rd-workspace-1',type:'edit-gil',source},WORKSPACE);else downloadGIL();return;}
   if(t.id==='importClip'){$('clipFile').click();return;}
   if(t.id==='recordCamera'){captureMedia('video');return;}
@@ -765,7 +791,7 @@ function bind(){
  $('listenVoice').onclick=()=>playSceneAudio('voice');$('listenMix').onclick=()=>playSceneAudio('audio');
  $('watchScene').onclick=watchSceneVideo;$('listenAndroid').onclick=listenAndroid;
  $('exportHtml').onclick=()=>begin('export-html');$('exportHtmlSilent').onclick=()=>begin('export-html-silent');$('exportMp3').onclick=()=>begin('audio-mp3');$('exportOpus').onclick=()=>begin('audio-opus');$('toggleClipEdit').onclick=()=>clipEditingEnabled(!clipEditing);initClipGesture();
- $('makeFrames').onclick=()=>begin('quadros');$('makeAudio').onclick=()=>begin('audio');$('makeSceneVoice').onclick=()=>begin('audio-cena');$('autoExtendVoice').onclick=()=>{project.encaixe_voz='estender';dirtyNow(true);toast('Renderização configurada para estender a cena até concluir a locução. Salve o projeto.');};$('mixAudio').onclick=()=>begin('mix');$('makeLite').onclick=()=>begin('render-leve');$('presentBtn').onclick=()=>openPlayback('/captura?name=');$('makeVideo').onclick=()=>begin('render');$('makeSilent').onclick=()=>begin('render',true);$('makeScene').onclick=()=>begin('cena');$('refreshCache').onclick=refreshCache;
+ $('activateAllVoices').onclick=()=>prepareNarrations('manual').catch(e=>toast(e.message,true));$('makeFrames').onclick=()=>begin('quadros');$('makeAudio').onclick=()=>begin('audio');$('makeSceneVoice').onclick=()=>begin('audio-cena');$('autoExtendVoice').onclick=()=>{project.encaixe_voz='estender';dirtyNow(true);toast('Renderização configurada para estender a cena até concluir a locução. Salve o projeto.');};$('mixAudio').onclick=()=>begin('mix');$('makeLite').onclick=()=>begin('render-leve');$('presentBtn').onclick=()=>openPlayback('/captura?name=');$('makeVideo').onclick=()=>begin('render');$('makeSilent').onclick=()=>begin('render',true);$('makeScene').onclick=()=>begin('cena');$('refreshCache').onclick=refreshCache;
  $('cacheTable').onclick=async e=>{let b=e.target.closest('[data-clear]');if(!b)return;const scene=Number(b.dataset.clear);if(!confirm('Remover cache visual e sonoro da cena '+scene+'?'))return;try{await post('/api/cache/clear',{name:projectName,scene});await refreshCache();toast('Cache da cena limpo');}catch(e){toast(e.message,true);}};
  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save().catch(x=>toast(x.message,true));}});
  window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
@@ -786,6 +812,7 @@ async function initBrowserRender(){
  const b=$('browserExport'),cancel=$('browserExportCancel'),canvas=$('browserRenderCanvas'),report=$('browserExportStatus'),download=$('browserDownload');
  try{const {exportBrowser}=await import('/browser-render.mjs');b.disabled=false;
  b.onclick=async()=>{if(!project||browserExport||busy||saving)return toast('Aguarde concluir a operação atual.',true);
+  try{if(!(await prepareNarrations('browser-export')))return;}catch(e){report.textContent='Exportação não iniciada: '+e.message;return;}
   stopWorkspace();switchPane('previewPanel');const owner=cp(project),controller=new AbortController();browserExport=controller;b.disabled=true;cancel.hidden=false;canvas.hidden=false;report.textContent='Preparando exportação…';download.hidden=true;clearBrowserOutput();
   const play=$('playButton'),seek=$('seek'),wasPlay=play.disabled,wasSeek=seek.disabled;play.disabled=true;seek.disabled=true;
   try{const result=await exportBrowser(owner,{canvas,signal:controller.signal,status:msg=>{report.textContent=msg;}});browserOutputCleanup=result.cleanup||null;browserOutputURL=URL.createObjectURL(result.blob);download.href=browserOutputURL;download.download=(owner.titulo||'estudio').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,80)+'.'+result.ext;download.textContent='Baixar vídeo · '+result.ext.toUpperCase();download.hidden=false;report.textContent=`Concluído: ${(result.blob.size/1048576).toFixed(2)} MiB · ${result.frames}/${result.totalFrames} quadros desenhados · ${result.missed} passos perdidos (encoder não medido).`;}
@@ -795,11 +822,21 @@ async function initBrowserRender(){
  }catch(e){report.textContent='Exportação web indisponível: '+e.message;}
  window.addEventListener('pagehide',()=>{browserExport?.abort();if(browserOutputURL)URL.revokeObjectURL(browserOutputURL);});
 }
+async function initRoteiro04(){
+ try{const mod=await import('/roteiro-v04-ui.mjs');mod.installRoteiro04({getProject:()=>project,selectedScene:()=>selected,
+  insertGIL:(source)=>objectEditor?.openSource(source,'Catálogo GIL 0.4'),
+  stop:stopWorkspace,notify:toast,
+  commit:(next)=>{if(!project)throw Error('Projeto ausente');stopWorkspace();
+   for(const key of Object.keys(project))delete project[key];Object.assign(project,next);
+   selected=Math.min(selected,project.cenas.length-1);effectiveTiming=null;
+   dirtyNow(true);toast('Plano 0.4 aplicado; salve para persistir.');}});
+ }catch(e){toast('Catálogo 0.4 indisponível: '+e.message,true);}
+}
 async function init(){
  window.addEventListener('storage',e=>{
   if(e.key!=='estudioSvgVectorSave'||!e.newValue)return;
   try{const u=JSON.parse(e.newValue);syncVectorSave(u.name,u.scene);}catch(err){}
  });
- bind();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');let preferred=projects.includes(requested)?requested:projects.includes('demo_organico')?'demo_organico':projects[0];if(!preferred)throw Error('Nenhum projeto encontrado');await load(preferred);switchPane('previewPanel');let a=await api('/api/jobs/active');if(a.job)trackJob(a.job);if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'ready'},WORKSPACE);}catch(e){toast(e.message,true);$('stage').textContent='Falha ao iniciar: '+e.message;}}
+ bind();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');let preferred=projects.includes(requested)?requested:projects.includes('demo_organico')?'demo_organico':projects[0];if(!preferred)throw Error('Nenhum projeto encontrado');await load(preferred);switchPane('previewPanel');void initRoteiro04();let a=await api('/api/jobs/active');if(a.job)trackJob(a.job);if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'ready'},WORKSPACE);}catch(e){toast(e.message,true);$('stage').textContent='Falha ao iniciar: '+e.message;}}
 init();
 })();

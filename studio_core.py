@@ -164,13 +164,13 @@ def scene_clip_audio(scene, seconds):
     voice=au.get('voice_file') if au.get('voice_enabled') else None
     # A camera take already used as narration must not be doubled.
     result=[]
-    def add(file,volume,start,end,offset,loop):
+    def add(file,volume,start,end,offset,loop,fade_in,fade_out):
         if file and file!=voice and volume>0 and end>start:
-            result.append((file,volume,start,end,offset,loop))
+            result.append((file,volume,start,end,offset,loop,fade_in,fade_out))
     old=scene.get('video_clipe') or {}
-    if old.get('audio_enabled',False):add(old.get('arquivo'),old.get('audio_volume',1),0,nominal,old.get('inicio',0),old.get('repetir',False))
+    if old.get('audio_enabled',False):add(old.get('arquivo'),old.get('audio_volume',1),0,nominal,old.get('inicio',0),old.get('repetir',False),old.get('audio_fade_in',.12),old.get('audio_fade_out',.12))
     for o in scene.get('objetos_midia',[]):
-        if o.get('kind')=='video' and o.get('audio_enabled',True):add(o['file'],o.get('audio_volume',1),o['start'],min(nominal,o['end']),o['offset'],o['loop'])
+        if o.get('kind')=='video' and o.get('audio_enabled',True):add(o['file'],o.get('audio_volume',1),o['start'],min(nominal,o['end']),o['offset'],o['loop'],o.get('audio_fade_in',.12),o.get('audio_fade_out',.12))
     return result
 
 @lru_cache(maxsize=256)
@@ -184,7 +184,7 @@ def clip_audio_info(path):
 def audio_key(scene,pr,seconds,voice_path):
     au=scene['audio'];tracks=[(x,asset_sha(x['file'])) for x in au['tracks']]
     continuous=pr.get('trilha_continua',False)
-    return digest(['audio-4',au,continuous,('' if continuous else pr['trilha']),('' if continuous else asset_sha(pr['trilha'])),
+    return digest(['audio-5',au,continuous,('' if continuous else pr['trilha']),('' if continuous else asset_sha(pr['trilha'])),
                    (0 if continuous else pr['volume_musica']),pr['volume_voz'],
                    voice_path.name if voice_path else '',(sha_file(voice_path) if voice_path else ''),
                    asset_sha(au['music_file']),tracks,seconds]+([[(v,asset_sha(v[0])) for v in scene_clip_audio(scene,seconds)]] if scene_clip_audio(scene,seconds) else []))
@@ -295,12 +295,15 @@ def make_scene_audio(scene,pr,seconds,voice_path):
         add(media_file(music),vol,loop=True)
     for t in ([] if au.get('muted') else au['tracks']):
         add(media_file(t['file']),t['volume'],t['start'],t['loop'],t['fade_in'],t['fade_out'])
-    for file,volume,start,end,offset,loop in scene_clip_audio(scene,seconds):
+    for file,volume,start,end,offset,loop,fade_in,fade_out in scene_clip_audio(scene,seconds):
         path=media_file(file);has_audio,length=clip_audio_info(path)
         if not has_audio or length<=0:continue
         if loop:offset=offset%length
         elif offset>=length:continue
-        add(path,volume,start,loop,offset=offset,limit=end-start)
+        # A source that ends before the scene needs its fade at the *actual* file boundary.
+        usable=end-start if loop else min(end-start,max(0,length-offset))
+        if usable<=0:continue
+        add(path,volume,start,loop,fade_in=fade_in,fade_out=fade_out,offset=offset,limit=usable)
     tmp=out.with_suffix('.partial.wav')
     if not mixed:
         with wave.open(str(tmp),'wb') as f:
@@ -309,7 +312,12 @@ def make_scene_audio(scene,pr,seconds,voice_path):
             frames=round(seconds*48000)
             for i in range(0,frames,48000):f.writeframes(chunk[:min(48000,frames-i)*4])
     else:
-        filters.append(''.join(mixed)+f'amix=inputs={len(mixed)}:normalize=0:duration=longest,alimiter=limit=0.93,apad=whole_dur={seconds:.5f},atrim=0:{seconds:.5f}[a]')
+        scene_fades=''
+        si=min(seconds/2,float(au.get('scene_fade_in',0)))
+        so=min(seconds/2,float(au.get('scene_fade_out',0)))
+        if si>0:scene_fades+=f',afade=t=in:st=0:d={si:.4f}'
+        if so>0:scene_fades+=f',afade=t=out:st={seconds-so:.4f}:d={so:.4f}'
+        filters.append(''.join(mixed)+f'amix=inputs={len(mixed)}:normalize=0:duration=longest,alimiter=limit=0.93,apad=whole_dur={seconds:.5f},atrim=0:{seconds:.5f}'+scene_fades+'[a]')
         run(['ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y',*inputs,
              '-filter_complex',';'.join(filters),'-map','[a]','-ar','48000','-ac','2',
              '-c:a','pcm_s16le',tmp],timeout=max(120,int(seconds*8)))
