@@ -1,4 +1,8 @@
 import unittest
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from studio_instances import normalize_library, normalize_roots
 
 MEDIA = {'id': 'photo', 'kind': 'image', 'file': 'photo.jpg',
