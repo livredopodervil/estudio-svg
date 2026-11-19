@@ -225,3 +225,9 @@ Viewport e console do SpatialSeed main dentro do Estúdio; gravação WebGL para
 Base auditada: branch `feat/studio-interface-m1b`, HEAD `1cb222363ddc62f9096b06771c828081cd72f6e8`, arquivos locais não confirmados preservados. O SpatialSeed é carregado exclusivamente de `RD_SPATIALSEED_ROOT`, apontando a um checkout independente da branch `main`. A interface M1W antiga continua como opção avançada, mas o caminho novo usa o `#stageShell` do vídeo, `viewer.camera.snapshot` e `viewer.camera.restore`, e keyframes por cena (`spatialseed_viewport.camera_keys`) normalizados em `schema.py`. O projeto guarda a fonte `.spatialseed` original em `spatialseed_viewport.source` (limite 900 kB); o servidor não a executa como JavaScript. Revisão aceita somente cenas sem exportação nativa: exportadores MP4/HTML/browser/offline bloqueiam explicitamente cenas WebGL para impedir vídeos incorretos. **Pendências:** confirmar carregamento do `main` no Android, verificar navegação e keyframes, preservar alterações de objetos no documento nativo, implementação de render por tempo absoluto e composição WebGL+camadas na exportação. Não é aceite visual e não autoriza push.
 
 Executar: `cd "$HOME/estudio_svg_v3_git" && RD_GIL_ROOT="$HOME/rd_studio_gil_v01/gil" RD_SPATIALSEED_ROOT="$HOME/.local/share/rd-studio/spatialseed-main" bash iniciar.sh` e abrir `http://127.0.0.1:8771/` em outra sessão. Nenhum commit/push até revisão visual.
+
+## M2 — Cena compartilhada SpatialSeed / GIL / SVG (projeto iniciado)
+- Consultar docs/INTEGRACAO_CENA_UNIFICADA_M2.md. O Studio é dono do tempo lógico;
+  o bridge somente encaminha operações tipadas e eventos. Não criar outro relógio,
+  renderer ou compilador. M2 não está conectado ao WebGL até teste de integração.
+- Nenhuma publicação M2 antes de aceitação visual no Android.
