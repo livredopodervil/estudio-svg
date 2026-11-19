@@ -13,6 +13,11 @@ from studio_core import (StudioError,ROOT,PROJECTS,MEDIA,CACHE,OUTPUT,project_re
                          clear_scene_cache,duration,scene_cached_media,scene_preview)
 from graphics import visualize
 from svg_graphic import clean_svg
+from studio_project_manager_m1p import (
+    project_path as managed_project_path, list_projects as managed_list_projects,
+    trash_list as managed_trash_list, manage as managed_project_op,
+    archive as managed_archive,
+)
 from offline_export import OfflineExport, OfflineError, MAX_FRAME_BYTES
 
 OFFLINE_EXPORT=OfflineExport(OUTPUT/'.offline-checkpoints',OUTPUT,MEDIA)
@@ -20,7 +25,7 @@ BUNDLE_IMPORT_LOCK=threading.RLock()
 PROJECT_LOCK=threading.RLock()
 JOBS={};JOB_LOCK=threading.RLock();ENGINE_LOCK=threading.Lock();PREVIEW_LOCK=threading.Lock();SVG_LOCK=threading.RLock()
 
-def project_path(project):return PROJECTS/(name(project)+'.json')
+def project_path(project):return managed_project_path(PROJECTS,project)
 def read_project(project):
     p=project_path(project)
     if not p.is_file():raise StudioError('Projeto não encontrado: '+project)
@@ -64,6 +69,34 @@ def work(job,project,mode,scene,no_voice):
                 from standalone_html import export_html
                 from studio_core import MEDIA as app_media, OUTPUT as app_output
                 res=export_html(actual_name,pr,app_media,app_output,progress,with_audio=(mode=='export-html'))
+            elif mode=='legendas-lote':
+                from studio_core import batch_audio
+                from subtitle_times import cues_for_voice
+                if pr.get('motor_voz')!='edge-tts':
+                    raise StudioError('Tempos por palavra em lote exigem Edge-TTS')
+                source=project_path(project).read_bytes()
+                updated=0;total=0
+                count=max(1,len(pr['cenas']))
+                for idx,sc in enumerate(pr['cenas']):
+                    cues=cues_for_voice(sc,pr)
+                    au=sc.get('audio') or {}
+                    eligible=au.get('voice_enabled') and not au.get('muted') and not au.get('voice_file') and str(au.get('voice_text','')).strip()
+                    if eligible and not cues:
+                        batch_audio({**pr,'cenas':[sc]},lambda pc,msg:progress((idx+pc)*.94/count,msg),export_zip=False,force_timing=True)
+                        cues=cues_for_voice(sc,pr)
+                    if cues:
+                        old=sc.get('legendas') or {}
+                        sc['legendas']={**old,'enabled':True,'cues':cues}
+                        updated+=1;total+=len(cues)
+                    progress((idx+1)*.94/count,f'Legendas {idx+1}/{count}: '+str(len(cues))+' marcas')
+                if not updated:
+                    raise StudioError('Nenhuma marcação de palavra produzida; verifique textos e narração habilitada')
+                with PROJECT_LOCK:
+                    if project_path(project).read_bytes()!=source:
+                        raise StudioError('Projeto modificado durante a síntese: áudio preservado, tempos não sobrescritos')
+                    save_project(project,pr)
+                progress(1,'Tempos registrados nas cenas')
+                res={'timings':updated,'words':total,'scene_count':len(pr['cenas'])}
             elif mode=='audio-cena':
                 from studio_core import batch_audio
                 from audio_export import export_scene_voice
@@ -103,7 +136,7 @@ def work(job,project,mode,scene,no_voice):
 
 def queue_job(project,mode,scene=None,no_voice=False):
     name(project)
-    if mode not in ('quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','audio-cena','legendas-cena','export-html','export-html-silent'):raise StudioError('Modo inválido')
+    if mode not in ('legendas-lote','quadros','audio','mix','render','render-leve','cena','apresentacao-audio','audio-mp3','audio-opus','voz-mp3','audio-cena','legendas-cena','export-html','export-html-silent'):raise StudioError('Modo inválido')
     if mode in ('cena','voz-mp3','audio-cena','legendas-cena'):
         try:scene=int(scene)
         except (ValueError,TypeError):raise StudioError('Informe o número da cena')
@@ -307,6 +340,9 @@ class Handler(BaseHTTPRequestHandler):
                     if rec['kind']=='bundle':
                         with BUNDLE_IMPORT_LOCK, PROJECT_LOCK:
                             result=import_zip(rec['path'],v.get('name',''),PROJECTS,MEDIA,CACHE,inspect_media)
+                            # Legacy importers may ignore media referenced only by instance_library.
+                            from studio_instance_assets import restore_instance_media
+                            result['instance_media_restored']=restore_instance_media(rec['path'],MEDIA)
                         return self.response(200,result)
                     inspect_media(rec['path'],rec['kind'])
                     fn=uuid.uuid4().hex[:12]+rec['ext']
@@ -478,7 +514,7 @@ class Handler(BaseHTTPRequestHandler):
                 if action not in ('archive','restore') or v.get('confirm')!=identifier:raise StudioError('Confirmação inválida')
                 with BUNDLE_IMPORT_LOCK, JOB_LOCK, PROJECT_LOCK:
                     if any(j['status'] in ('queued','running') for j in JOBS.values()):raise StudioError('Aguarde o fim da produção')
-                    change_archive(PROJECTS,identifier,restore=action=='restore')
+                    managed_archive(PROJECTS,identifier,restore=action=='restore')
                 return self.response(200,{'ok':True,'name':identifier})
             if route=='/api/workspace/gil-example' and method=='GET':
                 root=os.environ.get('RD_GIL_ROOT');key=q('id')
@@ -487,11 +523,35 @@ class Handler(BaseHTTPRequestHandler):
                 base=ROOT/'examples'/'components';src=base/(key+'.gil')
                 if not src.is_file() or src.is_symlink() or src.stat().st_size>250000:raise StudioError('Exemplo GIL ausente ou inválido')
                 return self.response(200,{'source':src.read_text('utf8'),'name':key+'.gil'})
-            if route=='/api/projects' and method=='GET':return self.response(200,{'projects':[p.stem for p in sorted(PROJECTS.glob('*.json'))]})
+            if route=='/api/project/manage' and method=='POST':
+                v=self.payload();action=v.get('action','')
+                identifier=v.get('name','')
+                if action not in ('mkdir','restore') and (not identifier or v.get('confirm')!=identifier):
+                    raise StudioError('Confirme o identificador do projeto')
+                with BUNDLE_IMPORT_LOCK, JOB_LOCK, PROJECT_LOCK:
+                    if any(j['status'] in ('queued','running') for j in JOBS.values()):
+                        raise StudioError('Finalize a tarefa de renderização/voz antes de gerenciar projetos')
+                    result=managed_project_op(PROJECTS, action, identifier,
+                        new_name=v.get('new_name',''), folder=v.get('folder',''), token=v.get('token',''))
+                return self.response(200,result)
+            if route=='/api/projects' and method=='GET':
+                r=managed_list_projects(PROJECTS);r['trash']=managed_trash_list(PROJECTS);return self.response(200,r)
             if route=='/api/project' and method=='GET':return self.response(200,{'name':q('name','demo_organico'),'project':read_project(q('name','demo_organico'))})
             if route=='/api/project' and method=='POST':
                 data=self.payload(6_000_000);pr=save_project(data.get('name',''),data.get('project'))
                 return self.response(200,{'ok':True,'cenas':len(pr['cenas'])})
+            if route=='/api/project/rename' and method=='POST':
+                port=self.server.server_port
+                if self.headers.get('Origin') not in (f'http://127.0.0.1:{port}',f'http://localhost:{port}') or self.headers.get('Host') not in (f'127.0.0.1:{port}',f'localhost:{port}'):
+                    return self.response(403,{'error':'Origem local explícita necessária'})
+                v=self.payload(4096)
+                old=name(v.get('name',''));new=name(v.get('new_name',''))
+                if v.get('confirm')!=old:raise StudioError('Confirmação inválida')
+                from studio_project_ops import rename_project
+                with BUNDLE_IMPORT_LOCK,JOB_LOCK,PROJECT_LOCK:
+                    if any(j['status'] in ('queued','running') for j in JOBS.values()):raise StudioError('Aguarde a produção terminar')
+                    rename_project(PROJECTS,old,new)
+                return self.response(200,{'ok':True,'old_name':old,'name':new})
             if route=='/api/project/new' and method=='POST':
                 v=self.payload();n=name(v.get('name',''))
                 if project_path(n).exists():raise StudioError('Nome já existe')
@@ -703,7 +763,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/instance-manager-v1.mjs','/instance-graph-v1.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/studio-m1p.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES

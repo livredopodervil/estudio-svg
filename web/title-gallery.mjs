@@ -74,14 +74,15 @@ export function installTitleGallery({scene,dimensions,local,upload,changed,selec
  section.innerHTML='<h4>Títulos GIL · caracteres independentes</h4><p class="smallNote">Cada letra tem posição e movimento na fonte GIL Timeline. Não é PNG nem vídeo intermediário. Títulos antigos continuam editáveis.</p><div class="rdTitleTiles"></div>';
  const original=library.querySelector('#objectCatalog');original.parentNode.insertBefore(section,original);
  const dialog=document.createElement('dialog');dialog.className='rdTitleDialog';dialog.setAttribute('aria-label','Criar título e texto');
- dialog.innerHTML='<div class="rdTitleHead"><b>Inserir título</b><button type="button" data-close>× Fechar</button></div><label>Texto do título<input maxlength="110" data-title value="TÍTULO DE EXEMPLO" required></label><label>Linha secundária<input maxlength="100" data-subtitle value="RD STUDIO"></label><label>Estilo<select data-style></select></label><label>Entrada GIL<select data-motion></select></label><label>Saída GIL<select data-exit></select></label><canvas data-preview width="1280" height="720" aria-label="Miniatura do título"></canvas><div class="rdTitleLive" data-live aria-label="Prévia animada GIL"></div><p class="smallNote" data-status role="status"></p><div class="rdTitleActions"><button type="button" data-close>Cancelar</button><button type="button" data-apply class="primary">Inserir na cena</button></div>';
+ dialog.innerHTML='<div class="rdTitleHead"><b>Inserir título</b><button type="button" data-close>× Fechar</button></div><label>Texto do título<input maxlength="110" data-title value="TÍTULO DE EXEMPLO" required></label><label>Linha secundária<input maxlength="100" data-subtitle value="RD STUDIO"></label><label>Estilo<select data-style></select></label><label>Unidades de animação<select data-text-mode><option value="words">Palavras · kerning natural (recomendado)</option><option value="letters">Letras · composição experimental</option></select></label><label>Entrada GIL<select data-motion></select></label><label>Saída GIL<select data-exit></select></label><canvas data-preview width="1280" height="720" aria-label="Miniatura do título"></canvas><div class="rdTitleLive" data-live aria-label="Prévia animada GIL"></div><p class="smallNote" data-status role="status"></p><div class="rdTitleActions"><button type="button" data-close>Cancelar</button><button type="button" data-apply class="primary">Inserir na cena</button></div>';
  document.body.append(dialog);
- const text=dialog.querySelector('[data-title]'),subtitle=dialog.querySelector('[data-subtitle]'),style=dialog.querySelector('[data-style]'),motion=dialog.querySelector('[data-motion]'),exit=dialog.querySelector('[data-exit]'),canvas=dialog.querySelector('[data-preview]'),live=dialog.querySelector('[data-live]'),status=dialog.querySelector('[data-status]'),apply=dialog.querySelector('[data-apply]');
+ const text=dialog.querySelector('[data-title]'),subtitle=dialog.querySelector('[data-subtitle]'),style=dialog.querySelector('[data-style]'),motion=dialog.querySelector('[data-motion]'),exit=dialog.querySelector('[data-exit]'),textMode=dialog.querySelector('[data-text-mode]'),canvas=dialog.querySelector('[data-preview]'),live=dialog.querySelector('[data-live]'),status=dialog.querySelector('[data-status]'),apply=dialog.querySelector('[data-apply]');
  motion.replaceChildren(...TITLE_ENTRIES.map(v=>new Option(v[1],v[0])));exit.replaceChildren(...TITLE_EXITS.map(v=>new Option(v[1],v[0])));
  style.replaceChildren(...TITLE_STYLES.map(p=>new Option(p.label,p.id)));
  let busy=false,owner=null,editing=null,liveRaf=0,animation=null,stamp=0;
  const measure=(value,size)=>{const ctx=canvas.getContext('2d');ctx.font=`600 ${size}px sans-serif`;return ctx.measureText(value).width;};
- const sourceFor=d=>createTitleGIL({text:text.value,subtitle:subtitle.value,style:style.value,entry:motion.value,exit:exit.value,duration:d,measureText:measure});
+ // M1R1_PORTRAIT: use actual Studio video dimensions in the GIL title generator.
+ const sourceFor=d=>{const video=dimensions?.()||{};return createTitleGIL({text:text.value,subtitle:subtitle.value,style:style.value,entry:motion.value,exit:exit.value,duration:d,width:video.width||1280,height:video.height||720,measureText:measure,textMode:textMode.value});};
  const paint=()=>{
   renderTitle(canvas,{text:text.value,subtitle:subtitle.value,style:style.value});
   try{animation=prepare(sourceFor(Math.min(60,Math.max(.5,owner?.duracao||7))));stamp=performance.now();status.textContent='Prévia GIL por letra · fonte válida';}
@@ -93,12 +94,12 @@ export function installTitleGallery({scene,dimensions,local,upload,changed,selec
  const open=(preset='editorial',obj=null)=>{
   if(busy)return;owner=scene();if(!owner)return notify('Abra primeiro um projeto e uma cena.',true);
   editing=obj||null;text.value=obj?.title_spec?.text??(obj?String(obj.label||'').replace(/^TÍTULO\s*\[[^\]]+\]\s*/,''):'TÍTULO DE EXEMPLO');subtitle.value=obj?.title_spec?.subtitle??(obj?'':'RD STUDIO');
-  style.value=titleStyle(obj?.title_spec?.style||preset).id;motion.value=obj?.title_spec?.entry||'cascade';exit.value=obj?.title_spec?.exit||'fade';
+  style.value=titleStyle(obj?.title_spec?.style||preset).id;motion.value=obj?.title_spec?.entry||'cascade';exit.value=obj?.title_spec?.exit||'fade';textMode.value=obj?.title_spec?.textMode||'words';
   apply.textContent=obj?'Atualizar título':'Inserir na cena';status.textContent='';paint();dialog.showModal();if(!liveRaf)liveRaf=requestAnimationFrame(animate);
  };
  for(const p of TITLE_STYLES){const b=document.createElement('button');b.type='button';b.className='rdTitleTile';b.title=p.note;b.innerHTML=`<canvas width="320" height="180"></canvas><span>${p.label}</span>`;renderTitle(b.querySelector('canvas'),{text:'TÍTULO',subtitle:'DEMONSTRAÇÃO',style:p.id});b.onclick=()=>open(p.id);section.querySelector('.rdTitleTiles').append(b);}
  for(const b of dialog.querySelectorAll('[data-close]'))b.onclick=()=>{if(!busy)dialog.close();};
- for(const el of [text,subtitle,style,motion,exit])el.addEventListener('input',paint);
+ for(const el of [text,subtitle,style,motion,exit,textMode])el.addEventListener('input',paint);
  apply.onclick=async()=>{
   if(busy)return;const content=text.value.trim(),c=owner;if(!c||c!==scene())return status.textContent='A cena mudou. Reabra a janela.';
   if(!content||content.length>110)return status.textContent='Digite um título com até 110 caracteres.';
@@ -111,7 +112,7 @@ export function installTitleGallery({scene,dimensions,local,upload,changed,selec
    if(c!==scene())throw Error('A cena mudou durante a edição.');
    if(editing?.kind==='image'&&!confirm('Converter este título PNG antigo em GIL nativa? A imagem antiga não será apagada.')){status.textContent='Conversão cancelada.';return;}
    const label='TÍTULO ['+style.value+'] '+content.slice(0,95),gil={format:'gil-timeline-0.1',origin:'gil',origin_sha256:hash,source_sha256:hash,source:src,duration:info.duration};
-   const title_spec={text:content,subtitle:subtitle.value,style:style.value,entry:motion.value,exit:exit.value};
+   const title_spec={text:content,subtitle:subtitle.value,style:style.value,entry:motion.value,exit:exit.value,textMode:textMode.value};
    if(editing){editing.kind='gil';delete editing.file;editing.gil=gil;editing.title_spec=title_spec;editing.label=label;editing.opaque=false;editing.loop=false;}
    else{const o={id:'obj_'+crypto.randomUUID().replace(/-/g,''),label,kind:'gil',gil,title_spec,x:.5,y:.5,w:1,h:1,opacity:1,start:t,end:c.duracao,offset:0,fit:'contain',loop:false,opaque:false,rotation:0,motion:'',motion_programs:[]};
     (c.objetos_midia??=[]).push(o);select(o.id);

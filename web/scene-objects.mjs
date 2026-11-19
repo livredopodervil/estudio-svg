@@ -3,6 +3,7 @@ import {cssAppearance} from './visual-effects.mjs';
 import {compile} from './gil-runtime/src/model.mjs';
 import {Timeline} from './gil-runtime/src/timeline.mjs';
 import {affine} from './viewport-affine.mjs';
+import {affineMultiply,pixelMatrix} from './instance-graph-v1.mjs';
 import {prepare} from './gil-native.mjs';
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 export function motionSource(preset,duration){
@@ -23,7 +24,26 @@ export function motionSource(preset,duration){
   'zoom-out':[['sx',[late,1],[d,.15]],['sy',[late,1],[d,.15]]],
   'spin':[['rz',[0,0],[d,360]]],
   'float':[['y',[0,0],[d/4,.10],[d/2,0],[3*d/4,-.10],[d,0]]],
-  'pulse':[['sx',[0,1],[d/4,1.12],[d/2,1],[3*d/4,1.12],[d,1]],['sy',[0,1],[d/4,1.12],[d/2,1],[3*d/4,1.12],[d,1]]]
+  'pulse':[['sx',[0,1],[d/4,1.12],[d/2,1],[3*d/4,1.12],[d,1]],['sy',[0,1],[d/4,1.12],[d/2,1],[3*d/4,1.12],[d,1]]],
+  // M1R1_MOTION: composable parameter presets for the canonical media group.
+  // They reuse GIL Timeline and the existing objectMotion stack.
+  'ken-burns':[['sx',[0,1.01],[d,1.16]],['sy',[0,1.01],[d,1.16]],['x',[0,-.08],[d,.08]],['y',[0,-.04],[d,.04]]],
+  'pan-left':[['x',[0,.16],[d,-.16]]],
+  'pan-right':[['x',[0,-.16],[d,.16]]],
+  'drift-up':[['y',[0,-.15],[d,.15]]],
+  'drift-down':[['y',[0,.15],[d,-.15]]],
+  'parallax':[['x',[0,-.18],[d/2,.10],[d,-.08]],['y',[0,.10],[d/2,-.06],[d,.06]]],
+  'push-in':[['sx',[0,1],[d,1.35]],['sy',[0,1],[d,1.35]]],
+  'pull-out':[['sx',[0,1.35],[d,1]],['sy',[0,1.35],[d,1]]],
+  'pop':[['sx',[0,.12],[k*.65,1.14],[k,1]],['sy',[0,.12],[k*.65,1.14],[k,1]],['opacity',[0,0],[k*.3,1]]],
+  'bounce':[['y',[0,-.65],[k*.55,.14],[k*.8,-.07],[k,0]],['opacity',[0,0],[k*.25,1]]],
+  'tilt-in':[['rz',[0,-16],[k,0]],['sx',[0,.70],[k,1]],['sy',[0,.70],[k,1]],['opacity',[0,0],[k,1]]],
+  'swing':[['rz',[0,-12],[d/4,8],[d/2,-5],[3*d/4,3],[d,0]]],
+  'wipe-in':[['sx',[0,.02],[k,1]],['opacity',[0,0],[k*.3,1]]],
+  'shrink-away':[['sx',[late,1],[d,.06]],['sy',[late,1],[d,.06]],['opacity',[late,1],[d,0]]],
+  'orbit-soft':[['x',[0,0],[d/4,.17],[d/2,0],[3*d/4,-.17],[d,0]],['y',[0,-.12],[d/4,0],[d/2,.12],[3*d/4,0],[d,-.12]]],
+  'stagger-in':[['x',[0,-.8],[k,0]],['opacity',[0,0],[k*.85,1]]],
+  'stagger-out':[['x',[late,0],[d,.8]],['opacity',[late,1],[d,0]]]
  };
  if(!Object.hasOwn(tracks,preset))throw Error('Movimento desconhecido: '+preset);
  return `gil timeline 0.1 {\nstage {"width":640,"height":360,"duration":${d},"background":"#000000","camera":"cam"}\nresource camera camera {"z":15}\nresource g group {}\nobject cam camera - {}\nobject media g - {}\n${tracks[preset].map(([property,...keys])=>smooth(property,keys)).join('\n')}\n}\n`;
@@ -58,6 +78,16 @@ export function syncObjects(shell,objects,time,dimensions,playing=false,rate=1,o
   }
   const el=s.el,t=localTime(o,time);if(t===null||s.failed){el.style.display='none';el.pause?.();continue;}
   try{const p=rect(o,s.sample(t));Object.assign(el.style,{display:'block',zIndex:String(z),left:(p.x-p.w/2)*100+'%',top:(p.y-p.h/2)*100+'%',width:p.w*100+'%',height:p.h*100+'%',opacity:String(p.opacity),transform:`matrix(${affine(p,p.w*W,p.h*H).join(',')})`,objectFit:o.fit,pointerEvents:playing?'none':'auto',...cssAppearance(o)});
+
+   if(o.instance_matrix){
+    // Preserve the exact parent affine matrix in normalized stage coordinates.
+    const pw=p.w*W,ph=p.h*H;
+    const local=affineMultiply([1,0,0,1,p.x*W,p.y*H],
+      affineMultiply(affine(p,pw,ph),[1,0,0,1,-pw/2,-ph/2]));
+    const world=affineMultiply(pixelMatrix(o.instance_matrix,W,H),local);
+    Object.assign(el.style,{left:'0px',top:'0px',transformOrigin:'0 0',
+      transform:`matrix(${world.join(',')})`});
+   }
    if(s.gil){const dur=s.gil.duration,at=o.loop?(t+o.offset)%dur:Math.min(dur,t+o.offset);if(s.last<0||(at!==s.last&&(Math.abs(at-s.last)>=1/30||at===0||!playing))||s.opaque!==o.opaque){const node=parseFrame(s.gil.frame(at),o.opaque);node.style.cssText='display:block;width:100%;height:100%';el.shadowRoot.replaceChildren(node);s.last=at;s.opaque=o.opaque;}}
    else if(o.kind==='video'){el.loop=o.loop;el.playbackRate=rate;if(el.readyState>=1&&Number.isFinite(el.duration)&&el.duration>0){const a=t+o.offset;if(!o.loop&&a>=el.duration){el.pause();el.style.display='none';continue;}const dest=o.loop?a%el.duration:a;if(!el.seeking&&Math.abs(el.currentTime-dest)>(playing?.35:.025))el.currentTime=dest;if(playing&&el.paused&&!s.playPending){s.playPending=true;el.play().catch(e=>{if(e.name!=='AbortError')onError(o.label+': '+e.message);}).finally(()=>{s.playPending=false;});}}if(!playing)el.pause();}
   }catch(e){s.failed=true;el.pause?.();el.style.display='none';onError(o.label+': '+e.message);}

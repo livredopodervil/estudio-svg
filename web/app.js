@@ -114,6 +114,7 @@ function renderScene(){let h='<div class="sectionTitle">Cena '+(selected+1)+' ·
  h+=field('Início no arquivo (s)',`cenas.${selected}.video_clipe.inicio`,'number');
  h+=field('Repetir até o fim da cena',`cenas.${selected}.video_clipe.repetir`,'checkbox');
  h+=field('Opacidade do vídeo (0 a 1)',`cenas.${selected}.video_clipe.opacidade`,'number');
+ h+='<div class="inline"><button id="m1pSceneInspector" type="button">▧ Elementos desta e de outras cenas · editar/remover</button></div>';
  h+='<div class="separator"></div><div class="inline"><button id="duplicateScene">Duplicar cena</button><button id="removeScene">Excluir cena</button><button id="moveUp">↑ Subir</button><button id="moveDown">↓ Descer</button></div>';
  return h;
 }
@@ -222,6 +223,7 @@ function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da c
    h+=field('Fade in (s)',p+'.fade_in','number');h+=field('Fade out (s)',p+'.fade_out','number');
    h+=field('Repetir até terminar a cena',p+'.loop','checkbox');h+='</div>';
  }
+ h+='<div class="separator"></div><div class="inline"><button id="m1pGenerateTimingsBatch" type="button">♫ Gerar todas as vozes + tempos</button><button id="m1pCaptionStyleAll" type="button">Aplicar configuração de legendas a todas as cenas</button></div>';
  h+='<button id="addTrack">+ Nova faixa independente</button><p class="smallNote">As vozes são reutilizadas por texto. Modificar somente o volume ou os efeitos refaz a mixagem, não a animação.</p>';
  return h;
 }
@@ -315,18 +317,18 @@ function syncPreviewVideo(sceneIndex,position){
  if(playing&&position<1){if(host.paused)host.play().catch(()=>{});}else if(!host.paused)host.pause();
 }
 let nativeModule=null,nativePending=null,nativeFailed=false,nativeCurrent=null;
-let objectRuntime=null,objectEditor=null,viewportMetrics=null;
+let objectRuntime=null,objectEditor=null,viewportMetrics=null,instanceGraphAPI=null;
 async function initViewportPlatform(){try{const {detect,resolve,metrics,codecs}=await import('/platform-capabilities.mjs');viewportMetrics=metrics();const cap={...detect(),server:true};const panel=$('viewportAPIs');function report(){const result={available:cap,active:{preview:resolve('preview',cap),export:resolve('export',cap,{allow:a=>a.id!=='ffmpeg-termux'||!project?.cenas.some(c=>c.gil_nativo||c.objetos_midia?.length)}),math:resolve('math',cap),input:resolve('input',cap),audio:resolve('audio',cap),storage:resolve('storage',cap),recordingStorage:resolve('recordingStorage',cap)},codecs:codecs(),metrics_ms:viewportMetrics.snapshot()};$('viewportReport').textContent=JSON.stringify(result,null,2);}panel.addEventListener('toggle',()=>{if(panel.open)report();});$('viewportMeasure').onclick=report;report();}catch(e){$('viewportReport').textContent=e.message;}}
 function viewportVisualPreview(){if(!project)return;const s=sceneAt(playTime);syncSceneObjects(project.cenas[s.i],s.progress);}
 
 function syncSceneObjects(scene,progress){
- if(!project)return;const layers=scene?.objetos_midia||[];
+ if(!project)return;const layers=scene?.instances?.length?instanceGraphAPI?.renderableLayers(project,scene)??[]:scene?.objetos_midia||[];
  if(objectRuntime)objectRuntime.syncObjects($('stageShell'),layers,Number(scene?.duracao||0)*Math.min(progress,1-1e-8),project.video,playing&&progress<1,previewRate,m=>gilStatus(m,true));
  objectEditor?.paint();
 }
 async function initObjects(){
  void initViewportPlatform();
- try{const {openBackend}=await import('/platform-capabilities.mjs');const backend=await openBackend('preview',{dom:true,svg:!!document.createElementNS},{'dom-svg':()=>import('/scene-objects.mjs')});if(!backend.backend)throw Error(backend.failures.map(f=>f.error).join('; ')||'Sem backend gráfico compatível');objectRuntime=backend.backend;const editor=await import('/scene-object-editor.mjs');objectEditor=editor.installEditor({scene:()=>project?.cenas[selected],local:()=>project?Math.max(0,playTime-startOf(selected)):0,playing:()=>playing,stop:stopWorkspace,seek:t=>{stopWorkspace();playTime=startOf(selected)+Math.min(Number(project.cenas[selected].duracao)-.0001,Math.max(0,t));showPreview();},changed:()=>dirtyNow(true),activate:()=>{clipEditingEnabled(false);switchPane('previewPanel');},preview:showPreview,visualPreview:viewportVisualPreview,metric:(name,ms)=>viewportMetrics?.record(name,ms),notify:toast,audio:()=>{tab='audio';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='audio'));drawEditor();switchPane('editPanel');},editSVG:()=>$('editSVG').click(),sceneProperties:()=>{tab='scene';drawEditor();switchPane('editPanel');},animateSVG:id=>{tab='scene';$('openLibrary').click();const target=$('motionTarget');if(target&&[...target.options].some(o=>o.value===id))target.value=id;},legacyClip:()=>{tab='scene';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='scene'));drawEditor();switchPane('editPanel');$('editClipVisual')?.scrollIntoView({block:'center'});},dimensions:()=>project.video,example:id=>api('/api/workspace/gil-example?id='+encodeURIComponent(id)),upload:async(file,kind)=>{if(kind==='video')return (await uploadChunked(file,'video')).filename;const data=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(file);});return (await post('/api/upload',{kind:'image',data,filename:file.name})).filename;}});objectEditor.refresh();showPreview();}
+ try{instanceGraphAPI=await import('/instance-graph-v1.mjs');const {openBackend}=await import('/platform-capabilities.mjs');const backend=await openBackend('preview',{dom:true,svg:!!document.createElementNS},{'dom-svg':()=>import('/scene-objects.mjs')});if(!backend.backend)throw Error(backend.failures.map(f=>f.error).join('; ')||'Sem backend gráfico compatível');objectRuntime=backend.backend;const editor=await import('/scene-object-editor.mjs');objectEditor=editor.installEditor({project:()=>project,scene:()=>project?.cenas[selected],local:()=>project?Math.max(0,playTime-startOf(selected)):0,playing:()=>playing,stop:stopWorkspace,seek:t=>{stopWorkspace();playTime=startOf(selected)+Math.min(Number(project.cenas[selected].duracao)-.0001,Math.max(0,t));showPreview();},changed:()=>dirtyNow(true),activate:()=>{clipEditingEnabled(false);switchPane('previewPanel');},preview:showPreview,visualPreview:viewportVisualPreview,metric:(name,ms)=>viewportMetrics?.record(name,ms),notify:toast,audio:()=>{tab='audio';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='audio'));drawEditor();switchPane('editPanel');},editSVG:()=>$('editSVG').click(),sceneProperties:()=>{tab='scene';drawEditor();switchPane('editPanel');},animateSVG:id=>{tab='scene';$('openLibrary').click();const target=$('motionTarget');if(target&&[...target.options].some(o=>o.value===id))target.value=id;},legacyClip:()=>{tab='scene';document.querySelectorAll('[data-edit]').forEach(b=>b.classList.toggle('on',b.dataset.edit==='scene'));drawEditor();switchPane('editPanel');$('editClipVisual')?.scrollIntoView({block:'center'});},dimensions:()=>project.video,example:id=>api('/api/workspace/gil-example?id='+encodeURIComponent(id)),upload:async(file,kind)=>{if(kind==='video')return (await uploadChunked(file,'video')).filename;const data=await new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=reject;fr.readAsDataURL(file);});return (await post('/api/upload',{kind:'image',data,filename:file.name})).filename;}});objectEditor.refresh();showPreview();}
  catch(e){$('addSceneObject').disabled=true;gilStatus('Editor de objetos indisponível: '+e.message,true);}
 }
 
@@ -374,16 +376,62 @@ async function showPreview(){if(!project)return;
  catch(e){$('stage').textContent='Falha na prévia: '+e.message;}
  finally{previewBusy=false;if(previewPending){previewPending=false;if(!playing)setTimeout(showPreview,80);}}
 }
+let m1pServerFolders={};
 const FOLDER_KEY='rdStudioProjectFolders-v1';
-function folderState(){try{const v=JSON.parse(localStorage.getItem(FOLDER_KEY)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch{return {};}}
-function projectFolder(n,map){const v=map[n];return typeof v==='string'&&v.trim()?v.trim().slice(0,50):/^demo[_-]/i.test(n)?'Demonstrações':'Projetos';}
+const LAST_PROJECT_KEY='rdStudioLastProject-v1';
+const SVG_RETURN_KEY='rdStudioSVGReturn-v1';
+function rememberProjectLocation(){
+ if(!projectName||!project)return;
+ try{sessionStorage.setItem(LAST_PROJECT_KEY,projectName);
+   const u=new URL(location.href);u.searchParams.set('project',projectName);
+   window.history.replaceState(window.history.state,'',u.pathname+u.search+u.hash);
+ }catch{}
+}
+function rememberSvgLocation(){
+ if(!projectName||!project)return;
+ try{sessionStorage.setItem(SVG_RETURN_KEY,JSON.stringify({project:projectName,scene:selected}));}catch{}
+ rememberProjectLocation();
+}
+
+function folderState(){return m1pServerFolders;}
+function projectFolder(n,map){const v=map[n];return typeof v==='string'?(v.trim()||'Projetos'):'Projetos';}
 function projectBrowserRender(){const query=$('projectBrowserSearch').value.trim().toLocaleLowerCase('pt-BR'),map=folderState();
  const groups=new Map();for(const n of projectCatalog){if(query&&!n.toLocaleLowerCase('pt-BR').includes(query))continue;const f=projectFolder(n,map);if(!groups.has(f))groups.set(f,[]);groups.get(f).push(n);}
  const host=$('projectBrowserGroups');host.replaceChildren();for(const [folder,names] of [...groups].sort((a,b)=>a[0].localeCompare(b[0],'pt-BR'))){const d=document.createElement('details');d.open=!!query||folder===projectFolder(projectName,map);const title=document.createElement('summary');title.textContent=folder+' ('+names.length+')';d.append(title);
- for(const n of names){const b=document.createElement('button');b.type='button';b.className='projectEntry'+(n===projectName?' active':'');b.textContent=n;b.onclick=()=>{if(n===projectName){$('projectBrowser').close();return;}load(n).then(()=>$('projectBrowser').close()).catch(e=>toast(e.message,true));};d.append(b);}host.append(d);}
+ for(const n of names){
+  const row=document.createElement('div');row.className='rd-project-entry-row';row.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0';
+  const b=document.createElement('button');b.type='button';b.className='projectEntry'+(n===projectName?' active':'');b.textContent=n;b.style.cssText+=';flex:1;min-width:120px';
+  b.onclick=()=>{if(n===projectName){$('projectBrowser').close();return;}load(n).then(()=>$('projectBrowser').close()).catch(e=>toast(e.message,true));};row.append(b);
+  const rename=document.createElement('button');rename.type='button';rename.textContent='Renomear';rename.title='Alterar identificador do projeto, preservando sua mídia';rename.onclick=()=>renameProjectFromBrowser(n);row.append(rename);
+  const trash=document.createElement('button');trash.type='button';trash.textContent='Lixeira';trash.title='Arquivar com possibilidade de restauração';trash.onclick=()=>trashProjectFromBrowser(n);row.append(trash);
+  d.append(row);
+ }host.append(d);}
  if(!host.childElementCount){const p=document.createElement('p');p.textContent='Nenhum projeto corresponde ao filtro.';host.append(p);}
- const folders=[...new Set([...Object.values(map),'Demonstrações','Projetos'])].filter(x=>typeof x==='string'&&x.trim()).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const folders=[...new Set([...Object.values(map),'Projetos'])].filter(x=>typeof x==='string'&&x.trim()).sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const combo=$('projectBrowserFolder');combo.replaceChildren(...folders.map(f=>new Option(f,f)));combo.value=projectFolder(projectName,map);
+}
+async function renameProjectFromBrowser(oldName){
+ if(busy||workspaceBusy||saving)return toast('Aguarde a operação em andamento.',true);
+ const proposed=prompt('Novo identificador (letras, números, _ e -):',oldName);
+ if(proposed===null||proposed===oldName)return;
+ const newName=proposed.trim();if(!/^[A-Za-z0-9_-]{1,64}$/.test(newName))return toast('Identificador inválido.',true);
+ if(!confirm('Renomear '+oldName+' para '+newName+'? As mídias não serão alteradas.'))return;
+ try{
+  if(dirty)await save();
+  await post('/api/project/rename',{name:oldName,new_name:newName,confirm:oldName});
+  const folders=folderState();if(folders[oldName]){folders[newName]=folders[oldName];delete folders[oldName];try{localStorage.setItem(FOLDER_KEY,JSON.stringify(folders));}catch{}}
+  await listProjects();if(projectName===oldName)await load(newName);
+  projectBrowserRender();toast('Projeto renomeado. Áudios em cache podem precisar de nova preparação.');
+ }catch(e){toast(e.message,true);}
+}
+async function trashProjectFromBrowser(n){
+ if(busy||workspaceBusy||saving)return toast('Aguarde a operação em andamento.',true);
+ if(!confirm('Mover '+n+' para a lixeira recuperável? As mídias compartilhadas serão preservadas.'))return;
+ try{if(dirty)await save();await post('/api/workspace/archive',{action:'archive',name:n,confirm:n});
+  const previous=projectName;const names=await listProjects();
+  if(previous===n){if(names.length)await load(names[0]);else {project=null;projectName='';}}
+  projectBrowserRender();toast('Projeto movido à lixeira. Use Projetos e arquivos → Restaurar.');
+ }catch(e){toast(e.message,true);}
 }
 function bindProjectBrowser(){const browser=$('projectBrowser');$('openProjectBrowser').onclick=()=>{projectBrowserRender();browser.showModal();$('projectBrowserSearch').focus();};
  $('closeProjectBrowser').onclick=()=>browser.close();$('projectBrowserSearch').oninput=projectBrowserRender;
@@ -391,8 +439,8 @@ function bindProjectBrowser(){const browser=$('projectBrowser');$('openProjectBr
  $('projectBrowserFolder').onchange=e=>{const map=folderState();map[projectName]=e.target.value;try{localStorage.setItem(FOLDER_KEY,JSON.stringify(map));projectBrowserRender();}catch{toast('Armazenamento local indisponível; pasta não foi salva.',true);}};
  $('newProjectFolder').onclick=()=>{const folder=prompt('Nova pasta virtual:');if(!folder)return;const f=folder.trim().replace(/[\x00-\x1F]/g,'').slice(0,50);if(!f)return;const map=folderState();map[projectName]=f;try{localStorage.setItem(FOLDER_KEY,JSON.stringify(map));projectBrowserRender();}catch{toast('Armazenamento local indisponível; pasta não foi salva.',true);}};
 }
-async function listProjects(){const r=await api('/api/projects');projectCatalog=r.projects;$('projectSelect').replaceChildren(...r.projects.map(n=>new Option(n,n)));return r.projects;}
-async function load(name){if(dirty)await save();fitResult=null;timingHistory=null;clipEditingEnabled(false);clearMediaPlayers();clipPreviewFile='';clipPreviewScene=-1;let r=await api('/api/project?name='+encodeURIComponent(name));project=r.project;effectiveTiming=null;savedAudioSignature=audioSignature(project);projectName=name;selected=0;playTime=0;playing=false;dirty=false;documentHistory.reset(project);updateHistoryButtons();$('projectSelect').value=name;$('currentProjectName').textContent=name;$('saveInfo').textContent='✓ Carregado';await refreshEffectiveTiming();drawEverything();refreshCache();}
+async function listProjects(){const r=await api('/api/projects');projectCatalog=r.projects;m1pServerFolders=r.folders||{};$('projectSelect').replaceChildren(...r.projects.map(n=>new Option(n,n)));return r.projects;}
+async function load(name){if(dirty)await save();fitResult=null;timingHistory=null;clipEditingEnabled(false);clearMediaPlayers();clipPreviewFile='';clipPreviewScene=-1;let r=await api('/api/project?name='+encodeURIComponent(name));project=r.project;effectiveTiming=null;savedAudioSignature=audioSignature(project);projectName=name;selected=0;playTime=0;playing=false;dirty=false;documentHistory.reset(project);updateHistoryButtons();$('projectSelect').value=name;$('currentProjectName').textContent=name;rememberProjectLocation();$('saveInfo').textContent='✓ Carregado';await refreshEffectiveTiming();drawEverything();refreshCache();}
 function acceptEffectiveTiming(owner,name,signature,scenes){
  if(project!==owner||name!==projectName||signature!==audioSignature(project)||playing||!audioSnapshotMatches()||scenes.length!==project.cenas.length||!scenes.every((c,i)=>c.id===project.cenas[i].id&&Number.isFinite(c.seconds)))return false;
  const i=sceneAt(playTime).i,local=playTime-startOf(i);effectiveTiming={owner,signature,lengths:scenes.map(c=>c.seconds)};playTime=Math.min(totalDuration(),startOf(i)+Math.min(local,sceneSeconds(i)));return true;
@@ -421,13 +469,17 @@ async function prepareNarrations(purpose='manual'){
  toast('Narração habilitada e salva para '+report.eligible.length+' cenas. Nenhuma voz foi sintetizada.');
  return true;
 }
-async function begin(mode,no_voice=false){if(busy)return toast('Já existe um trabalho em execução',true);try{if(!no_voice&&['audio','mix','render','render-leve','cena','audio-cena','legendas-cena'].includes(mode)&&!(await prepareNarrations('produce')))return;await save();let j=await post('/api/job',{name:projectName,mode,scene:['cena','voz-mp3','audio-cena','legendas-cena'].includes(mode)?selected+1:undefined,no_voice});busy=true;$('downloads').innerHTML='';$('logBox').textContent='';trackJob(j.job);}catch(e){toast(e.message,true);}}
+async function begin(mode,no_voice=false){if(busy)return toast('Já existe um trabalho em execução',true);try{if(!no_voice&&['audio','mix','render','render-leve','cena','audio-cena','legendas-cena','legendas-lote'].includes(mode)&&!(await prepareNarrations('produce')))return;await save();let j=await post('/api/job',{name:projectName,mode,scene:['cena','voz-mp3','audio-cena','legendas-cena'].includes(mode)?selected+1:undefined,no_voice});busy=true;$('downloads').innerHTML='';$('logBox').textContent='';trackJob(j.job);}catch(e){toast(e.message,true);}}
 function trackJob(id){if(jobTimer)clearInterval(jobTimer);busy=true;$('statusBadge').textContent='Executando';
  const poll=async()=>{try{const j=await api('/api/job/'+id);$('progress').value=Math.round(j.progress*100);$('progressText').textContent=Math.round(j.progress*100)+'%';$('phase').textContent=j.phase;$('logBox').textContent=j.logs.join('\n');$('logBox').scrollTop=$('logBox').scrollHeight;
  if(['done','error'].includes(j.status)){
     clearInterval(jobTimer);jobTimer=null;busy=false;$('statusBadge').textContent=j.status==='done'?'Concluído':'Erro';
     if(j.status==='error'){toast(j.error,true);return;}
     let files=[];if(j.result.html)files.push(['HTML autônomo',j.result.html]);if(j.result.video)files.push(['MP4',j.result.video]);if(j.result.frames)files.push(['Quadros ZIP',j.result.frames]);if(j.result.batch)files.push(['Áudio ZIP',j.result.batch]);if(j.result.audio)files.push([j.result.audio.endsWith('.mp3')?'Áudio MP3':j.result.audio.endsWith('.opus')?'Áudio Opus':'Mix WAV',j.result.audio]);
+    if(j.mode==='legendas-lote'){
+      if(!dirty&&projectName===j.project){try{await load(projectName);toast('Tempos de palavras atualizados: '+j.result.timings+' cenas');}catch(error){toast(error.message,true);}}
+      else toast('Tempos de palavras salvos no servidor. Salve/recarregue o projeto antes de editar.',true);
+    }
     $('downloads').innerHTML=files.map(([t,f])=>`<a download href="/api/output/${encodeURIComponent(f)}">↓ ${esc(t)} — ${esc(f)}</a>`).join('');toast(j.result.cached?'Resultado reutilizado do cache':'Produção concluída');refreshCache();
     if(j.mode==='legendas-cena'&&j.result.timings){try{await loadWordTimes(Number(j.result.scene)-1);}catch(error){toast('Voz pronta; tempos: '+error.message,true);}}
  }
@@ -757,7 +809,7 @@ function bind(){
  $('editSVG').onclick=async()=>{
   if(project.cenas[selected].tipo!=='svg')return toast('Selecione uma cena SVG ou use + SVG para criar uma.',true);
   const popup=window.open('about:blank','_blank');
-  try{await save();const url='/vetor?name='+encodeURIComponent(projectName)+'&scene='+(selected+1);if(popup)popup.location.href=url;else window.location.href=url;}
+  try{await save();rememberSvgLocation();const url='/vetor?name='+encodeURIComponent(projectName)+'&scene='+(selected+1);if(popup)popup.location.href=url;else window.location.href=url;}
   catch(e){if(popup)popup.close();toast('Não foi possível abrir o editor: '+e.message,true);}
  };
 
@@ -923,11 +975,36 @@ async function initRoteiro04(){
    dirtyNow(true);toast('Plano 0.4 aplicado; salve para persistir.');}});
  }catch(e){toast('Catálogo 0.4 indisponível: '+e.message,true);}
 }
+async function initStudioM1P(){
+ try{
+  const {installStudioM1P}=await import('/studio-m1p.mjs');
+  installStudioM1P({getProject:()=>project,getSelected:()=>selected,getProjectName:()=>projectName,
+    getProjectCatalog:()=>projectCatalog,save,load,listProjects,dirtyNow,drawEverything,toast,begin,
+    busy:()=>busy||saving||workspaceBusy||gilRendering});
+ }catch(error){toast('M1P indisponível: '+error.message,true);}
+}
 async function init(){
  window.addEventListener('storage',e=>{
   if(e.key!=='estudioSvgVectorSave'||!e.newValue)return;
   try{const u=JSON.parse(e.newValue);syncVectorSave(u.name,u.scene);}catch(err){}
  });
- bind();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');let preferred=projects.includes(requested)?requested:projects.includes('demo_organico')?'demo_organico':projects[0];if(!preferred)throw Error('Nenhum projeto encontrado');await load(preferred);switchPane('previewPanel');void initRoteiro04();let a=await api('/api/jobs/active');if(a.job)trackJob(a.job);if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'ready'},WORKSPACE);}catch(e){toast(e.message,true);$('stage').textContent='Falha ao iniciar: '+e.message;}}
+ bind();void initStudioM1P();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');
+ let remembered='',returnTarget=null;
+ try{
+  remembered=sessionStorage.getItem(LAST_PROJECT_KEY)||'';
+  const raw=sessionStorage.getItem(SVG_RETURN_KEY);
+  if(raw){const candidate=JSON.parse(raw);if(typeof candidate.project==='string'&&Number.isInteger(candidate.scene))returnTarget=candidate;}
+ }catch{}
+ if(!projects.includes(requested)){
+  if(projects.includes(returnTarget?.project))requested=returnTarget.project;
+  else if(projects.includes(remembered))requested=remembered;
+ }
+let preferred=projects.includes(requested)?requested:projects.includes('demo_organico')?'demo_organico':projects[0];if(!preferred)throw Error('Nenhum projeto encontrado');await load(preferred);
+ if(returnTarget?.project===preferred){
+  selected=Math.max(0,Math.min(project.cenas.length-1,returnTarget.scene));
+  playTime=startOf(selected);drawEverything();
+ }
+ try{sessionStorage.removeItem(SVG_RETURN_KEY);}catch{}
+switchPane('previewPanel');void initRoteiro04();let a=await api('/api/jobs/active');if(a.job)trackJob(a.job);if(inWorkspace())parent.postMessage({protocol:'rd-workspace-1',type:'ready'},WORKSPACE);}catch(e){toast(e.message,true);$('stage').textContent='Falha ao iniciar: '+e.message;}}
 init();
 })();

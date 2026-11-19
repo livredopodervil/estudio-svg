@@ -88,6 +88,10 @@ def inventory(raw,media):
     def add(fn,label):
         if fn:uses.setdefault(fn,[]).append(label)
     add(pr['trilha'],'Trilha global')
+    for definition in (pr.get('instance_library') or {}).get('definitions',[]):
+        if definition.get('kind')=='media':
+            media_object=definition.get('media') or {}
+            add(media_object.get('file',''),'Definição vinculada: '+definition.get('id',''))
     for i,c in enumerate(pr['cenas'],1):
         prefix=f'Cena {i}: '
         add(c['imagem']['arquivo'],prefix+'imagem/prancha');add(c['video_clipe']['arquivo'],prefix+'clipe')

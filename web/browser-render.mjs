@@ -4,6 +4,7 @@ import {drawSubtitle} from './subtitle-frame.mjs';
 import {objectMotion,localTime,rect} from './scene-objects.mjs';
 import {codecCandidates,codecs} from './platform-capabilities.mjs';
 import {affine} from './viewport-affine.mjs';
+import {renderableLayers,pixelMatrix} from './instance-graph-v1.mjs';
 import {prepare,frameTime} from './gil-native.mjs';
 // M1N_AUDIO_BEGIN
 // Estúdio SVG · M1N · Áudio procedural GIL na exportação pelo navegador.
@@ -109,7 +110,7 @@ export function plan(project,durations=null){
  if(![width,height,fps,draw_fps].every(Number.isFinite)||width<320||height<320||width>1920||height>1920||![24,25,30].includes(fps)||draw_fps<1)throw Error('Configuração de vídeo inválida.');
  let duration=0;const entries=scenes.map((scene,index)=>{
   const nominal=Number(scene.duracao),d=durations?Number(durations[index]):nominal;if(!Number.isFinite(d)||!Number.isFinite(nominal)||d<nominal-.00001||nominal<.5)throw Error('Duração inválida na cena '+(index+1));
-  const start=duration;duration+=d;const videos=Number(!!scene.video_clipe?.arquivo)+(scene.objetos_midia||[]).filter(o=>o.kind==='video').length;if(videos>8)throw Error('Até 8 clipes por cena.');
+  const start=duration;duration+=d;const videos=Number(!!scene.video_clipe?.arquivo)+renderableLayers(project,scene).filter(o=>o.kind==='video').length;if(videos>8)throw Error('Até 8 clipes por cena.');
   return {scene,index,start,end:duration,duration:d,nominal};
  });
  if(!entries.length||duration>900||entries.length>150)throw Error('Exportação experimental: até 900 s e 150 cenas.');
@@ -135,7 +136,7 @@ async function svgImage(markup,signal,{transparent=false}={}){
 async function openImage(file,signal){const im=new Image();im.src='/api/media/image?file='+encodeURIComponent(file);await timed(im.decode(),15000,'Imagem não carregada: '+file,signal);return im;}
 function eventReady(el,event,ready,signal){return timed(new Promise((resolve,reject)=>{const ok=()=>{cleanup();resolve();},bad=()=>{cleanup();reject(Error('Mídia não decodificada: '+el.src));},cleanup=()=>{el.removeEventListener(event,ok);el.removeEventListener('error',bad);signal.removeEventListener('abort',bad);};el.addEventListener(event,ok,{once:true});el.addEventListener('error',bad,{once:true});signal.addEventListener('abort',bad,{once:true});if(ready())ok();}),15000,'Tempo excedido na leitura do clipe.',signal);}
 async function openVideo(file,offset,loop,signal,resources){const v=document.createElement('video');resources.add(v);v.muted=true;v.playsInline=true;v.preload='auto';v.loop=loop;v.src='/api/media/clip?file='+encodeURIComponent(file);v.load();await eventReady(v,'loadeddata',()=>v.readyState>=2,signal);if(!Number.isFinite(v.duration)||v.duration<=0)throw Error('Duração de clipe desconhecida: '+file);const target=sourceTime(offset,v.duration,loop);if(target!==null&&Math.abs(v.currentTime-target)>.025){v.currentTime=target;await eventReady(v,'seeked',()=>!v.seeking&&v.readyState>=2,signal);}return v;}
-function drawMedia(ctx,canvas,im,p,fit){const w=p.w*canvas.width,h=p.h*canvas.height;const args=boxFit(im.videoWidth||im.naturalWidth,im.videoHeight||im.naturalHeight,w,h,fit);if(!args)return;ctx.save();ctx.translate(p.x*canvas.width,p.y*canvas.height);ctx.transform(...affine(p,w,h));ctx.globalAlpha=clamp(p.opacity,0,1);const stroke=canvasAppearance(ctx,w,h,p);ctx.drawImage(im,...args);stroke();ctx.restore();}
+function drawMedia(ctx,canvas,im,p,fit){const w=p.w*canvas.width,h=p.h*canvas.height;const args=boxFit(im.videoWidth||im.naturalWidth,im.videoHeight||im.naturalHeight,w,h,fit);if(!args)return;ctx.save();if(p.instance_matrix)ctx.transform(...pixelMatrix(p.instance_matrix,canvas.width,canvas.height));ctx.translate(p.x*canvas.width,p.y*canvas.height);ctx.transform(...affine(p,w,h));ctx.globalAlpha=clamp(p.opacity,0,1);const stroke=canvasAppearance(ctx,w,h,p);ctx.drawImage(im,...args);stroke();ctx.restore();}
 // Rasterizações assíncronas de SVG não interrompem o relógio de áudio. Atraso excessivo aborta.
 function frameSlot(first){return {image:first,at:0,requested:0,pending:false,error:null};}
 function requestFrame(slot,t,step,make,signal){if(slot.error)throw slot.error;if(t-slot.at>Math.max(.8,3*step))throw Error('Desenho SVG atrasado; reduza resolução/FPS de desenho.');if(slot.pending||t-slot.requested+1e-6<step)return;slot.pending=true;slot.requested=t;Promise.resolve().then(()=>make(t)).then(image=>{if(!signal.aborted){slot.image=image;slot.at=t;}},e=>{if(!signal.aborted)slot.error=e;}).finally(()=>{slot.pending=false;});}
@@ -147,7 +148,7 @@ export async function prepareEntry(e,p,signal,videos){const c=e.scene,{objetos_m
  const old=c.video_clipe||{};if(old.arquivo)target.layers.push({kind:'video',obj:{x:old.x,y:old.y,w:old.w,h:old.h,opacity:old.opacidade,fit:old.fit,offset:old.inicio||0,loop:old.repetir},media:await openVideo(old.arquivo,old.inicio||0,old.repetir,signal,videos),state:{}});
  async function gil(o,native=false){const compiled=prepare(native?o.source:o.gil.source);const imageAt=async t=>{const offset=native?0:o.offset||0,at=native?frameTime(t,compiled.duration):o.loop?(t+offset)%compiled.duration:frameTime(t+offset,compiled.duration);return svgImage(compiled.frame(at),signal,{transparent:!o.opaque});};return {kind:'gil',obj:o,native,slot:frameSlot(await imageAt(0)),imageAt,sample:native?null:objectMotion(o)};}
  if(c.gil_nativo)target.layers.push(await gil(c.gil_nativo,true));
- for(const o of c.objetos_midia||[]){abortCheck(signal);if(o.kind==='gil')target.layers.push(await gil(o));else if(o.kind==='image'||o.kind==='video')target.layers.push({kind:o.kind,obj:o,sample:objectMotion(o),media:o.kind==='image'?await openImage(o.file,signal):await openVideo(o.file,o.offset||0,o.loop,signal,videos),state:{}});else throw Error('Objeto não suportado: '+o.kind);}
+ for(const o of renderableLayers(p,c)){abortCheck(signal);if(o.kind==='gil')target.layers.push(await gil(o));else if(o.kind==='image'||o.kind==='video')target.layers.push({kind:o.kind,obj:o,sample:objectMotion(o),media:o.kind==='image'?await openImage(o.file,signal):await openVideo(o.file,o.offset||0,o.loop,signal,videos),state:{}});else throw Error('Objeto não suportado: '+o.kind);}
  return target;
 }
 function paint(ctx,canvas,e,t,settings,signal,initial=false){const subtitleTime=t;const held=initial||t>=e.nominal;t=Math.min(t,Math.max(0,e.nominal-1e-8));ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);requestFrame(e.base,t,1/settings.baseFPS,e.baseAt,signal);ctx.drawImage(e.base.image,0,0,canvas.width,canvas.height);

@@ -1,5 +1,6 @@
 """Projeto JSON V2.2 e compatibilidade V1/V2.1. Sem dependências externas."""
 from __future__ import annotations
+from studio_instances import normalize_library, normalize_roots
 import json, re, copy, math, hashlib
 from spatial_scene import normalize_spatial, default_spatial
 from timeline_easing import EASINGS
@@ -240,6 +241,8 @@ def layers_dict(raw,modo="quadro"):
 
 def normalize(data):
     if not isinstance(data,dict):raise ValueError('O projeto deve ser objeto JSON')
+    lib_data = normalize_library(data.get('instance_library'), media_objects_dict)
+    m1t_library, m1t_counts = lib_data if lib_data is not None else (None, {})
     raw=data.get('cenas')
     if not isinstance(raw,list) or not 1<=len(raw)<=150:raise ValueError('São necessárias entre 1 e 150 cenas')
     video=data.get('video',{}) if isinstance(data.get('video'),dict) else {}
@@ -257,6 +260,7 @@ def normalize(data):
          'encaixe_voz':data.get('encaixe_voz','estender') if data.get('encaixe_voz') in ('estender','avisar') else 'estender',
          'trilha':asset(data.get('trilha','')),'trilha_continua':bool(data.get('trilha_continua',False)),'volume_musica':n(data.get('volume_musica',.16),.16,0,2),
          'volume_voz':n(data.get('volume_voz',1.35),1.35,0,3),'cenas':[]}
+    if m1t_library is not None:out['instance_library']=m1t_library
     ids=set()
     for i,r in enumerate(raw):
         if not isinstance(r,dict):raise ValueError(f'Cena {i+1} não é um objeto')
@@ -293,6 +297,9 @@ def normalize(data):
             layer['opaque']=native.get('opaque') is True
             c['gil_nativo']=layer
         if 'objetos_midia' in r:c['objetos_midia']=media_objects_dict(r['objetos_midia'])
+        if 'instances' in r:
+            if m1t_library is None:raise ValueError('Cena contém instâncias sem biblioteca')
+            c['instances']=normalize_roots(r['instances'],m1t_counts,c['duracao'])
         if typ=='espacial': c['espacial']=normalize_spatial(r.get('espacial',default_spatial()))
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.
         c['fala']=c['audio']['voice_text']

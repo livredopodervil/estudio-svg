@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Extensão M1T: definições e instâncias",
+  "type": "object",
+  "properties": {
+    "instance_library": {
+      "type": "object",
+      "required": [
+        "format",
+        "definitions"
+      ],
+      "properties": {
+        "format": {
+          "const": "rd-instance-library-1"
+        },
+        "definitions": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "kind",
+                  "media"
+                ],
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "kind": {
+                    "const": "media"
+                  },
+                  "media": {
+                    "type": "object"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "kind",
+                  "children"
+                ],
+                "properties": {
+                  "id": {
+                    "$ref": "#/$defs/id"
+                  },
+                  "kind": {
+                    "const": "group"
+                  },
+                  "children": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "ref"
+                      ],
+                      "properties": {
+                        "id": {
+                          "$ref": "#/$defs/id"
+                        },
+                        "ref": {
+                          "$ref": "#/$defs/id"
+                        },
+                        "transform": {
+                          "$ref": "#/$defs/transform"
+                        },
+                        "opacity": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "instances": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "ref"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "ref": {
+            "$ref": "#/$defs/id"
+          },
+          "transform": {
+            "$ref": "#/$defs/transform"
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 600
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 600
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+    },
+    "transform": {
+      "type": "object",
+      "properties": {
+        "matrix": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

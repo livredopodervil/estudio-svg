@@ -200,3 +200,7 @@ Consultar `docs/M1P_LOTES_ELEMENTOS_PROJETOS.md` ao continuar a evolução de pr
 - Ver `docs/M1S_EDITOR_SELECTION_UNIVERSAL.md` para estado real, testes, limites e reversão.
 - Antes de publicar: iniciar servidor Android, conferir visual, testar renderização, salvar/reabrir e auditar stage.
 - Não declarar instância/grupo persistente: o esquema atual só aceita image/video/gil; exige migração versionada para scene graph.
+
+- M1T: leia `docs/M1T_GRAFO_INSTANCIAS.md` antes de modificar grupos e instâncias; mantenha a revisão no Android antes do commit e push.
+
+- M1U / Recursos e navegação: docs/M1U_RECURSOS_PROJETOS.md
