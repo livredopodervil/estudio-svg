@@ -204,3 +204,24 @@ Consultar `docs/M1P_LOTES_ELEMENTOS_PROJETOS.md` ao continuar a evolução de pr
 - M1T: leia `docs/M1T_GRAFO_INSTANCIAS.md` antes de modificar grupos e instâncias; mantenha a revisão no Android antes do commit e push.
 
 - M1U / Recursos e navegação: docs/M1U_RECURSOS_PROJETOS.md
+
+## Importação ZIP com mídia pendente — patch local proposto para 1cb2223 (sem commit)
+
+- Base exata: `feat/studio-interface-m1b` / `1cb222363ddc62f9096b06771c828081cd72f6e8`, a partir do pacote fornecido pelo usuário. Verificação exige hashes SHA-256 dos arquivos modificados e `git apply --check` antes da aplicação.
+- Arquivos pretendidos: `project_import.py`, `app.py`, `web/app.js`, `web/index.html`, testes e este `AGENTS.md`. Nenhuma mudança em `main`, sem push.
+- ZIPs aceitam `midias/` além de `midia/`, `media/` e `assets/`. A ausência de mídias não impede a importação. Referências ausentes não são atribuídas a arquivos preexistentes com nomes coincidentes.
+- A interface **Vincular imagens** relaciona arquivos do usuário às referências de imagem de cena ou `objetos_midia` (tipo `image`), em todas as cenas. Cada associação é explícita, usa `/api/upload` e só grava o projeto mediante `save()`. Não cobre referências internas de SVG/GIL nem áudio/vídeo nesta etapa.
+- Critérios de aceitação pendentes no Termux: importação do ZIP original com `midias/`, importação sem imagens, associação posterior das quatro imagens, salvar/reabrir e preservar as oito cenas; regressão de áudio, timeline e exportação. Rodar servidor com `RD_GIL_ROOT="$HOME/rd_studio_gil_v01/gil" bash iniciar.sh`.
+- **Status:** alteração preparada em ambiente isolado, não aplicada/validada no Android; não declarar sucesso local. A continuidade em `docs/CONTINUIDADE_STUDIO_M1K.md` deve ser atualizada após obter sua versão real e após aprovação humana.
+
+## M1V — SpatialSeed para GIL nativa (experimental)
+Ver `docs/SPATIALSEED_GIL_NATIVA_M1V.md`. Sem MP4 intermediário nas novas importações; preserve a fonte e teste o render nativo no Android antes de publicar.
+
+## M1W — renderer SpatialSeed main (experimental)
+Viewport e console do SpatialSeed main dentro do Estúdio; gravação WebGL para clipe na timeline. Origem Git independente em `RD_SPATIALSEED_ROOT`; registrar commit real. Ver `docs/SPATIALSEED_MAIN_RENDERER_M1W.md`. Validação Android, sincronização determinística de timeline e publicação pendentes.
+
+
+## M1X — viewport WebGL na composição (experimental, sem publicação)
+Base auditada: branch `feat/studio-interface-m1b`, HEAD `1cb222363ddc62f9096b06771c828081cd72f6e8`, arquivos locais não confirmados preservados. O SpatialSeed é carregado exclusivamente de `RD_SPATIALSEED_ROOT`, apontando a um checkout independente da branch `main`. A interface M1W antiga continua como opção avançada, mas o caminho novo usa o `#stageShell` do vídeo, `viewer.camera.snapshot` e `viewer.camera.restore`, e keyframes por cena (`spatialseed_viewport.camera_keys`) normalizados em `schema.py`. O projeto guarda a fonte `.spatialseed` original em `spatialseed_viewport.source` (limite 900 kB); o servidor não a executa como JavaScript. Revisão aceita somente cenas sem exportação nativa: exportadores MP4/HTML/browser/offline bloqueiam explicitamente cenas WebGL para impedir vídeos incorretos. **Pendências:** confirmar carregamento do `main` no Android, verificar navegação e keyframes, preservar alterações de objetos no documento nativo, implementação de render por tempo absoluto e composição WebGL+camadas na exportação. Não é aceite visual e não autoriza push.
+
+Executar: `cd "$HOME/estudio_svg_v3_git" && RD_GIL_ROOT="$HOME/rd_studio_gil_v01/gil" RD_SPATIALSEED_ROOT="$HOME/.local/share/rd-studio/spatialseed-main" bash iniciar.sh` e abrir `http://127.0.0.1:8771/` em outra sessão. Nenhum commit/push até revisão visual.

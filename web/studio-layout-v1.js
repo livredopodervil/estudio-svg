@@ -35,7 +35,7 @@
 
  const headActions=doc.querySelector('.topactions');
  if(headActions){const more=doc.createElement('details');more.id='rdHeaderMore';more.className='rdHeaderMore';const summary=doc.createElement('summary');summary.textContent='Mais ▾';more.append(summary);const menu=doc.createElement('div');menu.className='rdHeaderMenu';more.append(menu);
-  for(const id of ['openSvgFromTop','editJson','importButton','importBundle','exportButton','exportBundle']){const el=by(id);if(el)menu.append(el);}
+  for(const id of ['openSvgFromTop','editJson','importButton','importBundle','relinkMissingImages','exportButton','exportBundle']){const el=by(id);if(el)menu.append(el);}
   headActions.prepend(more);
  }
  const drawers={scenes:'scenesPanel',properties:'editPanel',audio:'editPanel',production:'workPanel'};

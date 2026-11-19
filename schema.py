@@ -239,6 +239,45 @@ def layers_dict(raw,modo="quadro"):
         out[key]=item
     return out
 
+def spatialseed_viewport_dict(raw, duration):
+    """Opt-in native WebGL scene; never execute documents as arbitrary JavaScript."""
+    if not isinstance(raw, dict):
+        raise ValueError('Viewport SpatialSeed deve ser um objeto')
+    enabled=raw.get('enabled') is True
+    source=raw.get('source','')
+    if not isinstance(source,str) or len(source.encode('utf-8'))>900000:
+        raise ValueError('Fonte SpatialSeed acima de 900 kB ou inválida')
+    if source:
+        try: doc=json.loads(source)
+        except (ValueError,TypeError): raise ValueError('Fonte SpatialSeed não é JSON')
+        if not isinstance(doc,dict): raise ValueError('Documento SpatialSeed deve ser objeto JSON')
+    keys=raw.get('camera_keys',[])
+    if not isinstance(keys,list) or len(keys)>256:
+        raise ValueError('Até 256 keyframes de câmera por cena')
+    result=[];prev=-1.
+    for index,k in enumerate(keys):
+        if not isinstance(k,dict):raise ValueError('Keyframe inválido')
+        t=n(k.get('t'),-1,-1,600)
+        if t<0 or t>duration or t<=prev:raise ValueError('Keyframes devem estar ordenados por tempo crescente')
+        prev=t
+        camera=k.get('camera')
+        if not isinstance(camera,dict):raise ValueError('Pose de câmera inválida')
+        position=camera.get('position');q=camera.get('quaternion')
+        if not isinstance(position,list) or len(position)!=3 or not all(isinstance(x,(int,float)) and math.isfinite(x) for x in position):raise ValueError('Posição de câmera inválida')
+        if not isinstance(q,list) or len(q)!=4 or not all(isinstance(x,(int,float)) and math.isfinite(x) for x in q):raise ValueError('Quaternion inválido')
+        mag=sum(float(v)*float(v) for v in q)**.5
+        if mag<1e-12:raise ValueError('Quaternion nulo')
+        dist=float(camera.get('focusDistance',0));fov=float(camera.get('fov',0))
+        near=float(camera.get('near',0));far=float(camera.get('far',0))
+        if not all(math.isfinite(x) for x in (dist,fov,near,far)) or dist<=0 or not 1<=fov<=179 or near<=0 or far<=near:raise ValueError('Óptica de câmera inválida')
+        easing=k.get('easing','smoothstep')
+        if easing not in ('linear','smoothstep','hold'):raise ValueError('Interpolação de câmera inválida')
+        result.append({'t':t,'easing':easing,'camera':{'position':[float(x) for x in position],
+                       'quaternion':[float(x)/mag for x in q],
+                       'focusDistance':dist,'fov':fov,'near':near,'far':far}})
+    return {'enabled':enabled,'source':source,'camera_keys':result}
+
+
 def normalize(data):
     if not isinstance(data,dict):raise ValueError('O projeto deve ser objeto JSON')
     lib_data = normalize_library(data.get('instance_library'), media_objects_dict)
@@ -295,11 +334,19 @@ def normalize(data):
             if layer is None or layer['origin']!='gil':raise ValueError(f'Cena {i+1}: camada GIL nativa inválida')
             layer.update({k:n(native.get(k,d),d,lo,hi) for k,d,lo,hi in [('x',.5,0,1),('y',.5,0,1),('w',1,.08,1),('h',1,.08,1),('opacidade',1,0,1)]})
             layer['opaque']=native.get('opaque') is True
+            if 'source_spatialseed' in native:
+                original=native['source_spatialseed']
+                if not isinstance(original,str) or not 0<len(original.encode('utf-8'))<=250000:
+                    raise ValueError(f'Cena {i+1}: documento SpatialSeed original inválido')
+                if hashlib.sha256(original.encode('utf-8')).hexdigest()!=layer['origin_sha256']:
+                    raise ValueError(f'Cena {i+1}: SHA-256 do SpatialSeed original não corresponde')
+                layer['source_spatialseed']=original
             c['gil_nativo']=layer
         if 'objetos_midia' in r:c['objetos_midia']=media_objects_dict(r['objetos_midia'])
         if 'instances' in r:
             if m1t_library is None:raise ValueError('Cena contém instâncias sem biblioteca')
             c['instances']=normalize_roots(r['instances'],m1t_counts,c['duracao'])
+        if 'spatialseed_viewport' in r:c['spatialseed_viewport']=spatialseed_viewport_dict(r['spatialseed_viewport'],c['duracao'])
         if typ=='espacial': c['espacial']=normalize_spatial(r.get('espacial',default_spatial()))
         # Explicit scene audio supersedes legacy fala; keep both synchronized for old exports.
         c['fala']=c['audio']['voice_text']

@@ -138,3 +138,6 @@ foi de fato verificado na versão concreta em análise.
 - Serviço inspecionado no snapshot: `cd "$HOME/estudio_svg_v3_git" && RD_GIL_ROOT="$HOME/rd_studio_gil_v01/gil" bash iniciar.sh`; verificar se a porta continua 8771, então abrir `http://127.0.0.1:8771/` no mesmo Android.
 - Próximo checkpoint somente após revisão visual, testes pertinentes e autorização explícita de commit/push.
 <!-- /studio-m1m-continuity-note-v1 -->
+
+## M1V — SpatialSeed para GIL nativa
+Integração experimental sem MP4 intermediário para novas importações; base 1cb2223. Ver docs/SPATIALSEED_GIL_NATIVA_M1V.md. Validação Android pendente; não publicar.

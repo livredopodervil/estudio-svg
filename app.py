@@ -142,7 +142,11 @@ def queue_job(project,mode,scene=None,no_voice=False):
         except (ValueError,TypeError):raise StudioError('Informe o número da cena')
     else:scene=None
     with JOB_LOCK:
-        read_project(project)
+        saved_project=read_project(project)
+        if mode in ('quadros','render','render-leve','cena','export-html','export-html-silent'):
+            chosen=(saved_project['cenas'] if scene is None else [saved_project['cenas'][scene-1]])
+            if any(c.get('spatialseed_viewport',{}).get('enabled') for c in chosen):
+                raise StudioError('Exportação MP4/HTML não suporta cenas SpatialSeed WebGL nesta revisão; use prévia, câmera e timeline. A cena foi preservada.')
         active=next((j for j in JOBS.values() if j['status'] in ('queued','running')),None)
         if active:
             if active['project']==project and active['mode']==mode and active['scene']==scene:return active,True
@@ -472,6 +476,19 @@ class Handler(BaseHTTPRequestHandler):
                     with temporary.open('rb') as src:shutil.copyfileobj(src,self.wfile,256*1024)
                 finally:temporary.unlink(missing_ok=True)
                 return
+            if route=='/api/project/missing-images' and method=='GET':
+                pr=read_project(name(q('name')))
+                references=set()
+                for scene in pr['cenas']:
+                    img=scene.get('imagem') or {}
+                    if img.get('arquivo'):references.add(asset(img['arquivo']))
+                    for obj in scene.get('objetos_midia',[]):
+                        if obj.get('kind')=='image' and obj.get('file'):
+                            references.add(asset(obj['file']))
+                missing=sorted(filename for filename in references
+                               if Path(filename).suffix.lower() in ('.jpg','.jpeg','.png','.webp')
+                               and not (MEDIA/filename).is_file())
+                return self.response(200,{'images':missing})
             if route=='/api/media/image/alias' and method=='POST':
                 v=self.payload()
                 old=asset(v.get('file',''))
@@ -715,6 +732,16 @@ class Handler(BaseHTTPRequestHandler):
                 if not filename or Path(filename).suffix.lower() not in VIDEO_EXT:
                     raise StudioError('Formato de vídeo inválido')
                 return self.stream_file(MEDIA/filename)
+            if route=='/api/spatialseed/native' and method=='POST':
+                origin=self.headers.get('Origin','');port=self.server.server_port
+                if origin not in (f'http://127.0.0.1:{port}',f'http://localhost:{port}') or self.headers.get('Host') not in (f'127.0.0.1:{port}',f'localhost:{port}'):
+                    return self.response(403,{'error':'Origem local explícita necessária'})
+                from studio_spatialseed_native import convert_spatialseed
+                data=self.payload(800_000)
+                if not isinstance(data,dict) or set(data)!={'source'}:
+                    raise StudioError('Parâmetros SpatialSeed inválidos')
+                result=convert_spatialseed(data['source'],os.environ.get('RD_GIL_ROOT'),os.environ.get('RD_SPATIALSEED_ROOT'))
+                return self.response(200,result)
             if route=='/api/component/gil' and method=='POST':
                 origin=self.headers.get('Origin','');port=self.server.server_port
                 if origin not in (f'http://127.0.0.1:{port}',f'http://localhost:{port}') or self.headers.get('Host') not in (f'127.0.0.1:{port}',f'localhost:{port}'):
@@ -763,6 +790,39 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
+        # M1W: SpatialSeed main: fonte original, módulos ES e assets em mesma origem.
+        # RD_SPATIALSEED_ROOT aponta para clone Git separado. Nunca servir .git.
+        if r.startswith('/spatialseed-main/'):
+            configured=os.environ.get('RD_SPATIALSEED_ROOT','')
+            if not configured:
+                return self.response(503,'Configure RD_SPATIALSEED_ROOT','text/plain; charset=utf-8')
+            ss_root=Path(configured).expanduser().resolve()
+            if not (ss_root/'apps/web/index.html').is_file() or not (ss_root/'vendor/three.module.js').is_file():
+                return self.response(503,'Checkout SpatialSeed main incompleto','text/plain; charset=utf-8')
+            rel=r[len('/spatialseed-main/'):]
+            if not rel or rel.endswith('/'):
+                rel+='index.html'
+            # Somente arquivos públicos explicitamente permitidos; sem traversal.
+            parts=rel.split('/')
+            if any(not part or part.startswith('.') or '\\' in part or ':' in part for part in parts):
+                return self.response(403,'Caminho SpatialSeed proibido','text/plain; charset=utf-8')
+            ss_file=(ss_root/rel).resolve()
+            if not ss_file.is_relative_to(ss_root) or not ss_file.is_file():
+                return self.response(404,'Asset SpatialSeed não encontrado','text/plain; charset=utf-8')
+            allowed={'.html','.js','.mjs','.json','.webmanifest','.css','.svg','.png','.jpg','.jpeg','.webp','.gif','.ico','.woff','.woff2','.ttf','.glb','.gltf','.bin','.wasm','.hdr','.exr','.ktx','.ktx2','.avif','.mp4','.webm','.stl','.obj','.fbx','.bvh','.mp3','.ogg','.wav','.txt'}
+            if ss_file.suffix.lower() not in allowed or ss_file.stat().st_size>80_000_000:
+                return self.response(403,'Asset SpatialSeed não autorizado','text/plain; charset=utf-8')
+            ctype=mimetypes.guess_type(str(ss_file))[0] or 'application/octet-stream'
+            if ss_file.suffix.lower() in ('.js','.mjs'): ctype='text/javascript; charset=utf-8'
+            elif ss_file.suffix.lower() in ('.json','.webmanifest'): ctype='application/json; charset=utf-8'
+            elif ss_file.suffix.lower()=='.wasm': ctype='application/wasm'
+            return self.response(200,ss_file.read_bytes(),ctype)
+        if r=='/spatialseed-camera-track.mjs':
+            return self.response(200,(ROOT/'web'/'spatialseed-camera-track.mjs').read_bytes(),'text/javascript; charset=utf-8')
+        if r=='/studio-spatialseed-viewport.mjs':
+            return self.response(200,(ROOT/'web'/'studio-spatialseed-viewport.mjs').read_bytes(),'text/javascript; charset=utf-8')
+        if r=='/studio-spatialseed-main.mjs':
+            return self.response(200,(ROOT/'web'/'studio-spatialseed-main.mjs').read_bytes(),'text/javascript; charset=utf-8')
         if r in ('/gil-native.mjs','/scene-objects.mjs','/instance-manager-v1.mjs','/instance-graph-v1.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/studio-m1p.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):

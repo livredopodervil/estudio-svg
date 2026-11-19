@@ -63,7 +63,7 @@ def _archive_layout(z):
                 and path.suffix.lower() == '.json'):
             projects.append(entry)
             continue
-        if ((len(parts) == 1 or (len(parts) == 2 and parts[0] in ('midia', 'media', 'assets')))
+        if ((len(parts) == 1 or (len(parts) == 2 and parts[0] in ('midia', 'midias', 'media', 'assets')))
                 and path.suffix.lower() in ALL_MEDIA_EXT):
             basename = asset(parts[-1])
             if basename in media:
@@ -76,7 +76,7 @@ def _archive_layout(z):
     return projects[0], media
 
 
-def _free_name(folder, preferred, kind='asset'):
+def _free_name(folder, preferred, kind='asset', reserved=()):
     if kind == 'project':
         stem = re.sub(r'[^A-Za-z0-9_-]+', '_', str(preferred)).strip('_')[:52] or 'importado'
         extension = '.json'
@@ -88,7 +88,8 @@ def _free_name(folder, preferred, kind='asset'):
         basename = stem + ('' if i == 1 else '_' + str(i)) + extension
         if len(basename) > 160:
             continue
-        if not (folder / basename).exists() and not (kind=='project' and (folder/'.arquivados'/basename).exists()):
+        if (basename not in reserved and not (folder / basename).exists()
+                and not (kind=='project' and (folder/'.arquivados'/basename).exists())):
             return basename
     raise ValueError('Não foi possível encontrar nome livre')
 
@@ -108,13 +109,13 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
         raw = archive.read(project_entry)
         project = normalize(json.loads(raw.decode('utf-8-sig')))
         required = referenced_media(project)
-        absent = [f for f in required if f not in media_entries]
-        if absent:
-            raise ValueError('ZIP não contém mídia referenciada: ' + ', '.join(absent[:5]))
+        absent = sorted(f for f in required if f not in media_entries)
         project_name = _free_name(projects_dir, preferred_name or Path(project_entry.filename).stem, 'project')[:-5]
         with tempfile.TemporaryDirectory(prefix='import-', dir=cache_dir) as tmp:
             tempdir = Path(tmp)
             mapping = {}
+            imported_media = {}
+            reserved_names = set()
             # MediaRecorder writes audio-only WebM too: infer stream kind from the
             # JSON field, not merely from the filename extension.
             video_files = {scene['video_clipe']['arquivo'] for scene in project['cenas'] if scene['video_clipe']['arquivo']}
@@ -124,7 +125,14 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
                 au = scene['audio']
                 audio_files.update(x for x in (au['voice_file'],au['music_file']) if x)
                 audio_files.update(track['file'] for track in au['tracks'])
-            for filename in required:
+            # Missing assets remain referenced by a unique unoccupied basename,
+            # preventing accidental reuse of an unrelated existing media file.
+            for filename in sorted(required):
+                final_name = _free_name(media_dir, filename, reserved=reserved_names)
+                reserved_names.add(final_name)
+                mapping[filename] = final_name
+                if filename not in media_entries:
+                    continue
                 staging = tempdir / filename
                 with archive.open(media_entries[filename]) as original, staging.open('xb') as dest:
                     shutil.copyfileobj(original, dest, 256 * 1024)
@@ -142,7 +150,7 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
                         media_validator(staging, 'video')
                     if filename in audio_files or filename not in video_files:
                         media_validator(staging, 'audio')
-                mapping[filename] = _free_name(media_dir, filename)
+                imported_media[filename] = final_name
             updated = json.loads(json.dumps(project))
             def replace(original):
                 return mapping.get(original, original)
@@ -159,7 +167,7 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
                     track['file'] = replace(track['file'])
             updated = normalize(updated)
             try:
-                for source_name, final_name in mapping.items():
+                for source_name, final_name in imported_media.items():
                     target = media_dir / final_name
                     with (tempdir / source_name).open('rb') as inp, target.open('xb') as out:
                         created.append(target)
@@ -172,4 +180,7 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
                 for f in reversed(created):
                     f.unlink(missing_ok=True)
                 raise
-    return {'name': project_name, 'media': mapping, 'scenes': len(updated['cenas'])}
+    return {'name': project_name, 'media': imported_media,
+            'missing_media': [{'original': original, 'reference': mapping[original]}
+                              for original in absent],
+            'scenes': len(updated['cenas'])}

@@ -97,12 +97,21 @@ class ProjectZipImportTests(unittest.TestCase):
         self.assertEqual(saved['cenas'][0]['audio']['voice_text'],'Manter texto')
         self.assertEqual(saved['cenas'][0]['audio']['voice_file'],'voice.webm')
 
-    def test_refuse_missing_media_atomically(self):
-        p={'cenas':[{'tipo':'foto','imagem':{'arquivo':'not_here.png'}}]}
-        with self.assertRaisesRegex(ValueError,'não contém mídia'):
-            import_zip(self.write_zip(sample_zip(p,{})),'teste',self.projects,self.media,self.cache)
-        self.assertEqual(list(self.projects.iterdir()),[])
-        self.assertEqual(list(self.media.iterdir()),[])
+    def test_import_missing_media_preserves_reference(self):
+        p = {'cenas': [{'tipo': 'foto', 'imagem': {'arquivo': 'not_here.png'}}]}
+        result = import_zip(self.write_zip(sample_zip(p, {})),
+                            'teste', self.projects, self.media, self.cache)
+        self.assertEqual(result['scenes'], 1)
+        self.assertEqual(result['media'], {})
+        self.assertEqual(result['missing_media'], [
+            {'original': 'not_here.png', 'reference': 'not_here.png'}])
+        target = self.projects / (result['name'] + '.json')
+        self.assertTrue(target.is_file())
+        with target.open(encoding='utf-8') as fp:
+            saved = __import__('json').load(fp)
+        self.assertEqual(saved['cenas'][0]['imagem']['arquivo'], 'not_here.png')
+        self.assertEqual(list(self.projects.iterdir()), [target])
+        self.assertEqual(list(self.media.iterdir()), [])
 
     def test_refuse_traversal_symlinks_and_duplicates(self):
         p={'cenas':[{'tipo':'cartoes'}]}

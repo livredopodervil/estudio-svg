@@ -367,7 +367,22 @@ function syncSubtitles(){
  const at=sceneAt(playTime),s=project.cenas[at.i];
  layer.innerHTML=subtitleModule.subtitleSVG(s,playTime-startOf(at.i),sceneSeconds(at.i),project.video.width,project.video.height);
 }
+let studioSSViewport=null;
+async function initStudioSSViewport(){
+ try{
+  const {mountStudioSpatialSeed}=await import('/studio-spatialseed-viewport.mjs');
+  studioSSViewport=mountStudioSpatialSeed({
+   getScene:()=>project?.cenas?.[selected]||null,
+   getAspect:()=>project?.video?.width/project?.video?.height||16/9,
+   getTime:()=>project?Math.max(0,playTime-startOf(selected)):0,
+   onEdit:()=>dirtyNow(false,'spatialseed-camera'),
+   onError:message=>toast(message,true)
+  });
+  if(project)studioSSViewport.sync(project.cenas[selected],playTime-startOf(selected),project.video.width/project.video.height);
+ }catch(e){toast('SpatialSeed viewport: '+e.message,true);}
+}
 async function showPreview(){if(!project)return;
+ studioSSViewport?.sync(project.cenas[sceneAt(playTime).i],Math.max(0,playTime-startOf(sceneAt(playTime).i)),project.video.width/project.video.height);
  syncSubtitles();
  const nativeScene=sceneAt(playTime);syncNative(project.cenas[nativeScene.i],nativeScene.progress);syncSceneObjects(project.cenas[nativeScene.i],nativeScene.progress);
  $('timeInfo').textContent=sec(playTime)+' / '+sec(totalDuration());$('seek').value=totalDuration()?Math.round(playTime/totalDuration()*1000):0;
@@ -594,6 +609,49 @@ async function checkJson(apply=false){
  }catch(e){msg.textContent='ERRO: '+e.message;}
 }
 
+
+// Importação incompleta: as referências persistem no JSON; associação é explícita.
+async function openMissingImagesDialog(){
+ if(!project)return toast('Selecione um projeto primeiro.',true);
+ if(dirty)return toast('Salve o projeto antes de vincular imagens.',true);
+ const result=await api('/api/project/missing-images?name='+encodeURIComponent(projectName));
+ const filenames=result.images||[], dialog=$('missingImagesDialog'),select=$('missingImagesSelect');
+ select.replaceChildren(...filenames.map(filename=>new Option(filename,filename)));
+ $('missingImagesMessage').textContent=filenames.length
+   ?filenames.length+' imagem(ns) ausente(s). Escolha a referência e o arquivo correspondente.'
+   :'Nenhuma imagem ausente neste projeto.';
+ $('missingImagesAttach').disabled=!filenames.length;
+ $('missingImageFile').value='';
+ if(!dialog.open)dialog.showModal();
+}
+async function attachMissingImage(){
+ const original=$('missingImagesSelect').value,file=$('missingImageFile').files[0],button=$('missingImagesAttach');
+ if(!project||!original||!file)return toast('Selecione a referência e a imagem.',true);
+ if(!/\.(png|jpe?g|webp)$/i.test(file.name)||file.size<1||file.size>12_000_000)
+   return toast('Use JPG, PNG ou WebP de até 12 MB.',true);
+ const owner=project,ownerName=projectName;
+ button.disabled=true;
+ try{
+  const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
+  if(project!==owner||projectName!==ownerName)throw Error('Projeto alterado durante leitura.');
+  const uploaded=await post('/api/upload',{kind:'image',data,filename:file.name});
+  if(project!==owner||projectName!==ownerName)throw Error('Projeto alterado durante envio.');
+  let count=0;
+  for(const scene of project.cenas){
+   if(scene.imagem?.arquivo===original){scene.imagem.arquivo=uploaded.filename;count++;}
+   for(const obj of scene.objetos_midia||[]){
+    if(obj.kind==='image'&&obj.file===original){obj.file=uploaded.filename;count++;}
+   }
+  }
+  if(!count)throw Error('Nenhuma referência correspondente encontrada; a imagem enviada não foi vinculada.');
+  dirtyNow(true,'missing-image-link');
+  await save();
+  toast('Imagem associada a '+count+' referência(s).');
+  await openMissingImagesDialog();
+ }catch(error){$('missingImagesMessage').textContent='Erro: '+error.message;toast(error.message,true);}
+ finally{button.disabled=!$('missingImagesSelect').options.length;}
+}
+
 async function uploadChunked(file,kind,desiredName=''){
  if(!file||file.size<1||file.size>250_000_000)throw Error('Arquivo vazio ou maior que 250 MB');
  const size=960_000,start=await post('/api/upload/chunks',{op:'start',filename:file.name,size:file.size,kind});
@@ -607,6 +665,23 @@ async function uploadChunked(file,kind,desiredName=''){
  }catch(error){post('/api/upload/chunks',{op:'abort',upload_id:start.upload_id}).catch(()=>{});throw error;}
 }
 function attachVoice(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.audio.voice_file=filename;scene.audio.voice_enabled=true;scene.audio.muted=false;dirtyNow(true);toast('Gravação vinculada. Texto da narração preservado; use Salvar.');}
+// M1W: Clip do renderer SpatialSeed -> mídia reutilizável no Estúdio.
+// A seleção/projeto são capturados antes do upload; não anexar na cena errada.
+window.StudioSpatialSeedAttachClip = async function(file){
+ if(!(file instanceof File)||!file.name.toLowerCase().endsWith('.webm')||!file.size||file.size>250_000_000)
+   throw Error('Captura inválida: exige WebM não vazio, até 250 MB.');
+ const owner=project, target=owner?.cenas?.[selected], index=selected;
+ if(!target)throw Error('Abra um projeto e selecione uma cena antes de gravar.');
+ if(target.video_clipe?.arquivo&&!confirm('A cena já contém um clipe. Substituir somente o vídeo desta cena?'))
+   throw Error('Substituição do clipe cancelada.');
+ const uploaded=await uploadChunked(file,'video');
+ if(project!==owner||owner.cenas[index]!==target)
+   throw Error('A cena foi alterada durante o envio; mídia preservada: '+uploaded.filename);
+ attachVideo(index,uploaded.filename);
+ target.video_clipe.audio_enabled=false;
+ dirtyNow(true);
+ return {filename:uploaded.filename,scene:index};
+};
 function attachVideo(index,filename){let scene=project.cenas[index];if(!scene)throw Error('Cena de origem removida');scene.video_clipe.arquivo=filename;scene.video_clipe.audio_enabled=true;scene.video_clipe.audio_volume=1;scene.video_clipe.audio_fade_in=.12;scene.video_clipe.audio_fade_out=.12;delete scene.componente_gil;dirtyNow(true);toast('Clipe importado. Use Posicionar vídeo na prévia.');if(index===selected)clipEditingEnabled(true);}
 async function captureMedia(kind){const index=selected;
  if(!window.StudioRecorder)return toast('Módulo de gravação não disponível',true);
@@ -649,10 +724,33 @@ async function importNativeGIL(file){
   target.gil_nativo=layer;nativeFailed=false;stopWorkspace();showDrawer(null);selected=owner.cenas.indexOf(target);playTime=startOf(selected);switchPane('previewPanel');dirtyNow(true);gilStatus('GIL nativa inserida · '+info.duration.toFixed(1)+' s. Pressione ▶ ou mova o cursor da timeline. Salve para persistir.');
  }catch(e){gilStatus('GIL nativa: '+e.message,true);}finally{gilRendering=false;}
 }
+// M1V: SpatialSeed original -> conversor oficial GIL -> camada nativa.
+// O mesmo compiled.frame(t) alimenta prévia e exportação web; não cria MP4 intermediário.
+async function importSpatialSeedNative(file){
+ if(!file||gilRendering||!project)return;
+ const owner=project,target=project.cenas[selected],old=target.gil_nativo;
+ if(old&&!confirm('Substituir somente a camada espacial/GIL nesta cena?'))return;
+ if(!confirm('Conversão parcial: somente objetos aceitos pelo conversor SpatialSeed/GIL. Geometrias e materiais não suportados não terão equivalência. O original será preservado. Continuar?'))return;
+ gilRendering=true;
+ try{
+  if(file.size<1||file.size>250000)throw Error('Documento SpatialSeed vazio ou acima de 250 kB');
+  const original=(await file.text()).replace(/^\uFEFF/,'');
+  const r=await post('/api/spatialseed/native',{source:original});
+  const runtime=await nativeRuntime(),info=runtime.prepare(r.source);
+  if(info.cues&&!confirm('Os efeitos sonoros GIL não são reproduzidos na prévia nativa. Inserir somente imagem?'))return;
+  if(info.duration<.5||info.duration>60)throw Error('Duração suportada: 0,5–60 s');
+  if(project!==owner||!owner.cenas.includes(target)||target.gil_nativo!==old)throw Error('Cena alterada durante conversão; nenhuma mudança aplicada');
+  const layer={format:'gil-timeline-0.1',origin:'gil',origin_sha256:r.origin_sha256,source:r.source,source_sha256:r.source_sha256,duration:info.duration,x:old?.x??.5,y:old?.y??.5,w:old?.w??1,h:old?.h??1,opacidade:old?.opacidade??1,opaque:old?.opaque??false,source_spatialseed:original};
+  if(Math.abs(target.duracao-info.duration)>.05&&confirm('Ajustar duração da cena para '+info.duration.toFixed(2)+' s?'))target.duracao=info.duration;
+  target.gil_nativo=layer;nativeFailed=false;stopWorkspace();showDrawer(null);selected=owner.cenas.indexOf(target);playTime=startOf(selected);switchPane('previewPanel');dirtyNow(true);
+  gilStatus('SpatialSeed importado como GIL nativa, sem MP4 intermediário. O documento original fica preservado no projeto. Salve para persistir.');
+ }catch(e){gilStatus('SpatialSeed: '+e.message,true);}finally{gilRendering=false;}
+}
 async function importGIL(file,legacy=false){
  if(!file||gilRendering||!project)return;
  if(/\.gil3$/i.test(file.name))return gilStatus('GIL3 3.0: formato anterior ainda sem adaptador temporal. Nenhuma alteração feita.',true);
- if(!legacy&&!/\.(spatialseed|json)$/i.test(file.name))return importNativeGIL(file);
+ if(!legacy&&/\.(spatialseed|json)$/i.test(file.name))return importSpatialSeedNative(file);
+ if(!legacy)return importNativeGIL(file);
  const targetProject=project,target=project.cenas[selected],oldClip=target.video_clipe.arquivo;
  if(file.size>250000)return toast('Fonte acima de 250 kB',true);
  if(oldClip&&!confirm('Substituir o clipe visual desta cena? A narração e as faixas de áudio atuais permanecem.'))return;
@@ -784,12 +882,15 @@ function bind(){
  $('newProject').onclick=async()=>{let n=prompt('Nome identificador, sem espaços:','novo_projeto');if(!n)return;try{let r=await post('/api/project/new',{name:n,titulo:'Meu documentário'});await listProjects();await load(r.name);toast('Projeto criado');}catch(e){toast(e.message,true);}};
  $('exportButton').onclick=exportJSON;
  $('exportBundle').onclick=async()=>{try{await save();window.location.href='/api/project/bundle?name='+encodeURIComponent(projectName);}catch(e){toast('Não foi possível preparar ZIP: '+e.message,true);}};
+ $('relinkMissingImages').onclick=()=>openMissingImagesDialog().catch(e=>toast(e.message,true));
+ $('missingImagesAttach').onclick=attachMissingImage;
+ $('missingImagesClose').onclick=()=>$('missingImagesDialog').close();
  $('importBundle').onclick=()=>$('bundleFile').click();
  $('bundleFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;
    const suggested=f.name.replace(/\.zip$/i,'').replace(/[^A-Za-z0-9_-]/g,'_').slice(0,52);
    const desired=prompt('Nome do projeto importado (será renomeado se já existir):',suggested||'importado');
    if(desired===null){e.target.value='';return;}
-   try{const r=await uploadChunked(f,'bundle',desired);await listProjects();await load(r.name);toast('ZIP importado: '+r.name+' ('+Object.keys(r.media).length+' mídias)');}
+   try{const r=await uploadChunked(f,'bundle',desired);await listProjects();await load(r.name);toast('ZIP importado: '+r.name+' ('+Object.keys(r.media).length+' mídias; '+(r.missing_media||[]).length+' pendentes)');if((r.missing_media||[]).some(m=>/\.(png|jpe?g|webp)$/i.test(m.reference)))await openMissingImagesDialog();}
    catch(err){toast('Falha ao importar ZIP: '+err.message,true);}e.target.value='';};
  $('importButton').onclick=()=>$('jsonFile').click();
  $('editJson').onclick=()=>{lastJsonMode='scene';openJson();};
@@ -814,6 +915,7 @@ function bind(){
  };
 
  $('nativeDemoPreview').onclick=()=>objectEditor?objectEditor.open('native-demo'):demoNativeGIL();
+ const seedButton=document.createElement('button');seedButton.type='button';seedButton.id='importSpatialSeedNative';seedButton.textContent='◈ Importar SpatialSeed (GIL nativa)';seedButton.onclick=()=>{forceGilLegacy=false;$('gilFile').click();};$('nativeDemoPreview').after(seedButton);
  $('playButton').onclick=()=>{playing=!playing;lastFrame=0;if(playing&&playTime>=totalDuration())playTime=0;$('playButton').textContent=playing?'Ⅱ':'▶';if(playing){if(transportBlocked)stopTransport(true);transportBlocked=false;transportSeek=true;transportDeadline=performance.now()+5000;$('voicePlayer').pause();$('scenePlayer').pause();if(dirty&&!audioSnapshotMatches()&&$('previewSound').checked)$('transportStatus').textContent='Salve o projeto para ouvir o áudio correspondente.';syncTransport();cancelAnimationFrame(previewRaf);previewRaf=requestAnimationFrame(tick);}else{cancelAnimationFrame(previewRaf);previewRaf=0;$('stageClip').pause();objectRuntime?.pauseObjects($('stageShell'));stopTransport();objectEditor?.paint();}}; $('previewSound').onchange=()=>{stopTransport(true);syncTransport();};
  $('seek').oninput=e=>{if(!project)return;transportSeek=true;transportBlocked=false;transportDeadline=performance.now()+5000;lastFrame=0;playTime=totalDuration()*Number(e.target.value)/1000;selected=sceneAt(playTime).i;drawSceneList();drawTimeline();drawEditor();objectEditor?.refresh();showPreview();syncTransport();};
  document.querySelectorAll('.mobileTabs button').forEach(b=>b.onclick=()=>switchPane(b.dataset.pane));
@@ -988,7 +1090,7 @@ async function init(){
   if(e.key!=='estudioSvgVectorSave'||!e.newValue)return;
   try{const u=JSON.parse(e.newValue);syncVectorSave(u.name,u.scene);}catch(err){}
  });
- bind();void initStudioM1P();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');
+ bind();void initStudioSSViewport();void initStudioM1P();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');
  let remembered='',returnTarget=null;
  try{
   remembered=sessionStorage.getItem(LAST_PROJECT_KEY)||'';

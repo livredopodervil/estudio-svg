@@ -137,3 +137,16 @@
 @media(max-width:600px){.rdViewportToolDock{grid-template-columns:repeat(2,32px)}}
 
 .legacyObjectSelection{display:flex;align-items:center;gap:7px;flex-wrap:wrap;background:#253b3b;border:1px solid #80a99e;padding:7px 10px;border-radius:8px;margin-bottom:8px;font:12px system-ui,sans-serif}.legacyObjectSelection[hidden]{display:none!important}.legacyObjectSelection button{font-size:12px;padding:5px 8px}.legacyObjectSelection span{color:#c6d9d5}.legacyObjectSelection strong{color:#f6d39c}
+
+/* M1X: same composition viewport, using original SpatialSeed runtime. */
+.ssCameraBar{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:6px 9px;border-bottom:1px solid var(--line)}
+.ssCameraBar button{min-height:31px;padding:4px 7px;font-size:11px}
+.ssCameraBar label{display:inline-flex;align-items:center;gap:3px;font-size:11px}
+.ssCameraBar input[type=number]{width:53px;padding:4px;font-size:11px}
+#ssCameraStatus{font-size:11px;color:var(--muted);width:100%}
+#ssViewportHost[hidden]{display:none!important}
+#ssViewportHost{position:absolute;inset:0;z-index:2;background:#08111d;overflow:hidden}
+#ssViewportFrame{display:block;width:100%;height:100%;border:0;background:#08111d;touch-action:auto}
+#stageShell.ss-webgl-active #stage{pointer-events:none}
+#stageShell.ss-webgl-active #rdSubtitleLayer{z-index:90}
+#stageShell.ss-webgl-active #stageClip{z-index:5}

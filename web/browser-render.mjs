@@ -107,6 +107,7 @@ export function scheduleGILToneEvents(context,destination,events,anchor){
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 export function plan(project,durations=null){
  const {width,height,fps,draw_fps}=project.video, scenes=project.cenas;
+ if(scenes.some(c=>c.spatialseed_viewport?.enabled))throw Error('Exportação web com SpatialSeed WebGL ainda não disponível; a prévia 3D e os keyframes estão preservados.');
  if(![width,height,fps,draw_fps].every(Number.isFinite)||width<320||height<320||width>1920||height>1920||![24,25,30].includes(fps)||draw_fps<1)throw Error('Configuração de vídeo inválida.');
  let duration=0;const entries=scenes.map((scene,index)=>{
   const nominal=Number(scene.duracao),d=durations?Number(durations[index]):nominal;if(!Number.isFinite(d)||!Number.isFinite(nominal)||d<nominal-.00001||nominal<.5)throw Error('Duração inválida na cena '+(index+1));
