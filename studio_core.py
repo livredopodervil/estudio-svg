@@ -44,7 +44,9 @@ def duration(path):
         return float(run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=noprint_wrappers=1:nokey=1',path],25).stdout.strip())
     except Exception:return 0
 
-def voice_extension(pr):
+def voice_extension(pr,scene=None):
+    selection=effective_voice(scene,pr) if scene is not None else None
+    if selection:return '.mp3' if selection['provider']=='edge' else '.wav'
     return '.mp3' if pr.get('motor_voz','edge-tts')=='edge-tts' else '.wav'
 
 def piper_model(pr):
@@ -62,8 +64,37 @@ def piper_model(pr):
 def model_digest(path,size,mtime_ns):
     return sha_file(path)
 
+def effective_voice(scene,pr):
+    """A seleção por cena prevalece; ausência preserva legado V2.x."""
+    setting=scene.get('audio',{}).get('voice') or pr.get('voice')
+    if not setting:return None
+    from rd_voices.core import normalize_voice, edge_parameters, Catalog
+    ident=normalize_voice(setting)
+    if ident['provider']=='edge':
+        Catalog.load().require(ident['voice_id'])
+        params=edge_parameters(setting if isinstance(setting,dict) else {})
+        return {**ident,**params}
+    if ident['provider']=='piper' and ident['voice_id'] in ('faber','edresson'):
+        return ident
+    if ident['provider']=='browser':
+        raise StudioError('A voz do navegador não gera arquivo exportável; escolha Edge/Piper para MP4')
+    raise StudioError('Voz selecionada sem motor de exportação validado: '+ident['provider'])
+
 def tts_key(scene,pr):
-    au=scene['audio'];motor=pr.get('motor_voz','edge-tts')
+    au=scene['audio'];selection=effective_voice(scene,pr)
+    if selection:
+        if selection['provider']=='edge':
+            return digest(['tts-m26-edge',au['voice_text'],selection['voice_id'],selection['rate'],selection['pitch'],selection['volume']])
+        from studio_piper_local import VOICES
+        filename=VOICES[selection['voice_id']][0]
+        model=Path.home()/'piper_tts'/filename
+        config=Path(str(model)+'.json')
+        if not model.is_file() or not config.is_file():
+            raise StudioError('Modelo Piper não encontrado: '+filename)
+        return digest(['tts-m26-piper',au['voice_text'],selection['voice_id'],
+                       model.stat().st_size,model.stat().st_mtime_ns,
+                       config.stat().st_size,config.stat().st_mtime_ns])
+    motor=pr.get('motor_voz','edge-tts')
     if motor=='edge-tts':
         # Mesma chave da V2.2: permite aproveitar as vozes anteriormente sintetizadas.
         return digest(['tts',au['voice_text'],pr['voz'],pr['velocidade_voz']])
@@ -81,7 +112,7 @@ def voice_source(scene,pr,required=True):
         if not required and not (MEDIA/au['voice_file']).is_file():return None
         return media_file(au['voice_file'])
     if not au['voice_text'].strip():return None
-    try:f=CACHE/'voices'/(tts_key(scene,pr)+voice_extension(pr))
+    try:f=CACHE/'voices'/(tts_key(scene,pr)+voice_extension(pr,scene))
     except StudioError:
         if required:raise
         return None
@@ -89,7 +120,22 @@ def voice_source(scene,pr,required=True):
     if required:raise StudioError(f'Falta a locução da cena "{scene["titulo"]}". Execute primeiro Áudio em lote.')
     return None
 
-def synthesize(text,pr,tmp,subtitles=None):
+def synthesize(text,pr,tmp,subtitles=None,scene=None):
+    selection=effective_voice(scene,pr) if scene is not None else None
+    if selection and selection['provider']=='edge':
+        if not shutil.which('edge-tts'):
+            raise StudioError('Instale edge-tts: python -m pip install edge-tts')
+        cmd=['edge-tts','--voice',selection['voice_id'],'--rate',selection['rate'],
+             '--pitch',selection['pitch'],'--volume',selection['volume'],
+             '--text',text,'--write-media',tmp]
+        if subtitles is not None:cmd.extend(['--write-subtitles',str(subtitles)])
+        run(cmd,timeout=210)
+        return
+    if selection and selection['provider']=='piper':
+        from studio_piper_local import synthesize as piper_speak
+        item=piper_speak(text,selection['voice_id'],.94,.3,MEDIA,CACHE)
+        shutil.copyfile(MEDIA/item['filename'],tmp)
+        return
     engine=pr.get('motor_voz','edge-tts')
     if engine=='edge-tts':
         if not shutil.which('edge-tts'):raise StudioError('Instale edge-tts: python -m pip install edge-tts')
@@ -109,7 +155,17 @@ def synthesize(text,pr,tmp,subtitles=None):
     else:raise StudioError('Motor desconhecido: '+engine)
 
 def batch_audio(pr,progress=lambda *_:None,*,export_zip=True,force_timing=False):
-    if force_timing and pr.get('motor_voz')!='edge-tts':raise StudioError('Tempos exatos exigem Edge-TTS')
+    # A seleção por provedor é opcional. Projetos legados mantêm seu
+    # fluxo original e não dependem do catálogo de vozes por personagem.
+    def selected_voice(sc):
+        explicit = sc.get('audio', {}).get('voice') or pr.get('voice')
+        return effective_voice(sc, pr) if explicit else None
+
+    if force_timing:
+        for sc in pr['cenas']:
+            selected=selected_voice(sc)
+            if (selected and selected['provider']!='edge') or (not selected and pr.get('motor_voz')!='edge-tts'):
+                raise StudioError('Tempos exatos exigem Edge-TTS')
     voices=[];counts=len(pr['cenas'])
     for i,scene in enumerate(pr['cenas']):
         au=scene['audio']
@@ -121,7 +177,10 @@ def batch_audio(pr,progress=lambda *_:None,*,export_zip=True,force_timing=False)
             if duration(f)<=0:raise StudioError(f'Áudio manual inválido na cena {i+1}')
             voices.append((i,f))
         elif au['voice_enabled'] and au['voice_text'].strip():
-            f=CACHE/'voices'/(tts_key(scene,pr)+voice_extension(pr))
+            selected=selected_voice(scene)
+            # Projetos sem voz por cena mantem o contrato legado (um argumento).
+            extension=voice_extension(pr,scene) if selected else voice_extension(pr)
+            f=CACHE/'voices'/(tts_key(scene,pr)+extension)
             srt=f.with_suffix('.srt')
             synth_needed=force_timing or not f.is_file() or f.stat().st_size<500 or duration(f)<.2
             if synth_needed:
@@ -129,7 +188,12 @@ def batch_audio(pr,progress=lambda *_:None,*,export_zip=True,force_timing=False)
                 tmp_srt=CACHE/'voices'/(f.stem+'.part.srt')
                 progress(i/counts,f'Gerando voz {i+1}/{counts} via {pr.get("motor_voz","edge-tts")}')
                 try:
-                    synthesize(au['voice_text'],pr,tmp,subtitles=tmp_srt if pr.get('motor_voz')=='edge-tts' else None)
+                    edge_active=(selected and selected['provider']=='edge') or (not selected and pr.get('motor_voz')=='edge-tts')
+                    # So fornece scene= quando a voz foi selecionada explicitamente.
+                    if selected:
+                        synthesize(au['voice_text'],pr,tmp,subtitles=tmp_srt if edge_active else None,scene=scene)
+                    else:
+                        synthesize(au['voice_text'],pr,tmp,subtitles=tmp_srt if edge_active else None)
                     if duration(tmp)<.2:raise StudioError(f'Locução {i+1} vazia')
                     # The original cached voice survives until synthesis succeeds.
                     tmp.replace(f)

@@ -44,7 +44,11 @@ def parse_srt(text, delay=0, limit=800):
 
 def cues_for_voice(scene, project):
     """Read the SRT written in the same synthesis call as the cached Edge voice."""
-    if project.get('motor_voz')!='edge-tts':return []
+    from studio_core import effective_voice
+    selected=effective_voice(scene,project)
+    if selected:
+        if selected['provider']!='edge':return []
+    elif project.get('motor_voz')!='edge-tts':return []
     audio=scene.get('audio') or {}
     if audio.get('voice_file') or not audio.get('voice_enabled') or audio.get('muted'):return []
     from studio_core import CACHE, tts_key, voice_source

@@ -1,0 +1,11 @@
+# RD-Audio 1 · demonstração de dois personagens
+# As vozes são modelos Piper locais. Emoção é direção de atuação (aproximação acústica).
+@personagem narrador faber
+@personagem cientista edresson
+@cena 1
+00:00.0 | narrador | solene | ritmo=0.94,ganho=1.0,pausa=0.25 | Um núcleo de urânio duzentos e trinta e cinco possui noventa e dois prótons e cento e quarenta e três nêutrons.
+00:06.5 | cientista | urgente | ritmo=0.90,ganho=1.1,pausa=0.15 | Ao absorver um nêutron, o núcleo pode se tornar instável e sofrer fissão.
+@cena 2
+00:00.0 | narrador | calmo | ritmo=0.94,ganho=1.0,pausa=0.2 | A ruptura libera energia e, geralmente, novos nêutrons capazes de continuar uma reação em cadeia.
+# Para efeitos já importados no acervo de mídia do Estúdio:
+# 00:02.0 | !efeito | impacto.wav | ganho=0.50

@@ -1,6 +1,7 @@
 // M1X SpatialSeed main — embedded WebGL world in the actual video viewport.
 // Original ThreeRegionRenderer is owned by the SpatialSeed application; no Three.js copy.
 import {sampleCameraTrack,validateKeyframes} from './spatialseed-camera-track.mjs';
+import {mountSpatialSeedPanel} from './studio-spatialseed-panel.mjs';
 const $=id=>document.getElementById(id);
 const status=t=>{$('ssCameraStatus').textContent=t;};
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
@@ -9,7 +10,9 @@ function currentCamera(app){return app.query('viewer.camera.snapshot');}
 function isEnabled(scene){return scene?.spatialseed_viewport?.enabled===true;}
 export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onError}){
  const host=$('ssViewportHost'),frame=$('ssViewportFrame'),shell=$('stageShell');
- let lastDocument=null,readyPromise=null,active=false,tools=false,loadingSerial=0,cameraSeq=0,previousTime=null,loadedKey='';
+ let lastDocument=null,readyPromise=null,active=false,loadingSerial=0,cameraSeq=0,previousTime=null,loadedKey='';
+ let cameraFlight=null,cameraRequested=null,hudHidden=true;
+ let exportActive=false,exportStream=null,exportVideo=null,exportCanvas=null,exportQueue=Promise.resolve(),exportPrevious=null;
  const cameraNumbers=['ssCamX','ssCamY','ssCamZ','ssCamFov'];
  function api(){
   const w=frame.contentWindow;
@@ -25,11 +28,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
     canvas.addEventListener('pointerup',()=>{void refreshCameraInputs();});}
   }catch{}
  }
- function showTools(next){
-  tools=next;$('ssViewportTools').setAttribute('aria-pressed',String(tools));
-  if(!readyPromise)return;
-  try{const d=api().w.document;const s=d.getElementById('rdStudioEmbedStyle');if(s)s.disabled=tools;}catch{}
- }
+ const panel=mountSpatialSeedPanel({getNative:()=>({document:api().w.document}),showError:onError});
  function embedCSS(){
   const {w}=api(),d=w.document;
   let s=d.getElementById('rdStudioEmbedStyle');if(!s){
@@ -37,7 +36,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
    s.textContent='html,body{margin:0!important;width:100%!important;height:100%!important;overflow:hidden!important}body > :not(#world){display:none!important}#world{display:block!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;touch-action:none!important}';
    d.head.append(s);
   }
-  s.disabled=tools;
+  s.disabled=!hudHidden; // 'Show HUD' restores original controls when needed
  }
  async function boot(){
   if(readyPromise)return readyPromise;
@@ -78,12 +77,28 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
   [pose.position[0],pose.position[1],pose.position[2],pose.fov].forEach((v,i)=>{const el=$(cameraNumbers[i]);if(document.activeElement!==el)el.value=Number(v).toFixed(2);});
   previousTime=time;
  }
+ // At most one camera command in flight. Late playhead positions supersede
+ // intermediate positions; no unbounded promises or out-of-order camera poses.
+ function scheduleCamera(scene,time,aspect,token){
+  cameraRequested={scene,time,aspect,token};
+  if(cameraFlight)return;
+  async function drain(){
+   while(cameraRequested){
+    const request=cameraRequested;cameraRequested=null;
+    if(request.token!==loadingSerial)continue;
+    try{await cameraAt(request.scene,request.time,request.aspect,request.token);}
+    catch(e){status('Câmera: '+e.message);}
+   }
+  }
+  cameraFlight=drain().finally(()=>{cameraFlight=null;if(cameraRequested){const q=cameraRequested;scheduleCamera(q.scene,q.time,q.aspect,q.token);}});
+ }
  async function loadDocument(scene,resetWorld=false){
   const serial=++loadingSerial;
   const source=scene?.spatialseed_viewport?.source||'';
   if(readyPromise && resetWorld){
-   // Changing scenes must not leak the former scene's SpatialSeed world.
+   // Switching scenes must not retain the previous SpatialSeed world.
    frame.src='about:blank';readyPromise=null;previousTime=null;lastDocument=null;
+   cameraRequested=null;
   }
   if(!readyPromise)await boot();
   if(serial!==loadingSerial)return;
@@ -98,6 +113,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
  }
  let pending=null;
  function sync(scene,time,aspect){
+  if(exportActive)return;
   const enabled=isEnabled(scene);
   host.hidden=!enabled;shell.classList.toggle('ss-webgl-active',enabled);
   $('ssViewportToggle').setAttribute('aria-pressed',String(enabled));
@@ -112,7 +128,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
   if(pending)return;
   if(scene.spatialseed_viewport.camera_keys?.length && (previousTime===null||Math.abs(time-previousTime)>1/60)){
    const token=loadingSerial;
-   cameraAt(scene,time,aspect,token).catch(e=>status('Câmera: '+e.message));
+   scheduleCamera(scene,time,aspect,token);
   }
  }
  // State comes from the Studio project and always survives normalization.
@@ -122,6 +138,14 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
   mutator(scene.spatialseed_viewport);onEdit();
  }
  $('ssViewportToggle').onclick=()=>{try{update(v=>{v.enabled=!v.enabled;});sync(getScene(),getTime(),getAspect());}catch(e){onError(e.message);}};
+ const hudButton=$('ssViewportHud');
+ function refreshHUD(){
+  hudButton.setAttribute('aria-pressed',String(!hudHidden));
+  hudButton.textContent=hudHidden?'Mostrar HUD original':'Ocultar HUD original';
+  try{embedCSS();}catch{} // SpatialSeed may not have booted yet.
+ }
+ hudButton.onclick=()=>{hudHidden=!hudHidden;refreshHUD();};
+ refreshHUD();
  $('ssViewportImport').onclick=()=>$('ssViewportFile').click();
  $('ssViewportFile').onchange=async e=>{
   const file=e.target.files?.[0];e.target.value='';if(!file)return;
@@ -132,7 +156,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
    sync(getScene(),getTime(),getAspect());status('Importando documento .spatialseed original…');
   }catch(error){onError(error.message);}
  };
- $('ssViewportTools').onclick=()=>showTools(!tools);
+ // Menu actions are proxied into the floating sibling panel, never unhide iframe chrome.
  $('ssCameraCapture').onclick=async()=>{
   try{const scene=getScene();if(!isEnabled(scene))throw Error('Ative WebGL nesta cena.');
    const {app}=await boot(),c=await Promise.resolve(currentCamera(app));
@@ -158,7 +182,65 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
    [c.position[0],c.position[1],c.position[2],c.fov].forEach((v,i)=>{$(cameraNumbers[i]).value=Number(v).toFixed(2);});
   }catch{}
  });
+ // Export uses the same SpatialSeed canvas, camera and source as preview.
+ // Browser video track captures *presented WebGL frames*, avoiding an empty
+ // default drawing buffer when preserveDrawingBuffer=false.
+ async function prepareCapture(scene,time,aspect){
+   if(!isEnabled(scene))throw Error('Cena sem viewport SpatialSeed.');
+   const key=(scene.id||'')+'\0'+(scene.spatialseed_viewport.source||'');
+   if(key!==loadedKey){const had=loadedKey!=='';loadedKey=key;await loadDocument(scene,had);}
+   if(readyPromise)await readyPromise;
+   const token=loadingSerial;
+   if(scene.spatialseed_viewport.camera_keys?.length)await cameraAt(scene,time,aspect,token);
+   const {canvas,w}=api();
+   if(!canvas.width||!canvas.height)throw Error('SpatialSeed não produziu quadros WebGL.');
+   if(canvas!==exportCanvas){
+     exportStream?.getTracks().forEach(t=>t.stop());
+     exportVideo?.pause();
+     exportCanvas=canvas;
+     if(!canvas.captureStream)throw Error('Canvas WebGL sem captureStream.');
+     exportStream=canvas.captureStream(30);
+     exportVideo=document.createElement('video');exportVideo.muted=true;exportVideo.playsInline=true;exportVideo.autoplay=true;
+     exportVideo.srcObject=exportStream;
+     await exportVideo.play();
+   }
+   // One presentation opportunity after applying the timeline camera.
+   await new Promise(resolve=>w.requestAnimationFrame(()=>w.requestAnimationFrame(resolve)));
+   if(exportVideo.readyState<2||!exportVideo.videoWidth)throw Error('WebGL não apresentou quadro ao codificador.');
+   return exportVideo;
+ }
+ function beginExport(){
+   if(exportActive)throw Error('Exportação WebGL já em andamento.');
+   exportPrevious={hidden:host.hidden,active:shell.classList.contains('ss-webgl-active')};
+   exportActive=true;host.hidden=false;shell.classList.add('ss-webgl-active');return true;
+ }
+ function endExport(){
+   exportActive=false;exportVideo?.pause();if(exportVideo)exportVideo.srcObject=null;
+   exportStream?.getTracks().forEach(t=>t.stop());exportVideo=null;exportCanvas=null;exportStream=null;
+   if(exportPrevious){host.hidden=exportPrevious.hidden;shell.classList.toggle('ss-webgl-active',exportPrevious.active);exportPrevious=null;}
+ }
+ function frameAt(scene,time,aspect){
+   const promise=exportQueue.then(()=>prepareCapture(scene,time,aspect));
+   exportQueue=promise.catch(()=>{});
+   return promise;
+ }
+ async function frameAtOffline(scene,time,aspect,signal){
+   if(signal?.aborted)throw Error('Exportação offline cancelada.');
+   if(!exportActive)beginExport();
+   const video=await frameAt(scene,time,aspect);
+   // The frame may have been presented before requestVideoFrameCallback is
+   // installed. Static WebGL scenes need not emit additional video frames.
+   // prepareCapture already awaited the camera command and two RAF cycles
+   // in the SpatialSeed iframe. Check that the captured frame is decodable.
+   if(video.readyState<2||!video.videoWidth||!video.videoHeight)
+    throw Error('Quadro WebGL indisponível para exportação offline.');
+   return video;
+ }
+
+ // Browser export may use this bridge, not a second application or renderer.
+ const exportAPI=Object.freeze({beginExport,endExport,frameAt,frameAtOffline,isEnabled});
+ window.StudioSpatialSeedViewport=exportAPI;
  // The original source remains editable in SpatialSeed; use its native Save
  // then reimport the file to persist object edits inside the Studio project.
- return {sync,readCamera:async()=>currentCamera((await boot()).app),isActive:()=>active};
+ return {sync,readCamera:async()=>currentCamera((await boot()).app),isActive:()=>active,exportAPI};
 }

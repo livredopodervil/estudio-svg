@@ -1,5 +1,6 @@
 import {canvasAppearance} from './visual-effects.mjs';
 import {drawSubtitle} from './subtitle-frame.mjs';
+import {withDeadline} from './studio-preparation-deadline.mjs';
 // Estúdio SVG · Rogério Duarte. Exportação local experimental, sem quadros PNG no servidor.
 import {objectMotion,localTime,rect} from './scene-objects.mjs';
 import {codecCandidates,codecs} from './platform-capabilities.mjs';
@@ -105,9 +106,10 @@ export function scheduleGILToneEvents(context,destination,events,anchor){
 
 // M1N_AUDIO_END
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
-export function plan(project,durations=null){
+export function plan(project,durations=null,{allowWebGL=null}={}){
+ if(allowWebGL===null)allowWebGL=typeof window!=='undefined' && typeof window.StudioSpatialSeedViewport?.frameAtOffline==='function';
  const {width,height,fps,draw_fps}=project.video, scenes=project.cenas;
- if(scenes.some(c=>c.spatialseed_viewport?.enabled))throw Error('Exportação web com SpatialSeed WebGL ainda não disponível; a prévia 3D e os keyframes estão preservados.');
+ if(!allowWebGL && scenes.some(c=>c.spatialseed_viewport?.enabled))throw Error('A renderização offline de SpatialSeed WebGL ainda não está disponível. Use Exportar vídeo no navegador.');
  if(![width,height,fps,draw_fps].every(Number.isFinite)||width<320||height<320||width>1920||height>1920||![24,25,30].includes(fps)||draw_fps<1)throw Error('Configuração de vídeo inválida.');
  let duration=0;const entries=scenes.map((scene,index)=>{
   const nominal=Number(scene.duracao),d=durations?Number(durations[index]):nominal;if(!Number.isFinite(d)||!Number.isFinite(nominal)||d<nominal-.00001||nominal<.5)throw Error('Duração inválida na cena '+(index+1));
@@ -144,15 +146,25 @@ function requestFrame(slot,t,step,make,signal){if(slot.error)throw slot.error;if
 function videoFrame(v,t,loop,state){const dest=sourceTime(t,v.duration,loop);if(dest===null){v.pause();return false;}if(state.error)throw state.error;if(v.error)throw Error('Falha durante a decodificação do vídeo.');if(!v.seeking){const diff=Math.abs(v.currentTime-dest),drift=loop?Math.min(diff,Math.abs(v.duration-diff)):diff;if(drift>.30)v.currentTime=dest;}
  if(v.paused&&!state.pending){state.pending=true;v.play().catch(e=>{if(e.name!=='AbortError')state.error=e;}).finally(()=>{state.pending=false;});}
  if(v.readyState<2||v.seeking){if(state.waitSince===undefined)state.waitSince=performance.now();if(performance.now()-state.waitSince>800)throw Error('Clipe atrasado na exportação.');}else state.waitSince=undefined;return true;}
-export async function prepareEntry(e,p,signal,videos){const c=e.scene,{objetos_midia,gil_nativo,componente_gil,...baseScene}=c,baseAt=async t=>svgImage(await (await response('/api/preview',{scene:baseScene,video:p.video,progress:Math.min(1,t/e.nominal),index:e.index,total:p.cenas.length},signal)).text(),signal);
+export async function prepareEntry(e,p,signal,videos,{onPhase=()=>{}}={}){
+ const c=e.scene,{objetos_midia,gil_nativo,componente_gil,...baseScene}=c;
+ const phase=(label)=>onPhase(`Preparando cena ${e.index+1}/${p.cenas.length}: ${label}…`);
+ const baseAt=async t=>withDeadline(`Cena ${e.index+1}: SVG de base`,async taskSignal=>{
+  const r=await response('/api/preview',{scene:baseScene,video:p.video,progress:Math.min(1,t/e.nominal),index:e.index,total:p.cenas.length},taskSignal);
+  const markup=await r.text();
+  return svgImage(markup,taskSignal,{transparent:!!c.spatialseed_viewport?.enabled});
+ },{signal,ms:20000});
+ phase('solicitando e decodificando SVG de base');
  const target={...e,baseAt,base:frameSlot(await baseAt(0)),layers:[]};
+ phase('carregando as camadas de mídia');
  const old=c.video_clipe||{};if(old.arquivo)target.layers.push({kind:'video',obj:{x:old.x,y:old.y,w:old.w,h:old.h,opacity:old.opacidade,fit:old.fit,offset:old.inicio||0,loop:old.repetir},media:await openVideo(old.arquivo,old.inicio||0,old.repetir,signal,videos),state:{}});
  async function gil(o,native=false){const compiled=prepare(native?o.source:o.gil.source);const imageAt=async t=>{const offset=native?0:o.offset||0,at=native?frameTime(t,compiled.duration):o.loop?(t+offset)%compiled.duration:frameTime(t+offset,compiled.duration);return svgImage(compiled.frame(at),signal,{transparent:!o.opaque});};return {kind:'gil',obj:o,native,slot:frameSlot(await imageAt(0)),imageAt,sample:native?null:objectMotion(o)};}
  if(c.gil_nativo)target.layers.push(await gil(c.gil_nativo,true));
  for(const o of renderableLayers(p,c)){abortCheck(signal);if(o.kind==='gil')target.layers.push(await gil(o));else if(o.kind==='image'||o.kind==='video')target.layers.push({kind:o.kind,obj:o,sample:objectMotion(o),media:o.kind==='image'?await openImage(o.file,signal):await openVideo(o.file,o.offset||0,o.loop,signal,videos),state:{}});else throw Error('Objeto não suportado: '+o.kind);}
  return target;
 }
-function paint(ctx,canvas,e,t,settings,signal,initial=false){const subtitleTime=t;const held=initial||t>=e.nominal;t=Math.min(t,Math.max(0,e.nominal-1e-8));ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);requestFrame(e.base,t,1/settings.baseFPS,e.baseAt,signal);ctx.drawImage(e.base.image,0,0,canvas.width,canvas.height);
+function paint(ctx,canvas,e,t,settings,signal,initial=false,webglFrame=null){const subtitleTime=t;const held=initial||t>=e.nominal;t=Math.min(t,Math.max(0,e.nominal-1e-8));ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);requestFrame(e.base,t,1/settings.baseFPS,e.baseAt,signal);if(webglFrame)ctx.drawImage(webglFrame,0,0,canvas.width,canvas.height);
+ ctx.drawImage(e.base.image,0,0,canvas.width,canvas.height);
  for(const l of e.layers){const o=l.obj,local=l.native||!l.sample?t:localTime(o,t);if(local===null){l.media?.pause?.();continue;}
  const p=l.native?{...o,x:o.x,y:o.y,w:o.w,h:o.h,opacity:o.opacidade,rz:0}:l.sample?{...o,...rect(o,l.sample(local))}:o;
  if(l.kind==='gil'){requestFrame(l.slot,local,1/settings.gilFPS,l.imageAt,signal);drawMedia(ctx,canvas,l.slot.image,p,'contain');}else if(l.kind==='image'){drawMedia(ctx,canvas,l.media,p,o.fit);}else if(held){l.media.pause();if(sourceTime(local+(o.offset||0),l.media.duration,o.loop)!==null)drawMedia(ctx,canvas,l.media,p,o.fit);}else if(videoFrame(l.media,local+(o.offset||0),o.loop,l.state)){drawMedia(ctx,canvas,l.media,p,o.fit);}}
@@ -182,6 +194,14 @@ export async function paintOffline(ctx,canvas,e,originalTime,settings,signal){
  const t=Math.min(originalTime,Math.max(0,e.nominal-1e-8));
  await exactSVG(e.base,t,e.baseAt,signal);
  ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);
+ if(e.scene.spatialseed_viewport?.enabled){
+  const provider=globalThis.window?.StudioSpatialSeedViewport;
+  if(typeof provider?.frameAtOffline!=='function')throw Error('Exportação offline WebGL: provedor de quadros indisponível.');
+  const frame=await provider.frameAtOffline(e.scene,originalTime,canvas.width/canvas.height,signal);
+  abortCheck(signal);
+  if(!frame?.videoWidth||!frame?.videoHeight)throw Error('Quadro WebGL offline inválido.');
+  ctx.drawImage(frame,0,0,canvas.width,canvas.height);
+ }
  ctx.drawImage(e.base.image,0,0,canvas.width,canvas.height);
  for(const l of e.layers){
   abortCheck(signal);
@@ -214,9 +234,11 @@ export async function outputSink(duration,type,storage=globalThis.navigator?.sto
  async abort(){closed=true;await chain;if(writer){try{await writer.abort();}catch{}writer=null;}chunks.length=0;await cleanup();}};
 }
 export async function exportBrowser(project,{canvas,status=()=>{},signal}={}){
- let settings=plan(project);if(!canvas?.captureStream||typeof MediaRecorder==='undefined')throw Error('Canvas.captureStream/MediaRecorder indisponíveis.');
+ let settings=plan(project,null,{allowWebGL:true});if(!canvas?.captureStream||typeof MediaRecorder==='undefined')throw Error('Canvas.captureStream/MediaRecorder indisponíveis.');
  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('Web Audio indisponível.');
- const context=new AC(),videos=new Set(),prepared=new Map();const mediaController=new AbortController();const abortMedia=()=>mediaController.abort();signal.addEventListener('abort',abortMedia,{once:true});let rec=null,stream=null,audio=null,audioEl=null,mixToken=null,sink=null,success=false,raf=0,recError=null,stopped=null,hidden=false,abortRecording=null,wake=null;
+ const spatialseed=project.cenas.some(c=>c.spatialseed_viewport?.enabled)?window.StudioSpatialSeedViewport:null;
+ if(project.cenas.some(c=>c.spatialseed_viewport?.enabled)&&(!spatialseed||typeof spatialseed.frameAt!=='function'))throw Error('Viewport SpatialSeed indisponível para renderizar. Ative uma cena WebGL antes de exportar.');
+ const context=new AC(),videos=new Set(),prepared=new Map();const mediaController=new AbortController();const abortMedia=()=>mediaController.abort();signal.addEventListener('abort',abortMedia,{once:true});let rec=null,stream=null,audio=null,audioEl=null,mixToken=null,sink=null,success=false,raf=0,recError=null,stopped=null,hidden=false,abortRecording=null,wake=null,startedWebGL=false;
  const visibility=()=>{if(document.hidden){hidden=true;abortRecording?.(Error('Página perdeu visibilidade. Repita mantendo a tela aberta.'));}};document.addEventListener('visibilitychange',visibility);
  try{
   // resume é disparado diretamente pelo gesto de exportar, antes de operações assíncronas.
@@ -224,7 +246,7 @@ export async function exportBrowser(project,{canvas,status=()=>{},signal}={}){
   const {width,height,fps}=settings;canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d',{alpha:false});if(!ctx)throw Error('Canvas 2D indisponível.');
   status('Preparando mix de áudio, sem renderizar vídeo…');const r=await response('/api/browser-render/audio',{project,stream:true},signal);const manifest=await r.json();mixToken=manifest.token;
   if(!Array.isArray(manifest.durations)||manifest.durations.length!==project.cenas.length||!/^[0-9a-f]{32}$/.test(mixToken)||manifest.url!=='/api/browser-render/mix?token='+mixToken)throw Error('Servidor não informou a timeline/mix. Reinicie a versão correta.');
-  settings=plan(project,manifest.durations);const {duration}=settings;const dest=context.createMediaStreamDestination();const gilAudio=collectGILAudioEvents(settings.entries,prepare);
+  settings=plan(project,manifest.durations,{allowWebGL:true});const {duration}=settings;const dest=context.createMediaStreamDestination();const gilAudio=collectGILAudioEvents(settings.entries,prepare);
   if(duration>120){audioEl=new Audio();audioEl.preload='auto';audioEl.src=manifest.url;audioEl.load();await eventReady(audioEl,'canplay',()=>audioEl.readyState>=3,signal);if(Math.abs(audioEl.duration-duration)>.025)throw Error('O mix não corresponde à duração efetiva.');context.createMediaElementSource(audioEl).connect(dest);}
   else{const mix=await fetch(manifest.url,{signal});if(!mix.ok)throw Error('Mix indisponível.');const buf=await context.decodeAudioData(await mix.arrayBuffer());if(Math.abs(buf.duration-duration)>.025)throw Error('O mix não corresponde à duração efetiva.');audio=context.createBufferSource();audio.buffer=buf;audio.connect(dest);}
   function preload(i){if(i>=settings.entries.length||prepared.has(i))return;const slot={entry:null,error:null,promise:null};prepared.set(i,slot);slot.promise=prepareEntry(settings.entries[i],project,mediaController.signal,videos).then(e=>{slot.entry=e;},e=>{slot.error=e;});}
@@ -238,15 +260,19 @@ export async function exportBrowser(project,{canvas,status=()=>{},signal}={}){
   const type=rec.mimeType;if(!type)throw Error('Codec não identificado.');sink=await outputSink(duration,type);rec.ondataavailable=e=>sink.push(e.data);rec.onerror=e=>{recError=e.error||Error('Erro do codificador.');};stopped=new Promise(resolve=>{rec.onstop=resolve;});
   let previous=null,frames=0,missed=0,last=-1;const totalFrames=Math.ceil(duration*fps);
   // Desenho inicial antes de iniciar a captura, inclusive no caso de clipe carregado.
-  paint(ctx,canvas,ready(0),0,settings,mediaController.signal,true);
+  if(spatialseed){spatialseed.beginExport();startedWebGL=true;}
+  const first=ready(0),firstWebGL=first.scene.spatialseed_viewport?.enabled?await timed(spatialseed.frameAt(first.scene,0,width/height),12000,'Primeiro quadro WebGL indisponível',signal):null;
+  paint(ctx,canvas,first,0,settings,mediaController.signal,true,firstWebGL);
   try{wake=await navigator.wakeLock?.request('screen');}catch{}abortCheck(signal);if(hidden||document.hidden)throw Error('Mantenha a página visível.');
   rec.start(1000);const start=context.currentTime;if(audioEl){await timed(audioEl.play(),5000,'Navegador bloqueou o áudio longo. Verifique permissões e tente novamente.',signal);if(context.currentTime-start>.35)throw Error('Início do áudio longo atrasado.');}else audio.start(start);scheduleGILToneEvents(context,dest,gilAudio,start);status('Gravando diretamente no navegador…');
   await new Promise((resolve,reject)=>{const onAbort=()=>finish(reject,Error('Exportação cancelada.'));function finish(fn,value){abortRecording=null;signal.removeEventListener('abort',onAbort);cancelAnimationFrame(raf);fn(value);}abortRecording=e=>finish(reject,e);signal.addEventListener('abort',onAbort,{once:true});
-   function step(){try{abortCheck(signal);if(hidden||document.hidden)throw Error('Página perdeu visibilidade. Repita mantendo a tela aberta.');if(recError)throw recError;if(rec.state!=='recording')throw Error('Codificador interrompeu a gravação.');if(sink.error)throw sink.error;if(context.state!=='running')throw Error('Relógio de áudio suspenso.');const elapsed=context.currentTime-start;if(audioEl&&(audioEl.error||Math.abs(audioEl.currentTime-Math.min(duration,elapsed))>.35))throw Error('Áudio longo perdeu sincronização; exportação interrompida.');const t=Math.min(duration,Math.max(0,audioEl?(audioEl.ended?duration:audioEl.currentTime):elapsed));if(t>=duration){finish(resolve);return;}
-    const n=Math.min(totalFrames-1,Math.floor(t*fps));if(n>last){missed+=Math.max(0,n-last-1);const wanted=atTime(settings.entries,t),e=ready(wanted.index);if(previous&&previous!==e){release(previous.index);preload(e.index+1);}previous=e;paint(ctx,canvas,e,t-e.start,settings,mediaController.signal);frames++;last=n;}
-    if(n%Math.max(1,Math.round(fps/5))===0)status(`Exportando ${t.toFixed(1)} / ${duration.toFixed(1)} s · ${frames} quadros desenhados`);raf=requestAnimationFrame(step);
-   }catch(e){finish(reject,e);}}raf=requestAnimationFrame(step);
+   async function step(){try{abortCheck(signal);if(hidden||document.hidden)throw Error('Página perdeu visibilidade. Repita mantendo a tela aberta.');if(recError)throw recError;if(rec.state!=='recording')throw Error('Codificador interrompeu a gravação.');if(sink.error)throw sink.error;if(context.state!=='running')throw Error('Relógio de áudio suspenso.');const elapsed=context.currentTime-start;if(audioEl&&(audioEl.error||Math.abs(audioEl.currentTime-Math.min(duration,elapsed))>.35))throw Error('Áudio longo perdeu sincronização; exportação interrompida.');const t=Math.min(duration,Math.max(0,audioEl?(audioEl.ended?duration:audioEl.currentTime):elapsed));if(t>=duration){finish(resolve);return;}
+    const n=Math.min(totalFrames-1,Math.floor(t*fps));if(n>last){missed+=Math.max(0,n-last-1);const wanted=atTime(settings.entries,t),e=ready(wanted.index);if(previous&&previous!==e){release(previous.index);preload(e.index+1);}previous=e;
+    const webgl=e.scene.spatialseed_viewport?.enabled?await timed(spatialseed.frameAt(e.scene,t-e.start,width/height),900,'Renderização WebGL atrasada; reduza a resolução.',signal):null;
+    abortCheck(signal);paint(ctx,canvas,e,t-e.start,settings,mediaController.signal,false,webgl);frames++;last=n;}
+    if(n%Math.max(1,Math.round(fps/5))===0)status(`Exportando ${t.toFixed(1)} / ${duration.toFixed(1)} s · ${frames} quadros desenhados`);raf=requestAnimationFrame(()=>{void step();});
+   }catch(e){finish(reject,e);}}raf=requestAnimationFrame(()=>{void step();});
   });
   missed+=Math.max(0,totalFrames-last-1);rec.stop();await timed(stopped,15000,'Codificador não finalizou.',signal);if(recError)throw recError;const output=await sink.finish();if(!output.blob.size)throw Error('Arquivo vazio.');success=true;return {...output,ext:type.includes('mp4')?'mp4':'webm',frames,missed,totalFrames};
- }finally{mediaController.abort();signal.removeEventListener('abort',abortMedia);cancelAnimationFrame(raf);document.removeEventListener('visibilitychange',visibility);if(rec&&rec.state!=='inactive')try{rec.stop();}catch{}if(!success&&sink)await sink.abort();try{audio?.stop();}catch{}if(audioEl){audioEl.pause();audioEl.removeAttribute('src');audioEl.load();}stream?.getTracks().forEach(t=>t.stop());for(const v of videos){v.pause();v.removeAttribute('src');v.load();}await context.close().catch(()=>{});await wake?.release().catch(()=>{});if(mixToken)void fetch('/api/browser-render/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:mixToken}),keepalive:true}).catch(()=>{});}
+ }finally{if(startedWebGL)spatialseed.endExport();mediaController.abort();signal.removeEventListener('abort',abortMedia);cancelAnimationFrame(raf);document.removeEventListener('visibilitychange',visibility);if(rec&&rec.state!=='inactive')try{rec.stop();}catch{}if(!success&&sink)await sink.abort();try{audio?.stop();}catch{}if(audioEl){audioEl.pause();audioEl.removeAttribute('src');audioEl.load();}stream?.getTracks().forEach(t=>t.stop());for(const v of videos){v.pause();v.removeAttribute('src');v.load();}await context.close().catch(()=>{});await wake?.release().catch(()=>{});if(mixToken)void fetch('/api/browser-render/release',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:mixToken}),keepalive:true}).catch(()=>{});}
 }

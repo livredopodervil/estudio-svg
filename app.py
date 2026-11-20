@@ -72,8 +72,11 @@ def work(job,project,mode,scene,no_voice):
             elif mode=='legendas-lote':
                 from studio_core import batch_audio
                 from subtitle_times import cues_for_voice
-                if pr.get('motor_voz')!='edge-tts':
-                    raise StudioError('Tempos por palavra em lote exigem Edge-TTS')
+                from studio_core import effective_voice
+                if any((selected and selected['provider']!='edge') or
+                       (not selected and pr.get('motor_voz')!='edge-tts')
+                       for selected in (effective_voice(sc,pr) for sc in pr['cenas'])):
+                    raise StudioError('Tempos por palavra em lote exigem vozes Edge-TTS')
                 source=project_path(project).read_bytes()
                 updated=0;total=0
                 count=max(1,len(pr['cenas']))
@@ -117,7 +120,9 @@ def work(job,project,mode,scene,no_voice):
                 if not isinstance(scene,int) or not 1<=scene<=len(pr['cenas']):
                     raise StudioError('Cena inválida para geração de tempos')
                 current=pr['cenas'][scene-1]
-                if pr.get('motor_voz')!='edge-tts' or current['audio'].get('voice_file'):
+                from studio_core import effective_voice
+                selected=effective_voice(current,pr)
+                if (selected and selected['provider']!='edge') or (not selected and pr.get('motor_voz')!='edge-tts') or current['audio'].get('voice_file'):
                     raise StudioError('Geração de tempos exige locução Edge-TTS, não gravação importada')
                 if not current['audio']['voice_enabled'] or not current['audio']['voice_text'].strip():
                     raise StudioError('Ative a narração e preencha o texto da cena')
@@ -678,6 +683,55 @@ class Handler(BaseHTTPRequestHandler):
                 # idempotent, only cached media can be multiplexed
                 with PREVIEW_LOCK:path=scene_preview(pr,idx)
                 return self.stream_file(path)
+            if route=='/api/tts/providers' and method=='GET':
+                from studio_audio_score import status_kokoro
+                import studio_piper_local
+                models={key:(Path.home()/'piper_tts'/spec[0]).is_file() for key,spec in studio_piper_local.VOICES.items()}
+                return self.response(200,{'piper':{'available':bool(shutil.which('piper')),'voices':models},
+                                          'kokoro':status_kokoro()})
+            if route=='/api/tts/score/sample' and method=='POST':
+                from studio_audio_score import generate
+                v=self.payload(60000)
+                if not isinstance(v,dict):raise StudioError('Amostra inválida')
+                n=v.get('scene_count',1);line=v.get('line',0)
+                if isinstance(n,bool) or not isinstance(n,int) or not 1<=n<=150:raise StudioError('Quantidade de cenas inválida')
+                if isinstance(line,bool) or not isinstance(line,int) or not 0<=line<=30000:raise StudioError('Linha da amostra inválida')
+                if not ENGINE_LOCK.acquire(blocking=False):raise StudioError('Outra geração está em andamento')
+                try:
+                    result=generate(v.get('script',''),[.5]*n,MEDIA,CACHE,only_line=line)
+                finally:ENGINE_LOCK.release()
+                item=result['scenes'][0]
+                return self.response(200,{'ok':True,'audio_url':'/api/tts/score/sample/audio?key='+item['filename'],
+                                          'line':line,'seconds':item['seconds'],'voice_file':item['filename']})
+            if route=='/api/tts/score/sample/audio' and method=='GET':
+                key=q('key','')
+                if not re.fullmatch(r'rd-score-[a-f0-9]{24}\.wav',key):raise StudioError('Identificador de amostra inválido')
+                return self.stream_file(MEDIA/key)
+            if route=='/api/tts/score/validate' and method=='POST':
+                from studio_audio_score import parse_score
+                v=self.payload(60000)
+                parsed=parse_score(v.get('script',''),int(v.get('scene_count',1)))
+                return self.response(200,{'ok':True,'characters':parsed['characters'],
+                    'takes':len(parsed['takes']),'effects':len(parsed['effects']),
+                    'scenes':sorted({x['scene'] for x in parsed['takes']+parsed['effects']}),
+                    'warnings':parsed['warnings']})
+            if route=='/api/tts/score/render' and method=='POST':
+                from studio_audio_score import generate
+                v=self.payload(60000)
+                if not isinstance(v,dict):raise StudioError('Roteiro inválido')
+                if not ENGINE_LOCK.acquire(blocking=False):raise StudioError('Outra produção está em andamento')
+                try:
+                    result=generate(v.get('script',''),v.get('durations',[]),MEDIA,CACHE)
+                    return self.response(200,result)
+                finally:ENGINE_LOCK.release()
+            if route=='/api/tts/piper' and method=='POST':
+                from studio_piper_local import synthesize
+                v=self.payload(16000)
+                if not isinstance(v,dict):raise StudioError('Parâmetros Piper inválidos')
+                result=synthesize(v.get('text',''),v.get('voice','faber'),
+                    v.get('length_scale',0.94),v.get('sentence_silence',0.35),
+                    MEDIA,CACHE)
+                return self.response(200,result)
             if route=='/api/tts/android' and method=='POST':
                 v=self.payload(12000)
                 pr=read_project(v['name']);idx=int(v['scene'])-1
@@ -786,8 +840,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.response(400,{'error':str(e)})
         except Exception as e:
             traceback.print_exc();return self.response(500,{'error':'Erro interno: '+str(e)})
-    def do_POST(self):self.route('POST')
+    def do_POST(self):
+        from rd_voices.api import try_handle as rd_voice_route
+        if rd_voice_route(self):return
+        self.route('POST')
     def do_GET(self):
+        from rd_voices.api import try_handle as rd_voice_route
+        if rd_voice_route(self):return
         if self.path.startswith('/api/'):return self.route('GET')
         r=urlsplit(self.path).path
         # M1W: SpatialSeed main: fonte original, módulos ES e assets em mesma origem.
@@ -819,11 +878,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.response(200,ss_file.read_bytes(),ctype)
         if r=='/spatialseed-camera-track.mjs':
             return self.response(200,(ROOT/'web'/'spatialseed-camera-track.mjs').read_bytes(),'text/javascript; charset=utf-8')
+        if r=='/studio-shared-scene.mjs':
+            return self.response(200,(ROOT/'web'/'studio-shared-scene.mjs').read_bytes(),'text/javascript; charset=utf-8')
+        if r=='/studio-spatialseed-panel.mjs':
+            return self.response(200,(ROOT/'web'/'studio-spatialseed-panel.mjs').read_bytes(),'text/javascript; charset=utf-8')
         if r=='/studio-spatialseed-viewport.mjs':
             return self.response(200,(ROOT/'web'/'studio-spatialseed-viewport.mjs').read_bytes(),'text/javascript; charset=utf-8')
         if r=='/studio-spatialseed-main.mjs':
             return self.response(200,(ROOT/'web'/'studio-spatialseed-main.mjs').read_bytes(),'text/javascript; charset=utf-8')
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/instance-manager-v1.mjs','/instance-graph-v1.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/studio-m1p.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/instance-manager-v1.mjs','/instance-graph-v1.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/studio-m1p.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/studio-preparation-deadline.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs','/rd-audio-all-voices.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES

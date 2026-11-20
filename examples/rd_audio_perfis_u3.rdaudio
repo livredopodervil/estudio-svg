@@ -1,0 +1,11 @@
+# RD-Audio U3: perfis declarativos. Definições compartilhadas no roteiro.
+@processador radio {"ffmpeg":["highpass=f=75","acompressor=threshold=-18dB:ratio=2.5:attack=15:release=150"]}
+@perfil investigativo {"ritmo":0.95,"ganho":1.0,"pausa":0.35,"tom":-3,"processador":"radio"}
+@perfil enfatico {"ritmo":0.89,"ganho":1.1,"pausa":0.20}
+@perfil reflexivo {"ritmo":1.07,"ganho":0.95,"pausa":0.5}
+@personagem narrador edge:pt-BR-AntonioNeural perfil=investigativo
+@personagem convidada edge:pt-BR-FranciscaNeural perfil=reflexivo
+@cena 1
+@fala 00:00 [personagem=narrador] [estilo=investigativo] Como o Brasil financia sua dívida pública?
+@fala 00:04 [personagem=convidada] [estilo=reflexivo] Precisamos distinguir o estoque da dívida e o custo dos juros.
+@fala 00:09 [personagem=narrador] [estilo=enfatico] [ritmo=0.92] E quem recebe os rendimentos desses títulos?

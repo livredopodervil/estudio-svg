@@ -2,6 +2,7 @@
 // Quadro n representa t=n/fps, independentemente da velocidade do aparelho.
 import {plan,atTime,prepareEntry,paintOffline,collectGILAudioEvents} from './browser-render.mjs';
 import {prepare} from './gil-native.mjs';
+import {withDeadline} from './studio-preparation-deadline.mjs';
 
 async function postJSON(path,body,signal){
  const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal});
@@ -31,7 +32,11 @@ export function outputDimensions(video,quality='native'){
 }
 export async function exportOffline(project,{canvas,quality='1080p',status=()=>{},signal}={}){
  if(!canvas?.getContext||typeof canvas.toBlob!=='function')throw Error('Canvas PNG indisponível.');
- const p=scaledProject(project,quality);const preplan=plan(p);
+ const p=scaledProject(project,quality);
+ // Um mundo ainda presente na sessão WebGL não equivale a uma fonte salva no projeto.
+ const emptySource=p.cenas.findIndex(c=>c.spatialseed_viewport?.enabled && !(c.spatialseed_viewport.source||'').trim());
+ if(emptySource>=0)throw Error(`Cena ${emptySource+1}: documento SpatialSeed vazio. Salve/importe o .spatialseed no projeto antes de exportar; a sessão WebGL pode mostrar objetos não persistidos.`);
+ const preplan=plan(p);
  const metrics={draw_ms:0,png_ms:0,upload_ms:0,server_encode_ms:0,frames_rendered:0};
  const videos=new Set();let entry=null,entryIndex=-1;
  function release(){
@@ -64,11 +69,11 @@ export async function exportOffline(project,{canvas,quality='1080p',status=()=>{
    if(wanted.index!==entryIndex){
     release();
     status(`Preparando cena ${wanted.index+1}/${settings.entries.length}…`);
-    entry=await prepareEntry(wanted,p,signal,videos);
+    entry=await withDeadline(`Cena ${wanted.index+1}: preparação de camadas`,taskSignal=>prepareEntry(wanted,p,taskSignal,videos,{onPhase:status}),{signal,ms:60000});
     entryIndex=wanted.index;
    }
    const d=performance.now();
-   await paintOffline(ctx,canvas,entry,t-wanted.start,settings,signal);
+   await withDeadline(`Cena ${wanted.index+1}: quadro ${next}`,taskSignal=>paintOffline(ctx,canvas,entry,t-wanted.start,settings,taskSignal),{signal,ms:60000});
    metrics.draw_ms+=performance.now()-d;
    const b=performance.now();const png=await pngFrame(canvas,signal);metrics.png_ms+=performance.now()-b;
    const u=performance.now();

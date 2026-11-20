@@ -33,6 +33,50 @@ def scene_id(x,i):
     s=str(x or '').strip()
     return s if NAME.fullmatch(s) else f'cena_{i+1:03d}'
 
+def studio_voice_config(value):
+    """Preserva seleção por provedor com limites e identidade explícitos.
+
+    Nunca converte voz browser/Piper em Edge de forma silenciosa.
+    """
+    if value is None or value == '':return None
+    from rd_voices.core import normalize_voice, Catalog, edge_parameters, EXPRESSIVE_PRESETS
+    raw=normalize_voice(value)
+    provider=raw['provider'];vid=raw['voice_id']
+    if provider not in ('edge','browser','piper','kokoro'):
+        raise ValueError('Provedor de voz desconhecido; use edge:, browser:, piper: ou kokoro:')
+    if not 1<=len(vid)<=240 or '\x00' in vid:
+        raise ValueError('Identificador de voz inválido')
+    if provider=='edge':Catalog.load().require(vid)
+    if provider=='piper' and vid not in ('faber','edresson'):
+        raise ValueError('Modelo Piper não cadastrado no Estúdio')
+    obj={'provider':provider,'voice_id':vid}
+    if not isinstance(value,dict):return obj
+    prosody=value.get('prosody') or {}
+    if not isinstance(prosody,dict):raise ValueError('Prosódia inválida')
+    if provider=='edge':
+        params=edge_parameters({'prosody':prosody})
+        obj['prosody']={'rate_pct':int(params['rate'][:-1]),
+                        'pitch_hz':int(params['pitch'][:-2]),
+                        'volume_pct':int(params['volume'][:-1])}
+    else:
+        # O componente comum pode preservar os campos Edge ao alternar provedor.
+        # Eles ficam armazenados, mas nunca são enviados ao motor browser/Piper.
+        if prosody:
+            params=edge_parameters({'prosody':prosody})
+            obj['prosody']={'rate_pct':int(params['rate'][:-1]),
+                            'pitch_hz':int(params['pitch'][:-2]),
+                            'volume_pct':int(params['volume'][:-1])}
+    intention=str(value.get('intention') or 'neutro')
+    if intention not in EXPRESSIVE_PRESETS:raise ValueError('Intenção expressiva desconhecida')
+    obj['intention']=intention
+    obj['apply_intention_preset']=value.get('apply_intention_preset') is True
+    if provider=='browser':
+        raw_browser=value.get('browser') or {}
+        if not isinstance(raw_browser,dict):raise ValueError('Parâmetros browser inválidos')
+        obj['browser']={k:n(raw_browser.get(k,d),d,lo,hi) for k,d,lo,hi in
+          [('rate',1,.1,3),('pitch',1,0,2),('volume',1,0,1)]}
+    return obj
+
 def audio_dict(v,legacy_fala=''):
     v=v if isinstance(v,dict) else {}
     voice_text=str(v.get('voice_text',legacy_fala))[:4000]
@@ -43,12 +87,14 @@ def audio_dict(v,legacy_fala=''):
         if not file:continue
         tracks.append({'file':file,'start':n(x.get('start',0),0,0,3600),'volume':n(x.get('volume',.5),.5,0,3),
             'fade_in':n(x.get('fade_in',0),0,0,60),'fade_out':n(x.get('fade_out',0),0,0,60),'loop':bool(x.get('loop',False))})
-    return {'voice_text':voice_text,'voice_enabled':bool(v.get('voice_enabled',bool(voice_text))),
+    result={'voice_text':voice_text,'voice_enabled':bool(v.get('voice_enabled',bool(voice_text))),
             'voice_file':asset(v.get('voice_file','')),'voice_volume':n(v.get('voice_volume',1),1,0,3),
             'voice_delay':n(v.get('voice_delay',.12),.12,0,30),
             'music_file':asset(v.get('music_file','')),'music_volume':n(v.get('music_volume',.16),.16,0,2),
             'duck_music':bool(v.get('duck_music',False)),'muted':bool(v.get('muted',False)),
             'scene_fade_in':n(v.get('scene_fade_in',0),0,0,5),'scene_fade_out':n(v.get('scene_fade_out',0),0,0,5),'tracks':tracks}
+    if v.get('voice') is not None:result['voice']=studio_voice_config(v.get('voice'))
+    return result
 
 def subtitle_dict(value):
     """Configuração declarativa de legendas, sem scripts ou HTML do usuário."""
@@ -291,6 +337,7 @@ def normalize(data):
     if fps not in (24,25,30):raise ValueError('FPS saída: 24, 25 ou 30')
     if draw not in (1,2,3,4,6,8,10,12,15,24):raise ValueError('FPS desenho inválido')
     out={'versao':VERSION,'titulo':str(data.get('titulo','Novo filme'))[:180],
+         'audio_score':str(data.get('audio_score',''))[:30000],
          'video':{'width':w,'height':h,'fps':fps,'draw_fps':draw,'background':color(video.get('background','#241b1a'),'#241b1a')},
          'voz':str(data.get('voz','pt-BR-AntonioNeural'))[:80], 'velocidade_voz':str(data.get('velocidade_voz','+0%'))[:15],
          'motor_voz':data.get('motor_voz','edge-tts') if data.get('motor_voz','edge-tts') in ('edge-tts','espeak-ng','piper') else 'edge-tts',
@@ -299,6 +346,7 @@ def normalize(data):
          'encaixe_voz':data.get('encaixe_voz','estender') if data.get('encaixe_voz') in ('estender','avisar') else 'estender',
          'trilha':asset(data.get('trilha','')),'trilha_continua':bool(data.get('trilha_continua',False)),'volume_musica':n(data.get('volume_musica',.16),.16,0,2),
          'volume_voz':n(data.get('volume_voz',1.35),1.35,0,3),'cenas':[]}
+    if data.get('voice') is not None:out['voice']=studio_voice_config(data['voice'])
     if m1t_library is not None:out['instance_library']=m1t_library
     ids=set()
     for i,r in enumerate(raw):

@@ -33,7 +33,22 @@ function field(label,path,type='text',choices=null,hint=''){
  return `<div class="formField"><label>${esc(label)}</label>${inner}${hint?`<div class="fieldHint">${esc(hint)}</div>`:''}</div>`;
 }
 function action(name,title='Enviar arquivo'){return `<button type="button" data-upload="${esc(name)}">${esc(title)}</button>`;}
-function drawEditor(){if(!project)return;const s=project.cenas[selected],a=s.audio;$('editor').innerHTML=tab==='project'?renderProject():tab==='audio'?renderAudio():renderScene();}
+function drawEditor(){if(!project)return;const s=project.cenas[selected],a=s.audio;$('editor').innerHTML=tab==='project'?renderProject():tab==='audio'?renderAudio():renderScene();if(tab==='audio')mountInstalledVoices();}
+function mountAudioVoiceChoices(){
+ const select=$('rdRoleVoice'),search=$('rdVoiceSearch'),info=$('rdVoiceCatalogStatus');
+ if(!select||!search)return;
+ import('/rd-audio-voice-picker.mjs').then(m=>m.mountVoicePicker(select,search,info,api))
+   .catch(e=>{if(info?.isConnected)info.textContent='Não foi possível carregar as vozes: '+e.message;});
+}
+
+function mountInstalledVoices(){
+ const role=$('rdRoleVoice');if(!role)return;
+ let search=$('rdVoiceSearch');
+ if(!search){search=document.createElement('input');search.type='search';search.id='rdVoiceSearch';search.placeholder='Filtrar voz, idioma, motor…';role.closest('label')?.before(search);}
+ let status=$('rdVoiceCatalogStatus');
+ if(!status){status=document.createElement('small');status.id='rdVoiceCatalogStatus';role.closest('label')?.after(status);}
+ import('/rd-audio-all-voices.mjs').then(m=>m.mountAllVoices(role,search,status,api,window.speechSynthesis)).catch(e=>{status.textContent='Falha no catálogo: '+e.message;});
+}
 function renderProject(){let h='<div class="sectionTitle">Configuração global</div>';
  h+=field('Título','titulo');
  const [w,hh]=[project.video.width,project.video.height];const current=Object.keys(presets).find(x=>presets[x][0]===w&&presets[x][1]===hh)||'custom';
@@ -42,6 +57,9 @@ function renderProject(){let h='<div class="sectionTitle">Configuração global<
  h+=field('Quadros finais por segundo','video.fps','select',[[24,'24'],[25,'25'],[30,'30']]);
  h+=field('Quadros SVG gerados por segundo','video.draw_fps','select',[[1,'1 (rápido)'],[2,'2'],[3,'3'],[4,'4'],[6,'6'],[8,'8'],[10,'10'],[12,'12'],[15,'15'],[24,'24 (lento)']]);
  h+=field('Cor de fundo','video.background','color');
+ return h;
+}
+function renderAudioGlobals(){let h='';
  h+='<div class="sectionTitle">Narração global</div>';
  h+=field('Motor de síntese para o MP4','motor_voz','select',[
    ['edge-tts','Edge neural (internet)'],['espeak-ng','eSpeak NG (offline, voz simples)'],
@@ -59,8 +77,7 @@ function renderProject(){let h='<div class="sectionTitle">Configuração global<
  h+=field('Trilha global contínua (não reiniciar em cada cena)','trilha_continua','checkbox',null,
    'Quando ativada, a música atravessa os cortes entre cenas sem reiniciar. O mix final e o MP4 usam a mesma trilha.');
  h+='<p class="smallNote">Mudar resolução ou FPS invalida o cache visual de todas as cenas. Mudar a voz não invalida os quadros.</p>';
- return h;
-}
+ return h;}
 function renderScene(){let h='<div class="sectionTitle">Cena '+(selected+1)+' · Visual</div>';
  h+=field('Identificador','cenas.'+selected+'.id');
  h+=field('Tipo','cenas.'+selected+'.tipo','select',types.map(t=>[t,names[t]]));
@@ -181,11 +198,33 @@ function openOrCreateSVG(){
 function sType(...choices){return choices.includes(project.cenas[selected].tipo);}
 function sImgCrop(){return (project.cenas[selected].imagem.crop||[]).join(', ');}
 function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da cena '+(selected+1)+'</div><div class="inline"><button id="activateAllVoicesEditor" type="button">♫ Ativar narração em todas as cenas</button><button id="voiceThisShortcut">Gerar voz desta cena</button><button id="voiceAllShortcut">Gerar todas as vozes</button><button id="voiceTimingShortcut">Adequar duração à voz</button></div>';
+ h+='<section class="track" style="margin-block:12px;padding:12px"><h3>Estúdio de Narração · roteiro RD-Audio 1</h3><p class="fieldHint">Uma linguagem para todo o projeto. Personagens, cenas, emoções, tempo, ritmo, ganho e efeitos. As emoções são aproximadas por ritmo e intensidade; não são sintetizadas semanticamente pelo Piper.</p>';
+ h+=`<textarea id="rdAudioScore" rows="13" spellcheck="false" style="width:100%;font-family:monospace;min-height:210px" placeholder="@personagem narrador faber&#10;@cena 1&#10;00:00.0 | narrador | calmo | ritmo=0.94,ganho=1,pausa=0.30 | Introdução.">${esc(project.audio_score||'')}</textarea>`;
+ h+='<div class="inline"><button id="rdScoreExample" type="button">Exemplo</button><button id="rdScoreValidate" type="button">Validar roteiro</button><button id="rdScoreRender" type="button">Gerar todas as cenas</button><button id="rdScoreProviders" type="button">Vozes instaladas</button></div>';
+ h+='<details><summary>Inserir personagem e fala (assistente de roteiro)</summary><div class="inline"><label>Nome <input id="rdRoleName" value="cientista" maxlength=32></label><label>Filtrar vozes <input id="rdVoiceSearch" type="search" placeholder="pt-BR, Antonio, Francisca…" autocomplete="off"></label><label>Voz <select id="rdRoleVoice"><option value="" disabled selected>Carregando catálogo de vozes…</option></select></label><label>Perfil (opcional) <input id="rdRoleProfile" maxlength="32" placeholder="investigativo"></label><button id="rdAddRole" type="button">+ Personagem</button></div><p id="rdVoiceCatalogStatus" class="fieldHint" role="status">Piper offline; consultando catálogo Edge…</p>';
+ h+='<div class="inline"><label>Tempo <input id="rdLineAt" value="00:00.0"></label><label>Personagem <input id="rdLineRole" value="narrador"></label><label>Emoção <select id="rdLineEmotion"><option>neutro</option><option>calmo</option><option>alegre</option><option>triste</option><option>urgente</option><option>solene</option>'+Array.from(new Set([...String(project.audio_score||'').matchAll(/^@perfil\s+([a-z][a-z0-9_-]{0,31})\s+/gm)].map(x=>x[1]))).map(x=>'<option>'+esc(x)+'</option>').join('')+'</select></label><label>Ritmo <input type="number" id="rdLineRate" value="0.94" min="0.70" max="1.30" step="0.02"></label></div>';
+ h+='<textarea id="rdLineText" rows="2" placeholder="Texto da fala"></textarea><button id="rdAddLine" type="button">+ Fala na cena atual</button></details>';
+ h+='<details id="rdDirectorProfiles"><summary>Perfis de interpretação, personagens e amostras</summary>';
+ h+='<p class="fieldHint">Defina emoções e prosódia livremente. Cada perfil fica no próprio roteiro. Processadores FFmpeg usam filtros permitidos, sem executar shell.</p>';
+ h+='<label>Nome do estilo <input id="rdProfileName" value="investigativo" maxlength="32"></label>';
+ h+='<label>Parâmetros JSON <textarea id="rdProfileJSON" rows="3">{"ritmo":0.95,"ganho":1,"pausa":0.35,"tom":-3}</textarea></label>';
+ h+='<button type="button" id="rdProfileInsert">Adicionar/atualizar perfil</button>';
+ h+='<label>Processador <input id="rdProcessorName" value="radio" maxlength="32"></label>';
+ h+='<label>Filtros FFmpeg JSON <textarea id="rdProcessorJSON" rows="3">{"ffmpeg":["highpass=f=75","acompressor=threshold=-18dB:ratio=2.5:attack=15:release=150"]}</textarea></label>';
+ h+='<button type="button" id="rdProcessorInsert">Adicionar/atualizar processador</button>';
+ h+='<p class="fieldHint">Para utilizar o processamento, adicione "processador":"radio" ao JSON do perfil. Tags: @fala 00:00 [personagem=narrador] [estilo=investigativo] [ritmo=0.94] Texto.</p>';
+ h+='<div class="inline"><label>Linha de fala (0 = primeira) <input id="rdDirectorLine" type="number" value="0" min="0" max="30000" style="width:100px"></label><button type="button" id="rdDirectorSample">Gerar amostra desta fala</button></div>';
+ h+='<audio id="rdDirectorPlayer" controls preload="none" style="width:100%"></audio><p class="fieldHint" id="rdDirectorStatus" role="status"></p></details>';
+ h+='<p id="rdScoreInfo" role="status" class="fieldHint">A geração cria WAVs por cena, sem sobrescrever arquivos antigos. Texto e marcações ficam no projeto.</p>';
+ h+='<audio id="rdScorePlayer" controls preload="none" style="width:100%"></audio></section>';
+ h+='<details id="rdAudioLegacy"><summary>Compatibilidade: ajustes e geração antigos</summary>';h+=renderAudioGlobals();
+ h+='<div class="sectionTitle">Locução simples, gravação e mixagem de cena</div>';
  h+=field('Ativar narração',`cenas.${selected}.audio.voice_enabled`,'checkbox');
  h+=field('Texto para voz neural',`cenas.${selected}.audio.voice_text`,'textarea','', 'Síntese gerada apenas quando você tocar em Áudio em lote.');
  h+=field('Voz gravada (substitui o texto neural)',`cenas.${selected}.audio.voice_file`);
  h+=action(`cenas.${selected}.audio.voice_file`,'Importar locução pronta');
  h+='<button id="recordVoice">● Gravar narração pelo microfone</button><button id="exportVoiceMp3" type="button">↓ Baixar narração MP3</button>';
+ h+='<div class="sectionTitle">Piper neural offline (Termux)</div><div class="inline"><label>Voz <select id="rdPiperVoice"><option value="faber">Faber · PT-BR</option><option value="edresson">Edresson · PT-BR</option></select></label><label>Length scale (menor = mais rápido) <input id="rdPiperScale" type="number" min="0.70" max="1.30" step="0.02" value="0.94"></label><label>Pausa (s) <input id="rdPiperSilence" type="number" min="0" max="1" step="0.05" value="0.35"></label><button type="button" id="rdPiperGenerate">Gerar e vincular voz Piper</button></div><p class="smallNote">Gera WAV local sem internet; vincula em Voz gravada, mantendo texto e mixer existentes. Não usa o sintetizador de voz do eSpeak.</p>';
  h+='<div class="inline"><button id="removeVoiceFile" type="button">✕ Remover locução gravada</button><button id="removeSceneMusic" type="button">✕ Remover música da cena</button><button id="removeSceneAudio" type="button">✕ Remover arquivos de áudio (manter texto)</button><button id="enableSceneAudio" type="button">Reativar som</button></div>';
  h+=field('Cena completamente silenciosa, inclusive música global',`cenas.${selected}.audio.muted`,'checkbox');
  h+=field('Volume da voz nesta cena',`cenas.${selected}.audio.voice_volume`,'number');
@@ -225,6 +264,7 @@ function renderAudio(){let h='<div class="sectionTitle">Narração e áudio da c
  }
  h+='<div class="separator"></div><div class="inline"><button id="m1pGenerateTimingsBatch" type="button">♫ Gerar todas as vozes + tempos</button><button id="m1pCaptionStyleAll" type="button">Aplicar configuração de legendas a todas as cenas</button></div>';
  h+='<button id="addTrack">+ Nova faixa independente</button><p class="smallNote">As vozes são reutilizadas por texto. Modificar somente o volume ou os efeitos refaz a mixagem, não a animação.</p>';
+ h+='</details>';
  return h;
 }
 function updateHistoryButtons(){$('documentUndo').disabled=!project||!documentHistory.canUndo;$('documentRedo').disabled=!project||!documentHistory.canRedo;}
@@ -368,6 +408,21 @@ function syncSubtitles(){
  layer.innerHTML=subtitleModule.subtitleSVG(s,playTime-startOf(at.i),sceneSeconds(at.i),project.video.width,project.video.height);
 }
 let studioSSViewport=null;
+// M2.2: Preview HTTP cadence measured independently of the WebGL frame loop.
+let webglPreviewStamp=-Infinity,webglPreviewScene='',webglPreviewTime=-1;
+
+let sharedSceneClock=null;
+async function initStudioSharedScene(){
+ try{
+  const {createSharedSceneBridge}=await import('/studio-shared-scene.mjs');
+  // No duplicate clock: dispatch the exact Studio playTime to native renderers.
+  sharedSceneClock=createSharedSceneBridge({
+   spatialseed:{seek(t){if(!project)return;const at=sceneAt(t);studioSSViewport?.sync(project.cenas[at.i],Math.max(0,t-startOf(at.i)),project.video.width/project.video.height);}},
+   svg:{seek(t){if(!project)return;const at=sceneAt(t);syncNative(project.cenas[at.i],at.progress);syncSceneObjects(project.cenas[at.i],at.progress);}},
+   media:{seek(_t){}},
+  });
+ }catch(e){console.warn('Contrato compartilhado M2 indisponível:',e);}
+}
 async function initStudioSSViewport(){
  try{
   const {mountStudioSpatialSeed}=await import('/studio-spatialseed-viewport.mjs');
@@ -382,11 +437,25 @@ async function initStudioSSViewport(){
  }catch(e){toast('SpatialSeed viewport: '+e.message,true);}
 }
 async function showPreview(){if(!project)return;
- studioSSViewport?.sync(project.cenas[sceneAt(playTime).i],Math.max(0,playTime-startOf(sceneAt(playTime).i)),project.video.width/project.video.height);
+ if(sharedSceneClock)sharedSceneClock.at(playTime);
+ else {const at=sceneAt(playTime);studioSSViewport?.sync(project.cenas[at.i],Math.max(0,playTime-startOf(at.i)),project.video.width/project.video.height);syncNative(project.cenas[at.i],at.progress);syncSceneObjects(project.cenas[at.i],at.progress);}
  syncSubtitles();
- const nativeScene=sceneAt(playTime);syncNative(project.cenas[nativeScene.i],nativeScene.progress);syncSceneObjects(project.cenas[nativeScene.i],nativeScene.progress);
  $('timeInfo').textContent=sec(playTime)+' / '+sec(totalDuration());$('seek').value=totalDuration()?Math.round(playTime/totalDuration()*1000):0;
- const now=performance.now();if(playing&&now-lastPreviewDraw<100)return;if(previewBusy){previewPending=true;return;}lastPreviewDraw=now;previewBusy=true;const s=sceneAt(playTime),owner=project;
+ const now=performance.now(),s=sceneAt(playTime),owner=project,scene=project.cenas[s.i];
+ const webgl=scene.spatialseed_viewport?.enabled===true;
+ const key=s.i+'|'+(scene.id||'');
+ // No continuous server-side SVG regeneration for a WebGL canvas. SVG overlays
+ // with authored motions still get a limited cadence; captions remain client-side.
+ const overlayMoves=!!(scene.animacoes?.length||scene.espacial?.animacoes?.length||scene.gil_nativo?.source);
+ const interval=webgl?(overlayMoves?250:Infinity):100;
+ const sceneChanged=key!==webglPreviewScene;
+ const sought=webgl&&Math.abs(playTime-webglPreviewTime)>.4&&!playing;
+ if(webgl&&!sceneChanged&&!sought&&(now-webglPreviewStamp<interval))return;
+ if(playing&&!sceneChanged&&now-lastPreviewDraw<interval)return;
+ if(previewBusy){if(!webgl||sceneChanged)previewPending=true;return;}
+ lastPreviewDraw=now;previewBusy=true;
+ if(webgl){webglPreviewScene=key;webglPreviewStamp=now;webglPreviewTime=playTime;}
+ else webglPreviewScene='';
  try{const requestStart=performance.now();const svg=await post('/api/preview',{scene:project.cenas[s.i],video:project.video,progress:s.progress,index:s.i,total:project.cenas.length});viewportMetrics?.record('preview_http',performance.now()-requestStart);if(project===owner&&sceneAt(playTime).i===s.i){$('stage').innerHTML=svg;syncPreviewVideo(s.i,sceneAt(playTime).progress);syncSceneObjects(project.cenas[s.i],sceneAt(playTime).progress);objectEditor?.paint();}}
  catch(e){$('stage').textContent='Falha na prévia: '+e.message;}
  finally{previewBusy=false;if(previewPending){previewPending=false;if(!playing)setTimeout(showPreview,80);}}
@@ -920,6 +989,9 @@ function bind(){
  $('seek').oninput=e=>{if(!project)return;transportSeek=true;transportBlocked=false;transportDeadline=performance.now()+5000;lastFrame=0;playTime=totalDuration()*Number(e.target.value)/1000;selected=sceneAt(playTime).i;drawSceneList();drawTimeline();drawEditor();objectEditor?.refresh();showPreview();syncTransport();};
  document.querySelectorAll('.mobileTabs button').forEach(b=>b.onclick=()=>switchPane(b.dataset.pane));
  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{tab=b.dataset.edit;document.querySelectorAll('[data-edit]').forEach(k=>k.classList.toggle('on',k===b));drawEditor();});
+ $('editor').addEventListener('input',e=>{
+   if(e.target.id==='rdAudioScore'&&project){project.audio_score=e.target.value;dirty=true;$('saveInfo').textContent='● Roteiro de áudio não salvo';}
+ });
  $('editor').addEventListener('change',parseFields);
  $('editor').addEventListener('change',async e=>{if(e.target.id!=='subtitleFile')return;
   const file=e.target.files?.[0],index=selected,owner=project;if(!file)return;
@@ -953,6 +1025,110 @@ function bind(){
    begin('legendas-cena');return;
   }
   if(t.id==='loadWordTimes'){loadWordTimes().catch(e=>toast(e.message,true));return;}
+  if(['rdProfileInsert','rdProcessorInsert','rdDirectorSample'].includes(t.id)){
+   const box=$('rdAudioScore'),status=$('rdDirectorStatus');
+   if(!box||!project)return;
+   if(t.id==='rdDirectorSample'){
+     t.disabled=true;
+     try{
+       const line=Number($('rdDirectorLine')?.value||0);
+       if(!Number.isInteger(line)||line<0||line>30000)throw Error('Linha inválida');
+       const res=await post('/api/tts/score/sample',{script:box.value,line,scene_count:project.cenas.length});
+       const player=$('rdDirectorPlayer');if(player){player.src=res.audio_url;player.load();}
+       if(status)status.textContent='Amostra produzida: '+res.seconds.toFixed(2)+' s. Pressione Play para ouvir.';
+     }catch(err){if(status)status.textContent=err.message;toast('Amostra: '+err.message,true);}
+     finally{if(t.isConnected)t.disabled=false;}
+     return;
+   }
+   const isStyle=t.id==='rdProfileInsert';
+   const id=String($(isStyle?'rdProfileName':'rdProcessorName')?.value||'').trim();
+   if(!/^[a-z][a-z0-9_-]{0,31}$/.test(id))return toast('Nome: letras minúsculas, números, _ ou -',true);
+   const value=String($(isStyle?'rdProfileJSON':'rdProcessorJSON')?.value||'').trim();
+   let data;try{data=JSON.parse(value);if(!data||typeof data!=='object'||Array.isArray(data))throw Error();}
+   catch(e){return toast('JSON inválido. Corrija antes de incluir.',true);}
+   const tag=isStyle?'perfil':'processador';
+   const definition='@'+tag+' '+id+' '+JSON.stringify(data);
+   const lines=box.value.split('\n');const rx=new RegExp('^@'+tag+' '+id+'(?:\\s|$)');
+   const i=lines.findIndex(s=>rx.test(s.trim()));
+   if(i>=0)lines[i]=definition;else lines.unshift(definition);
+   box.value=lines.join('\n');project.audio_score=box.value;dirty=true;
+   if($('saveInfo'))$('saveInfo').textContent='● Roteiro de áudio não salvo';
+   if(isStyle){const select=$('rdLineEmotion');if(select&&!Array.from(select.options).some(o=>o.value===id)){const opt=document.createElement('option');opt.value=id;opt.textContent=id;select.appendChild(opt);select.value=id;}}
+   if(status)status.textContent=tag+' '+id+' definido. Use Validar roteiro antes de gerar.';
+   return;
+  }
+  if(['rdScoreExample','rdScoreValidate','rdScoreRender','rdScoreProviders','rdAddRole','rdAddLine'].includes(t.id)){
+   const box=$('rdAudioScore'),info=$('rdScoreInfo'),owner=project,name=projectName;
+   const text=()=>String(box?.value||'');
+   const set=(value)=>{box.value=value;project.audio_score=value;dirty=true;$('saveInfo').textContent='● Roteiro de áudio não salvo';};
+   if(t.id==='rdScoreExample'){
+    if(text().trim()&&!confirm('Substituir o roteiro de áudio atual pelo exemplo?'))return;
+    set('@personagem narrador piper:faber\n@personagem cientista piper:edresson\n@cena 1\n00:00.0 | narrador | calmo | ritmo=0.94,ganho=1.0,pausa=0.3 | O núcleo atômico concentra prótons e nêutrons.\n00:03.2 | cientista | urgente | ritmo=0.89,ganho=1.1,pausa=0.2 | Um nêutron pode iniciar a fissão nuclear.');
+    info.textContent='Exemplo inserido. Ajuste as cenas e valide.';return;
+   }
+   if(t.id==='rdAddRole'){
+    const role=String($('rdRoleName').value).trim().toLowerCase(),voice=$('rdRoleVoice').value;
+    if(!voice)return toast('Escolha uma voz disponível no catálogo antes de inserir personagem.',true);
+    if(!/^[a-z][a-z0-9_-]{0,31}$/.test(role))return toast('Nome de personagem: letras minúsculas, números, _ ou -',true);
+    const profile=String($('rdRoleProfile')?.value||'').trim();
+    if(profile&&!/^[a-z][a-z0-9_-]{0,31}$/.test(profile))return toast('Perfil inválido',true);
+    set((text().trim()?text().trim()+'\n':'')+'@personagem '+role+' '+voice+(profile?' perfil='+profile:'')+'\n');return;
+   }
+   if(t.id==='rdAddLine'){
+    const role=String($('rdLineRole').value).trim().toLowerCase(),at=String($('rdLineAt').value).trim();
+    const phrase=String($('rdLineText').value).trim(),emotion=$('rdLineEmotion').value,rate=Number($('rdLineRate').value);
+    if(!phrase||phrase.includes('\n')||phrase.includes('|')||!Number.isFinite(rate)||rate<.7||rate>1.3)return toast('Fala, separadores ou ritmo inválidos',true);
+    set((text().trim()?text().trim()+'\n':'')+'@cena '+(selected+1)+'\n'+at+' | '+role+' | '+emotion+' | ritmo='+rate+',ganho=1,pausa=0.30 | '+phrase+'\n');return;
+   }
+   t.disabled=true;
+   try{
+    if(t.id==='rdScoreProviders'){
+      const catalog=await api('/api/rd-voices/installed');
+      const counts={};for(const v of catalog.voices){const k=v.provider;counts[k]??={total:0,ready:0};counts[k].total++;if(v.available)counts[k].ready++;}
+      info.textContent=Object.entries(counts).map(([k,n])=>k+': '+n.ready+'/'+n.total+' utilizáveis').join(' · ')+(catalog.warnings?.length?' · '+catalog.warnings.join('; '):'');
+    }else if(t.id==='rdScoreValidate'){
+      const r=await post('/api/tts/score/validate',{script:text(),scene_count:project.cenas.length});
+      info.textContent='Roteiro válido: '+r.takes+' falas, '+r.effects+' efeitos, cenas '+r.scenes.join(', ')+'. '+r.warnings.join(' ');
+    }else if(t.id==='rdScoreRender'){
+      const script=text(),durations=project.cenas.map(c=>Number(c.duracao));
+      const res=await post('/api/tts/score/render',{script,durations});
+      if(project!==owner||name!==projectName||text()!==script||JSON.stringify(durations)!==JSON.stringify(project.cenas.map(c=>Number(c.duracao)))){
+       info.textContent='O projeto mudou; arquivos gerados preservados, mas não vinculados.';return;
+      }
+      for(const r of res.scenes){const c=project.cenas[r.scene-1];if(!c)throw Error('Cena alterada');
+       c.audio.voice_file=r.filename;c.audio.voice_enabled=true;c.audio.muted=false;c.audio.voice_delay=0;
+       if(r.transcript){c.audio.voice_text=r.transcript;c.fala=r.transcript;}
+       if(r.seconds>Number(c.duracao)+.03&&project.encaixe_voz==='estender')c.duracao=Math.min(600,Math.ceil(r.seconds*100)/100);
+      }
+      if(res.providers?.length===1)project.motor_voz=res.providers[0]==='edge'?'edge-tts':'piper';
+      project.audio_score=script;dirtyNow(false,'rd-score');await save();drawEverything();
+      const r=res.scenes.find(x=>x.scene===selected+1)||res.scenes[0];
+      info.textContent='Áudio vinculado em '+res.count+' cena(s). '+res.warnings.join(' ');
+      const player=$('rdScorePlayer');if(player&&r){player.src='/api/scene/media?name='+encodeURIComponent(projectName)+'&scene='+r.scene+'&kind=voice';player.load();}
+      toast('Roteiro de narração sintetizado e salvo. Verifique duração e áudio.');
+    }
+   }catch(err){if(info)info.textContent='Erro: '+err.message;toast('Áudio: '+err.message,true);}
+   finally{if(t.isConnected)t.disabled=false;}
+   return;
+  }
+  if(t.id==='rdPiperGenerate'){
+   const owner=project,idx=selected,c=owner?.cenas?.[idx],name=projectName;
+   const text=c?.audio?.voice_text?.trim()||'';
+   if(!text){toast('Preencha o texto da narração antes de sintetizar.',true);return;}
+   const voice=$('rdPiperVoice')?.value,scale=Number($('rdPiperScale')?.value),silence=Number($('rdPiperSilence')?.value);
+   t.disabled=true;t.textContent='Sintetizando Piper…';
+   try{
+    const result=await post('/api/tts/piper',{text,voice,length_scale:scale,sentence_silence:silence});
+    if(project!==owner||projectName!==name||owner.cenas[idx]!==c||c.audio.voice_text.trim()!==text){
+     toast('Cena alterada durante síntese. Voz criada mas não vinculada; refaça na cena correta.',true);return;
+    }
+    c.audio.voice_file=result.filename;c.audio.voice_enabled=true;c.audio.muted=false;
+    dirtyNow(false,'piper-voice');await save();drawEverything();
+    toast('Piper: voz vinculada ('+Number(result.seconds).toFixed(1)+' s, '+(result.cached?'cache':'nova')+').');
+   }catch(err){toast('Piper: '+err.message,true);}
+   finally{if(t.isConnected){t.disabled=false;t.textContent='Gerar e vincular voz Piper';}}
+   return;
+  }
   if(t.id==='voiceThisShortcut'){begin('audio-cena');return;}
   if(t.id==='voiceAllShortcut'){begin('audio');return;}
   if(t.id==='voiceTimingShortcut'){$('batchTiming').click();$('timingMode').value='fit';$('timingMode').dispatchEvent(new Event('input'));return;}
@@ -1046,6 +1222,7 @@ async function initBrowserRender(){
   if(!project||browserExport||busy||saving)return toast('Há outra operação em andamento.',true);
   try{if(!(await prepareNarrations('browser-export')))return;}
   catch(e){report.textContent='Renderização offline não iniciada: '+e.message;return;}
+  if(playing)$('playButton').click();
   stopWorkspace();switchPane('previewPanel');
   const owner=cp(project),controller=new AbortController();browserExport=controller;
   b.disabled=true;offline.disabled=true;cancel.hidden=false;canvas.hidden=false;
@@ -1061,7 +1238,8 @@ async function initBrowserRender(){
    const stats=result.stats||{};
    report.textContent=`Concluído: ${(result.bytes/1048576).toFixed(2)} MiB · ${result.frames}/${result.frames} quadros · ${result.fps} FPS constantes · desenho ${(stats.draw_ms/1000).toFixed(1)}s · PNG ${(stats.png_ms/1000).toFixed(1)}s · envio/blocos ${(stats.upload_ms/1000).toFixed(1)}s · finalização ${(stats.encoding_seconds||0).toFixed(1)}s.`;
   }catch(e){report.textContent='Exportação offline interrompida: '+e.message+' Retome com o mesmo projeto e a mesma resolução.';}
-  finally{browserExport=null;b.disabled=false;offline.disabled=false;cancel.hidden=true;
+  finally{window.StudioSpatialSeedViewport?.endExport?.();
+   browserExport=null;b.disabled=false;offline.disabled=false;cancel.hidden=true;
    canvas.hidden=true;play.disabled=wasPlay;seek.disabled=wasSeek;showPreview();}
  };
  }catch(e){report.textContent='Exportação web indisponível: '+e.message;}
@@ -1090,7 +1268,7 @@ async function init(){
   if(e.key!=='estudioSvgVectorSave'||!e.newValue)return;
   try{const u=JSON.parse(e.newValue);syncVectorSave(u.name,u.scene);}catch(err){}
  });
- bind();void initStudioSSViewport();void initStudioM1P();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');
+ bind();void initStudioSSViewport();void initStudioSharedScene();void initStudioM1P();void initObjects();void initBrowserRender();try{let projects=await listProjects();let requested=new URLSearchParams(location.search).get('project');
  let remembered='',returnTarget=null;
  try{
   remembered=sessionStorage.getItem(LAST_PROJECT_KEY)||'';
