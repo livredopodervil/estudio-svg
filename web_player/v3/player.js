@@ -70,7 +70,7 @@ async function loadScene(i,token){
   if(parsed.querySelector('parsererror'))throw Error('SVG inválido: cena '+(i+1));
   const root=sanitize(document.importNode(parsed.documentElement,true));
   if(root.localName!=='svg')throw Error('Documento não é SVG: cena '+(i+1));
-  stopVoice();index=i;pendingScene=-1;bases.clear();
+  stopVoice();index=i;pendingScene=-1;bases.clear();canonicalAnimator=null;
   $('stage').replaceChildren(root);svg=root;
   svg.setAttribute('preserveAspectRatio','xMidYMid meet');svg.removeAttribute('width');svg.removeAttribute('height');
   $('scene').textContent=(i+1)+' / '+durations.length+' · '+String(project.cenas[i].titulo||'');
@@ -86,39 +86,8 @@ async function loadScene(i,token){
 }
 function val(a,k,defaultValue=0){const n=Number(a[k]);return Number.isFinite(n)?n:defaultValue;}
 function ease(t,mode){return window.EstudioV3.ease(t,mode);}
-function pivot(el,a){
-  const key=index+':'+el.id,custom=pivotOverrides[key];
-  if(Array.isArray(custom)&&custom.length===2&&custom.every(Number.isFinite))return custom;
-  const explicit=[a?.pivo_x,a?.pivo_y];
-  if(explicit.every(v=>v!==undefined&&v!==null&&Number.isFinite(Number(v))))return explicit.map(Number);
-  const data=[el.getAttribute('data-pivot-x'),el.getAttribute('data-pivot-y')];
-  if(data.every(v=>v!==null&&v!==''&&Number.isFinite(Number(v))))return data.map(Number);
-  const line=el.localName==='line'?el:el.querySelector?.('line');
-  if(line){const x=Number(line.getAttribute('x1')),y=Number(line.getAttribute('y1'));
-    if(Number.isFinite(x)&&Number.isFinite(y))return [x,y];}
-  try{
-    const b=el.getBBox();
-    // Para ponteiros desenhados como paths, procure o centro do mostrador.
-    if(/ponteiro|agulha|hand|segund|minut|hora/i.test(el.id)&&svg){
-      let best=null,score=Infinity;
-      const length=Math.max(b.width,b.height,1);
-      for(const c of svg.querySelectorAll('circle,ellipse')){
-        if(el.contains(c))continue;
-        const cx=Number(c.getAttribute('cx')),cy=Number(c.getAttribute('cy'));
-        const r=Number(c.getAttribute('r')||c.getAttribute('rx'));
-        if(!Number.isFinite(cx+cy+r)||r<length*.4||r>length*8)continue;
-        const dx=Math.max(b.x-cx,0,cx-b.x-b.width);
-        const dy=Math.max(b.y-cy,0,cy-b.y-b.height);
-        const d=Math.hypot(dx,dy);
-        if(d>length*.45)continue;
-        const s=d+Math.abs(r-length)*.04;
-        if(s<score){score=s;best=[cx,cy];}
-      }
-      if(best)return best;
-    }
-    return [b.x+b.width/2,b.y+b.height/2];
-  }catch(_){return [640,360];}
-}
+function pivot(el,a){return window.EstudioV3.pivotDOM(el,a,svg,{pivotOverrides,sceneIndex:index});}
+let canonicalAnimator=null;
 let nativeRuntime=null,nativeLoading=null,nativeFailed=false;
 let objectsModule=null,objectsLoading=false;
 function updateObjects(t){
@@ -137,37 +106,8 @@ function apply(t){
   if(!project || !svg)return;
   updateNative();updateObjects(t);
   const p=clamp((t-starts[index])/durations[index]);
-  const tracks=new Map();
-  const animations=[];
-  for(const a of project.cenas[index].animacoes||[]){
-    const targets=Array.isArray(a.alvos)?a.alvos:[a.alvo],offset=val(a,'intervalo');
-    for(let j=0;j<targets.length;j++){
-      const begin=Math.min(1,val(a,'inicio')+j*offset),end=Math.min(1,val(a,'fim',1)+j*offset);
-      if(end>begin){
-        animations.push({...a,alvo:targets[j],inicio:begin,fim:end});
-        if(targets[j]==='__conteudo__'&&bases.has('__conteudo_imagem__'))animations.push({...a,alvo:'__conteudo_imagem__',inicio:begin,fim:end});
-      }
-    }
-  }
-  for(const a of animations){
-    const dest=bases.get(String(a.alvo)); if(!dest)continue;
-    const k=window.EstudioV3.progress(a,p);
-    const interp=(f,to)=>f+(to-f)*k;
-    let tr=tracks.get(dest.el);if(!tr){tr={list:[],opacity:1};tracks.set(dest.el,tr);}
-    if(a.tipo==='translacao')tr.list.push(`translate(${interp(val(a,'de_x'),val(a,'ate_x'))} ${interp(val(a,'de_y'),val(a,'ate_y'))})`);
-    else if(a.tipo==='rotacao'){
-      const [x,y]=pivot(dest.el,a);tr.list.push(`rotate(${interp(val(a,'de'),val(a,'ate'))} ${x} ${y})`);
-    }else if(a.tipo==='escala'){
-      const [x,y]=pivot(dest.el,a),s=interp(val(a,'de',1),val(a,'ate',1));
-      tr.list.push(`translate(${x} ${y}) scale(${s}) translate(${-x} ${-y})`);
-    }else if(a.tipo==='fade')tr.opacity*=clamp(interp(val(a,'de',1),val(a,'ate',1)));
-  }
-  for(const [id,b] of bases){
-    const tr=tracks.get(b.el);
-    if(tr){b.el.setAttribute('transform',[...tr.list,b.transform].filter(Boolean).join(' '));
-      b.el.setAttribute('opacity',String(clamp(Number(b.opacity)*tr.opacity)));}
-    else {if(b.transform)b.el.setAttribute('transform',b.transform);else b.el.removeAttribute('transform');b.el.setAttribute('opacity',b.opacity);}
-  }
+  if(!canonicalAnimator)canonicalAnimator=window.EstudioV3.createDOMAnimator(svg,project.cenas[index].animacoes||[],{pivotOverrides,sceneIndex:index});
+  canonicalAnimator.apply(p);
   window.EstudioV3.updateProcedural(svg,project.cenas[index],p);
   // Mesma cena permanece no DOM, sem solicitação de frames ao servidor.
   svg.style.opacity=String(clamp(p/.06));

@@ -1,0 +1,280 @@
+{
+  "titulo": "Tempo em cena",
+  "video": {
+    "width": 640,
+    "height": 360,
+    "fps": 24,
+    "draw_fps": 12
+  },
+  "cenas": [
+    {
+      "id": "motion_spatial",
+      "titulo": "Tempo em cena",
+      "tipo": "svg",
+      "duracao": 4,
+      "camadas": {
+        "cabecalho": {
+          "oculta": true
+        },
+        "rodape": {
+          "oculta": true
+        },
+        "titulo": {
+          "oculta": true
+        }
+      },
+      "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1280 720\"><text id=\"obj_demo_0_1\" x=\"390\" y=\"312.15999999999997\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"72\" font-weight=\"800\" fill=\"#eef4f0\">TEMPO</text><text id=\"obj_demo_0_2\" x=\"640\" y=\"312.15999999999997\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"72\" font-weight=\"800\" fill=\"#eef4f0\">EM</text><text id=\"obj_demo_0_3\" x=\"855\" y=\"312.15999999999997\" text-anchor=\"middle\" font-family=\"sans-serif\" font-size=\"72\" font-weight=\"800\" fill=\"#ffbc69\">CENA</text><g transform=\"translate(640 551.5600000000001) scale(1.45)\" data-name=\"Besouro\"><line id=\"obj_demo_1_1\" x1=\"-30\" y1=\"-36\" x2=\"-110\" y2=\"0\" stroke=\"#665672\" stroke-width=\"6\" stroke-linecap=\"round\"/><line id=\"obj_demo_1_2\" x1=\"10\" y1=\"-36\" x2=\"-6\" y2=\"0\" stroke=\"#665672\" stroke-width=\"6\" stroke-linecap=\"round\"/><line id=\"obj_demo_1_3\" x1=\"50\" y1=\"-36\" x2=\"98\" y2=\"0\" stroke=\"#665672\" stroke-width=\"6\" stroke-linecap=\"round\"/><path id=\"obj_demo_1_4\" d=\"M-88 -34 C-92 -112 70 -118 84 -40 Q0 -26 -88 -34 Z\" fill=\"#8363bb\" stroke=\"#342237\" stroke-width=\"4\"/><circle id=\"obj_demo_1_5\" cx=\"-50\" cy=\"-66\" r=\"9\" fill=\"#503769\"/><circle id=\"obj_demo_1_6\" cx=\"-22\" cy=\"-85\" r=\"8\" fill=\"#503769\"/><circle id=\"obj_demo_1_7\" cx=\"28\" cy=\"-82\" r=\"10\" fill=\"#503769\"/><circle id=\"obj_demo_1_8\" cx=\"50\" cy=\"-61\" r=\"9\" fill=\"#503769\"/><line id=\"obj_demo_1_9\" x1=\"-40\" y1=\"-36\" x2=\"-120\" y2=\"0\" stroke=\"#342237\" stroke-width=\"6\" stroke-linecap=\"round\"/><line id=\"obj_demo_1_10\" x1=\"0\" y1=\"-36\" x2=\"-16\" y2=\"0\" stroke=\"#342237\" stroke-width=\"6\" stroke-linecap=\"round\"/><line id=\"obj_demo_1_11\" x1=\"40\" y1=\"-36\" x2=\"88\" y2=\"0\" stroke=\"#342237\" stroke-width=\"6\" stroke-linecap=\"round\"/><ellipse id=\"obj_demo_1_12\" cx=\"-92\" cy=\"-46\" rx=\"30\" ry=\"25\" fill=\"#594371\" stroke=\"#342237\" stroke-width=\"4\"/><circle id=\"obj_demo_1_13\" cx=\"-104\" cy=\"-54\" r=\"6\" fill=\"#ffba65\"/><path id=\"obj_demo_1_14\" d=\"M-98 -64 Q-108 -100 -129 -111 M-85 -66 Q-90 -99 -104 -112\" fill=\"none\" stroke=\"#342237\" stroke-width=\"4\" stroke-linecap=\"round\"/></g></svg>",
+      "animacoes": [
+        {
+          "alvo": "obj_demo_0_1",
+          "inicio": 0,
+          "fim": 0.12,
+          "easing": "power2.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 0,
+          "de_x": 0,
+          "de_y": 55,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "translacao"
+        },
+        {
+          "alvo": "obj_demo_0_1",
+          "inicio": 0,
+          "fim": 0.12,
+          "easing": "suave",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 1,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "fade"
+        },
+        {
+          "alvo": "obj_demo_0_2",
+          "inicio": 0.0275,
+          "fim": 0.1475,
+          "easing": "power2.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 0,
+          "de_x": 0,
+          "de_y": 55,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "translacao"
+        },
+        {
+          "alvo": "obj_demo_0_2",
+          "inicio": 0.0275,
+          "fim": 0.1475,
+          "easing": "suave",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 1,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "fade"
+        },
+        {
+          "alvo": "obj_demo_0_3",
+          "inicio": 0.055,
+          "fim": 0.175,
+          "easing": "power2.out",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 0,
+          "de_x": 0,
+          "de_y": 55,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "translacao"
+        },
+        {
+          "alvo": "obj_demo_0_3",
+          "inicio": 0.055,
+          "fim": 0.175,
+          "easing": "suave",
+          "repeticoes": 0,
+          "yoyo": false,
+          "de": 0,
+          "ate": 1,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "fade"
+        },
+        {
+          "alvo": "obj_demo_1_1",
+          "inicio": 0,
+          "fim": 1,
+          "easing": "sine.inOut",
+          "repeticoes": 11,
+          "yoyo": true,
+          "de": -17,
+          "ate": 17,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "rotacao"
+        },
+        {
+          "alvo": "obj_demo_1_2",
+          "inicio": 0,
+          "fim": 1,
+          "easing": "sine.inOut",
+          "repeticoes": 11,
+          "yoyo": true,
+          "de": 17,
+          "ate": -17,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "rotacao"
+        },
+        {
+          "alvo": "obj_demo_1_3",
+          "inicio": 0,
+          "fim": 1,
+          "easing": "sine.inOut",
+          "repeticoes": 11,
+          "yoyo": true,
+          "de": -17,
+          "ate": 17,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "rotacao"
+        },
+        {
+          "alvo": "obj_demo_1_9",
+          "inicio": 0,
+          "fim": 1,
+          "easing": "sine.inOut",
+          "repeticoes": 11,
+          "yoyo": true,
+          "de": 17,
+          "ate": -17,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "rotacao"
+        },
+        {
+          "alvo": "obj_demo_1_10",
+          "inicio": 0,
+          "fim": 1,
+          "easing": "sine.inOut",
+          "repeticoes": 11,
+          "yoyo": true,
+          "de": -17,
+          "ate": 17,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "rotacao"
+        },
+        {
+          "alvo": "obj_demo_1_11",
+          "inicio": 0,
+          "fim": 1,
+          "easing": "sine.inOut",
+          "repeticoes": 11,
+          "yoyo": true,
+          "de": 17,
+          "ate": -17,
+          "de_x": 0,
+          "de_y": 0,
+          "ate_x": 0,
+          "ate_y": 0,
+          "tipo": "rotacao"
+        }
+      ],
+      "spatialseed_viewport": {
+        "enabled": true,
+        "source": "{\n  \"format\": \"spatial-seed\",\n  \"schemaVersion\": 1,\n  \"metadata\": {\n    \"name\": \"Cubo de referência\"\n  },\n  \"scene\": {\n    \"schemaVersion\": 1,\n    \"objects\": [\n      {\n        \"id\": \"cubo\",\n        \"kind\": \"box\",\n        \"name\": \"Cubo de referência\",\n        \"position\": [\n          0,\n          0,\n          0\n        ],\n        \"rotation\": [\n          0,\n          0,\n          0,\n          1\n        ],\n        \"scale\": [\n          1.8,\n          1.8,\n          1.8\n        ],\n        \"material\": {\n          \"color\": \"#4bbcb3\"\n        },\n        \"size\": [\n          2,\n          2,\n          2\n        ]\n      }\n    ]\n  },\n  \"editor\": {},\n  \"renderer\": {}\n}",
+        "camera_keys": [
+          {
+            "t": 0,
+            "easing": "smoothstep",
+            "camera": {
+              "position": [
+                0,
+                1,
+                7
+              ],
+              "quaternion": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "focusDistance": 7,
+              "fov": 48,
+              "near": 0.1,
+              "far": 1000
+            }
+          },
+          {
+            "t": 2,
+            "easing": "smoothstep",
+            "camera": {
+              "position": [
+                2,
+                1,
+                5
+              ],
+              "quaternion": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "focusDistance": 7,
+              "fov": 48,
+              "near": 0.1,
+              "far": 1000
+            }
+          },
+          {
+            "t": 4,
+            "easing": "smoothstep",
+            "camera": {
+              "position": [
+                0,
+                1,
+                7
+              ],
+              "quaternion": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "focusDistance": 7,
+              "fov": 48,
+              "near": 0.1,
+              "far": 1000
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

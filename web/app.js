@@ -427,6 +427,7 @@ async function initStudioSSViewport(){
  try{
   const {mountStudioSpatialSeed}=await import('/studio-spatialseed-viewport.mjs');
   studioSSViewport=mountStudioSpatialSeed({
+   getProjectId:()=>projectName,
    getScene:()=>project?.cenas?.[selected]||null,
    getAspect:()=>project?.video?.width/project?.video?.height||16/9,
    getTime:()=>project?Math.max(0,playTime-startOf(selected)):0,
@@ -435,6 +436,14 @@ async function initStudioSSViewport(){
   });
   if(project)studioSSViewport.sync(project.cenas[selected],playTime-startOf(selected),project.video.width/project.video.height);
  }catch(e){toast('SpatialSeed viewport: '+e.message,true);}
+}
+let rdV3PreviewPromise=null;
+async function rdV3Preview(){
+ if(!rdV3PreviewPromise)rdV3PreviewPromise=import('/studio-v3-preview.mjs').then(async module=>{
+  await module.ensureV3Runtime();
+  return module.createV3Preview({post});
+ }).catch(error=>{rdV3PreviewPromise=null;throw error;});
+ return rdV3PreviewPromise;
 }
 async function showPreview(){if(!project)return;
  if(sharedSceneClock)sharedSceneClock.at(playTime);
@@ -447,16 +456,16 @@ async function showPreview(){if(!project)return;
  // No continuous server-side SVG regeneration for a WebGL canvas. SVG overlays
  // with authored motions still get a limited cadence; captions remain client-side.
  const overlayMoves=!!(scene.animacoes?.length||scene.espacial?.animacoes?.length||scene.gil_nativo?.source);
- const interval=webgl?(overlayMoves?250:Infinity):100;
+ const interval=0; // V3 evaluates SVG in DOM at the Studio transport clock; no HTTP per frame.
  const sceneChanged=key!==webglPreviewScene;
- const sought=webgl&&Math.abs(playTime-webglPreviewTime)>.4&&!playing;
+ const sought=webgl&&playTime!==webglPreviewTime&&!playing;
  if(webgl&&!sceneChanged&&!sought&&(now-webglPreviewStamp<interval))return;
  if(playing&&!sceneChanged&&now-lastPreviewDraw<interval)return;
- if(previewBusy){if(!webgl||sceneChanged)previewPending=true;return;}
+ if(previewBusy){if(!webgl||sceneChanged||sought)previewPending=true;return;}
  lastPreviewDraw=now;previewBusy=true;
  if(webgl){webglPreviewScene=key;webglPreviewStamp=now;webglPreviewTime=playTime;}
  else webglPreviewScene='';
- try{const requestStart=performance.now();const svg=await post('/api/preview',{scene:project.cenas[s.i],video:project.video,progress:s.progress,index:s.i,total:project.cenas.length});viewportMetrics?.record('preview_http',performance.now()-requestStart);if(project===owner&&sceneAt(playTime).i===s.i){$('stage').innerHTML=svg;syncPreviewVideo(s.i,sceneAt(playTime).progress);syncSceneObjects(project.cenas[s.i],sceneAt(playTime).progress);objectEditor?.paint();}}
+ try{const requestStart=performance.now();const engine=await rdV3Preview();await engine.render({stage:$('stage'),scene:project.cenas[s.i],video:project.video,progress:sceneAt(playTime).progress,index:s.i,total:project.cenas.length,slug:projectName,isCurrent:()=>project===owner&&sceneAt(playTime).i===s.i});viewportMetrics?.record('preview_http',performance.now()-requestStart);if(project===owner&&sceneAt(playTime).i===s.i){syncPreviewVideo(s.i,sceneAt(playTime).progress);syncSceneObjects(project.cenas[s.i],sceneAt(playTime).progress);objectEditor?.paint();}}
  catch(e){$('stage').textContent='Falha na prévia: '+e.message;}
  finally{previewBusy=false;if(previewPending){previewPending=false;if(!playing)setTimeout(showPreview,80);}}
 }
@@ -870,7 +879,7 @@ function parseFields(e){let el=e.target;const path=el.dataset.path;if(path){let 
    project.cenas[selected].imagem.crop=nums;dirtyNow();
  }
 }
-function showDrawer(id){for(const key of ['timingDialog','workspaceProjects','workspaceLibrary'])$(key).hidden=key!==id;if(id)$(id).scrollIntoView({block:'start',behavior:'smooth'});}
+function showDrawer(id){for(const key of ['timingDialog','workspaceProjects','workspaceLibrary','workspaceSuiteM3A'])$(key).hidden=key!==id;$('openSuiteM3A').setAttribute('aria-expanded',String(id==='workspaceSuiteM3A'));if(id)$(id).scrollIntoView({block:'start',behavior:'smooth'});}
 function stopWorkspace(){playing=false;cancelAnimationFrame(previewRaf);previewRaf=0;lastFrame=0;$('playButton').textContent='▶';$('stageClip').pause();objectRuntime?.pauseObjects($('stageShell'));stopTransport();objectEditor?.paint();}
 function bindTiming(){
  const dialog=$('timingDialog');

@@ -220,7 +220,110 @@
         group.setAttribute('transform',t.replace(/scale\([^)]*\)/,`scale(${(.86+.14*e).toFixed(3)})`));}
     }
   }
-  const exported={ease,progress,spatialMarkup,updateSpatial,updateProcedural};
+
+  // RD_V3_ANIMATION_CANONICAL_15: uma única avaliação para Player, prévia e exportação.
+  // Registros são dados puros; DOM/browser e ElementTree/Python são apenas adaptadores.
+  const aval=(a,k,d=0)=>{const n=Number(a?.[k]);return Number.isFinite(n)?n:d;};
+  const validPair=v=>Array.isArray(v)&&v.length===2&&v.every(x=>x!==null&&x!==''&&Number.isFinite(Number(x)));
+  function expandAnimations(animations, ids){
+    const has=new Set(ids),out=[];
+    for(const a of animations||[]){
+      const targets=Array.isArray(a.alvos)?a.alvos:[a.alvo],offset=aval(a,'intervalo');
+      for(let j=0;j<targets.length;j++){
+        const begin=Math.min(1,aval(a,'inicio')+j*offset),end=Math.min(1,aval(a,'fim',1)+j*offset);
+        if(end>begin){
+          out.push({...a,alvo:targets[j],inicio:begin,fim:end});
+          if(targets[j]==='__conteudo__'&&has.has('__conteudo_imagem__'))
+            out.push({...a,alvo:'__conteudo_imagem__',inicio:begin,fim:end});
+        }
+      }
+    }
+    return out;
+  }
+  function pivotRecord(rec,a,{pivotOverrides={},sceneIndex=0,strict=false}={}){
+    const custom=pivotOverrides[sceneIndex+':'+rec.id];
+    if(validPair(custom))return custom.map(Number);
+    const given=[a?.pivo_x,a?.pivo_y];
+    if(given.every(x=>x!==undefined&&x!==null&&x!==''&&Number.isFinite(Number(x))))return given.map(Number);
+    const attrs=rec.attrs||{},marked=[attrs['data-pivot-x'],attrs['data-pivot-y']];
+    if(validPair(marked))return marked.map(Number);
+    const line=rec.tag==='line'?attrs:rec.line;
+    if(line&&validPair([line.x1,line.y1]))return [Number(line.x1),Number(line.y1)];
+    const b=rec.bbox;
+    if(b&&[b.x,b.y,b.width,b.height].every(Number.isFinite)){
+      if(/ponteiro|agulha|hand|segund|minut|hora/i.test(rec.id)&&Array.isArray(rec.circles)){
+        let best=null,score=Infinity;const length=Math.max(b.width,b.height,1);
+        for(const c of rec.circles){
+          const {cx,cy,r}=c;if(!Number.isFinite(cx+cy+r)||r<length*.4||r>length*8)continue;
+          const dx=Math.max(b.x-cx,0,cx-b.x-b.width),dy=Math.max(b.y-cy,0,cy-b.y-b.height);
+          const dist=Math.hypot(dx,dy);if(dist>length*.45)continue;
+          const sc=dist+Math.abs(r-length)*.04;if(sc<score){score=sc;best=[cx,cy];}
+        }
+        if(best)return best;
+      }
+      return [b.x+b.width/2,b.y+b.height/2];
+    }
+    if(strict)throw Error('Pivô indefinido para '+rec.id+'; defina data-pivot-x/y ou pivo_x/y.');
+    return [640,360];
+  }
+  function evaluateRecords(records,animations,p,options={}){
+    const bases=new Map((records||[]).map(r=>[String(r.id),r]));
+    const tracks=new Map();
+    for(const a of expandAnimations(animations,[...bases.keys()])){
+      const id=String(a.alvo),dest=bases.get(id);if(!dest)continue;
+      const k=progress(a,clamp(num(p))),lerp=(from,to)=>from+(to-from)*k;
+      let tr=tracks.get(id);if(!tr){tr={list:[],opacity:1};tracks.set(id,tr);}
+      if(a.tipo==='translacao')tr.list.push(`translate(${lerp(aval(a,'de_x'),aval(a,'ate_x'))} ${lerp(aval(a,'de_y'),aval(a,'ate_y'))})`);
+      else if(a.tipo==='rotacao'){
+        const [x,y]=pivotRecord(dest,a,options);
+        tr.list.push(`rotate(${lerp(aval(a,'de'),aval(a,'ate'))} ${x} ${y})`);
+      }else if(a.tipo==='escala'){
+        const [x,y]=pivotRecord(dest,a,options),scale=lerp(aval(a,'de',1),aval(a,'ate',1));
+        tr.list.push(`translate(${x} ${y}) scale(${scale}) translate(${-x} ${-y})`);
+      }else if(a.tipo==='fade')tr.opacity*=clamp(lerp(aval(a,'de',1),aval(a,'ate',1)));
+    }
+    return [...bases.values()].map(rec=>{
+      const t=tracks.get(String(rec.id));
+      const original=rec.transform||'';
+      const alpha=Number(rec.opacity??'1');
+      return {id:String(rec.id),animated:!!t,
+        transform:t?[...t.list,original].filter(Boolean).join(' '):original,
+        opacity:t?String(clamp((Number.isFinite(alpha)?alpha:1)*t.opacity)):String(rec.opacity??'1')};
+    });
+  }
+  function domRecord(el,svg){
+    const attrs={};for(const x of el.attributes)attrs[x.name]=x.value;
+    const nested=el.localName==='line'?null:el.querySelector?.('line');
+    const line=nested?{x1:nested.getAttribute('x1'),y1:nested.getAttribute('y1')}:null;
+    let bbox=null;
+    try{const b=el.getBBox();if([b.x,b.y,b.width,b.height].every(Number.isFinite))
+      bbox={x:b.x,y:b.y,width:b.width,height:b.height};}catch(_){/* SVG não montado */}
+    const circles=[];
+    if(bbox&&/ponteiro|agulha|hand|segund|minut|hora/i.test(el.id)){
+      for(const c of svg.querySelectorAll('circle,ellipse')){
+        if(el.contains(c))continue;
+        circles.push({cx:Number(c.getAttribute('cx')),cy:Number(c.getAttribute('cy')),
+          r:Number(c.getAttribute('r')||c.getAttribute('rx'))});
+      }
+    }
+    return {id:el.id,tag:el.localName,attrs,line,bbox,circles,
+      transform:el.getAttribute('transform')||'',opacity:el.getAttribute('opacity')||'1'};
+  }
+  function createDOMAnimator(svg,animations,options={}){
+    const entries=[...svg.querySelectorAll('[id]')].map(el=>({el,rec:domRecord(el,svg)}));
+    const recs=entries.map(x=>x.rec);
+    return {apply(p){
+      const values=evaluateRecords(recs,animations,p,options),byId=new Map(values.map(v=>[v.id,v]));
+      for(const {el,rec} of entries){const v=byId.get(rec.id);if(!v)continue;
+        if(v.transform)el.setAttribute('transform',v.transform);else el.removeAttribute('transform');
+        el.setAttribute('opacity',v.opacity);
+      }
+    }};
+  }
+  function pivotDOM(el,a,svg,{pivotOverrides={},sceneIndex=0}={}){
+    return pivotRecord(domRecord(el,svg),a,{pivotOverrides,sceneIndex});
+  }
+  const exported={ease,progress,spatialMarkup,updateSpatial,updateProcedural,expandAnimations,pivotRecord,evaluateRecords,createDOMAnimator,pivotDOM};
   if(typeof window!=='undefined')window.EstudioV3=exported;
   if(typeof module!=='undefined' && module.exports)module.exports=exported;
 })();

@@ -8,12 +8,15 @@ const pause=ms=>new Promise(r=>setTimeout(r,ms));
 const editableSource=s=>typeof s==='string'&&s.length>0;
 function currentCamera(app){return app.query('viewer.camera.snapshot');}
 function isEnabled(scene){return scene?.spatialseed_viewport?.enabled===true;}
-export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onError}){
+export function mountStudioSpatialSeed({getScene,getAspect,getTime,getProjectId=()=>'',onEdit,onError}){
  const host=$('ssViewportHost'),frame=$('ssViewportFrame'),shell=$('stageShell');
  let lastDocument=null,readyPromise=null,active=false,loadingSerial=0,cameraSeq=0,previousTime=null,loadedKey='';
  let cameraFlight=null,cameraRequested=null,hudHidden=true;
  let exportActive=false,exportStream=null,exportVideo=null,exportCanvas=null,exportQueue=Promise.resolve(),exportPrevious=null;
  const cameraNumbers=['ssCamX','ssCamY','ssCamZ','ssCamFov'];
+ const sceneKey=(scene,source)=>[getProjectId(),scene.id||'',source].join('\0');
+ let bootGeneration=0;
+ const nativeCapture=new WeakMap();
  function api(){
   const w=frame.contentWindow;
   if(!w||w.location.origin!==location.origin)throw Error('SpatialSeed não está na origem local.');
@@ -40,36 +43,42 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
  }
  async function boot(){
   if(readyPromise)return readyPromise;
-  frame.src='/spatialseed-main/apps/web/?project=new&rd-studio-viewport=1';
+  const generation=++bootGeneration;
+  const url=new URL('/spatialseed-main/apps/web/?project=new&rd-studio-viewport=1',location.href);
+  url.searchParams.set('mount',String(generation));
+  url.searchParams.set('sandbox','sandbox-'+crypto.randomUUID());
+  frame.src=url.href;
   readyPromise=(async()=>{
    const deadline=Date.now()+20000;
    while(Date.now()<deadline){
-    try{const result=api();embedCSS();return result;}catch{}
+    if(generation!==bootGeneration)throw Error('Carregamento anterior substituído.');
+    try{
+     const result=api();
+     if(new URL(result.w.location.href).searchParams.get('mount')===String(generation)){embedCSS();return result;}
+    }catch{}
     await pause(250);
    }
    throw Error('SpatialSeed não inicializou. Verifique RD_SPATIALSEED_ROOT e os módulos do main.');
-  })().catch(e=>{readyPromise=null;status(e.message);throw e;});
+  })().catch(e=>{if(generation===bootGeneration){readyPromise=null;status(e.message);}throw e;});
   return readyPromise;
  }
  async function openSource(source,token){
-  const {w,app}=await boot();
-  if(token!==loadingSerial)return;
-  if(!editableSource(source))return;
-  const nativeInput=w.document.getElementById('project-file-input');
-  if(!nativeInput)throw Error('Importador .spatialseed do main indisponível.');
-  const dt=new w.DataTransfer();dt.items.add(new w.File([source],'studio-scene.spatialseed',{type:'application/json'}));
-  nativeInput.files=dt.files;
-  nativeInput.dispatchEvent(new w.Event('change',{bubbles:true}));
-  // Native importer has its own asynchronous transaction. The camera will
-  // be re-applied after it has completed its scene projection.
-  await pause(600);
-  if(token!==loadingSerial)return;
-  await Promise.resolve(app.query('world.snapshot'));
+  const {app}=await boot();
+  if(token!==loadingSerial||!editableSource(source))return;
+  const opened=await app.execute('project.open',{text:source});
+  if(!opened?.loaded)throw Error('SpatialSeed recusou o documento.');
  }
  async function cameraAt(scene,time,aspect,token){
-  const keys=scene?.spatialseed_viewport?.camera_keys||[];
-  if(!keys.length)return;
   const {app}=await boot();if(token!==loadingSerial)return;
+  time=Math.max(0,Math.min(time,scene.duracao));
+  const domain=app.query('time.domain',{id:'world'});
+  if(!domain.paused)await app.execute('time.domain.pause',{id:'world'});
+  const result=await app.execute('time.domain.seek',{id:'world',localTime:time});
+  if(!result?.domain?.paused||!Number.isFinite(result.domain.localTime)||Math.abs(result.domain.localTime-time)>1e-7)
+   throw Error('SpatialSeed não confirmou o instante solicitado.');
+  if(token!==loadingSerial)return;
+  const keys=scene?.spatialseed_viewport?.camera_keys||[];
+  if(!keys.length){previousTime=time;return;}
   const pose=sampleCameraTrack(keys,Math.max(0,time),aspect);
   const serial=++cameraSeq;
   await Promise.resolve(app.execute('viewer.camera.restore',{camera:pose}));
@@ -103,8 +112,9 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
   if(!readyPromise)await boot();
   if(serial!==loadingSerial)return;
   if(source!==lastDocument){
-   lastDocument=source;
    await openSource(source,serial);
+   if(serial!==loadingSerial)return;
+   lastDocument=source;
   }
   if(serial!==loadingSerial)return;
   await cameraAt(scene,getTime(),getAspect(),serial);
@@ -118,15 +128,18 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
   host.hidden=!enabled;shell.classList.toggle('ss-webgl-active',enabled);
   $('ssViewportToggle').setAttribute('aria-pressed',String(enabled));
   $('ssViewportToggle').textContent=enabled?'◈ WebGL ativo':'◈ Ativar WebGL nesta cena';
-  if(!enabled){active=false;previousTime=null;return;}
+  if(!enabled){if(!readyPromise||lastDocument===null)loadedKey='';active=false;previousTime=null;return;}
   active=true;
   const source=scene.spatialseed_viewport.source||'';
-  const key=(scene.id||'')+'\0'+source;
+  const key=sceneKey(scene,source);
   if(key!==loadedKey){const resetWorld=loadedKey!=='';loadedKey=key;
-   pending=loadDocument(scene,resetWorld).catch(e=>{status('Erro: '+e.message);onError(e.message);}).finally(()=>{pending=null;});return;
+   const request=loadDocument(scene,resetWorld);
+   pending=request;
+   request.catch(e=>{if(pending===request){status('Erro: '+e.message);onError(e.message);}})
+    .finally(()=>{if(pending===request)pending=null;});return;
   }
-  if(pending)return;
-  if(scene.spatialseed_viewport.camera_keys?.length && (previousTime===null||Math.abs(time-previousTime)>1/60)){
+  if(pending || lastDocument!==source)return;
+  if(previousTime!==Math.min(time,scene.duracao)){
    const token=loadingSerial;
    scheduleCamera(scene,time,aspect,token);
   }
@@ -146,6 +159,22 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
  }
  hudButton.onclick=()=>{hudHidden=!hudHidden;refreshHUD();};
  refreshHUD();
+ $('ssViewportStore').onclick=async()=>{
+  try{
+   const scene=getScene(),token=loadingSerial;
+   const source=scene?.spatialseed_viewport?.source||'';
+   if(!isEnabled(scene)||pending||exportActive||lastDocument!==source||
+      loadedKey!==sceneKey(scene,source))throw Error('Aguarde a cena WebGL selecionada.');
+   const saved=await api().app.execute('project.save');
+   if(!saved?.prepared||!saved.text||new TextEncoder().encode(saved.text).length>900000)
+    throw Error('Fonte nativa indisponível ou acima de 900 kB.');
+   if(getScene()!==scene||token!==loadingSerial)throw Error('A cena mudou durante a captura.');
+   lastDocument=saved.text;
+   loadedKey=sceneKey(scene,saved.text);
+   update(v=>{v.source=saved.text;});
+   status('Edição 3D capturada. Use Salvar para gravar o arquivo .spatialseed.');
+  }catch(e){onError(e.message);}
+ };
  $('ssViewportImport').onclick=()=>$('ssViewportFile').click();
  $('ssViewportFile').onchange=async e=>{
   const file=e.target.files?.[0];e.target.value='';if(!file)return;
@@ -185,15 +214,34 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
  // Export uses the same SpatialSeed canvas, camera and source as preview.
  // Browser video track captures *presented WebGL frames*, avoiding an empty
  // default drawing buffer when preserveDrawingBuffer=false.
- async function prepareCapture(scene,time,aspect){
+ async function prepareCapture(scene,time,aspect,exact=false,signal){
    if(!isEnabled(scene))throw Error('Cena sem viewport SpatialSeed.');
-   const key=(scene.id||'')+'\0'+(scene.spatialseed_viewport.source||'');
-   if(key!==loadedKey){const had=loadedKey!=='';loadedKey=key;await loadDocument(scene,had);}
+   const key=sceneKey(scene,scene.spatialseed_viewport.source||'');
+   if(cameraFlight)await cameraFlight;
+   if(pending)await pending;
+   if(key!==loadedKey||lastDocument!==(scene.spatialseed_viewport.source||'')){const had=loadedKey!=='';loadedKey=key;await loadDocument(scene,had);}
    if(readyPromise)await readyPromise;
    const token=loadingSerial;
-   if(scene.spatialseed_viewport.camera_keys?.length)await cameraAt(scene,time,aspect,token);
+   await cameraAt(scene,time,aspect,token);
    const {canvas,w}=api();
    if(!canvas.width||!canvas.height)throw Error('SpatialSeed não produziu quadros WebGL.');
+   const {app}=api();
+   if(!exact&&!nativeCapture.has(app)){
+     nativeCapture.set(app,app.capabilities().queries.some(q=>q.id==='viewer.frame.capture'));
+   }
+   if(exact||nativeCapture.get(app)){
+     const deadline=performance.now()+2000;
+     for(;;){
+       if(signal?.aborted)throw Error('Exportação offline cancelada.');
+       const state=app.query('time.execution');
+       if(state?.fault)throw Error(state.fault.message);
+       if(state&&!state.running&&state.readiness.readyCount===0)break;
+       if(performance.now()>=deadline)throw Error('SpatialSeed não concluiu a avaliação temporal.');
+       await pause(8);
+     }
+     try{return await app.query('viewer.frame.capture');}
+     catch(e){throw Error('Captura exata WebGL indisponível. Confira o patch SpatialSeed. '+e.message);}
+   }
    if(canvas!==exportCanvas){
      exportStream?.getTracks().forEach(t=>t.stop());
      exportVideo?.pause();
@@ -211,6 +259,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
  }
  function beginExport(){
    if(exportActive)throw Error('Exportação WebGL já em andamento.');
+   cameraRequested=null;
    exportPrevious={hidden:host.hidden,active:shell.classList.contains('ss-webgl-active')};
    exportActive=true;host.hidden=false;shell.classList.add('ss-webgl-active');return true;
  }
@@ -218,6 +267,7 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
    exportActive=false;exportVideo?.pause();if(exportVideo)exportVideo.srcObject=null;
    exportStream?.getTracks().forEach(t=>t.stop());exportVideo=null;exportCanvas=null;exportStream=null;
    if(exportPrevious){host.hidden=exportPrevious.hidden;shell.classList.toggle('ss-webgl-active',exportPrevious.active);exportPrevious=null;}
+   if(getScene())sync(getScene(),getTime(),getAspect());
  }
  function frameAt(scene,time,aspect){
    const promise=exportQueue.then(()=>prepareCapture(scene,time,aspect));
@@ -227,20 +277,14 @@ export function mountStudioSpatialSeed({getScene,getAspect,getTime,onEdit,onErro
  async function frameAtOffline(scene,time,aspect,signal){
    if(signal?.aborted)throw Error('Exportação offline cancelada.');
    if(!exportActive)beginExport();
-   const video=await frameAt(scene,time,aspect);
-   // The frame may have been presented before requestVideoFrameCallback is
-   // installed. Static WebGL scenes need not emit additional video frames.
-   // prepareCapture already awaited the camera command and two RAF cycles
-   // in the SpatialSeed iframe. Check that the captured frame is decodable.
-   if(video.readyState<2||!video.videoWidth||!video.videoHeight)
-    throw Error('Quadro WebGL indisponível para exportação offline.');
-   return video;
+   const result=exportQueue.then(()=>prepareCapture(scene,time,aspect,true,signal));
+   exportQueue=result.catch(()=>{});
+   return result;
  }
 
  // Browser export may use this bridge, not a second application or renderer.
  const exportAPI=Object.freeze({beginExport,endExport,frameAt,frameAtOffline,isEnabled});
  window.StudioSpatialSeedViewport=exportAPI;
- // The original source remains editable in SpatialSeed; use its native Save
- // then reimport the file to persist object edits inside the Studio project.
+ // Explicit capture adopts native edits into the normal Studio save/undo path.
  return {sync,readCamera:async()=>currentCamera((await boot()).app),isActive:()=>active,exportAPI};
 }

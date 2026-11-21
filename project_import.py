@@ -11,6 +11,7 @@ import shutil
 import stat
 import tempfile
 import zipfile
+from spatialseed_sources import store_spatialseed_files
 from pathlib import Path, PurePosixPath
 
 from PIL import Image
@@ -172,6 +173,7 @@ def import_zip(source, preferred_name, projects_dir, media_dir, cache_dir, media
                     with (tempdir / source_name).open('rb') as inp, target.open('xb') as out:
                         created.append(target)
                         shutil.copyfileobj(inp, out, 256 * 1024)
+                store_spatialseed_files(projects_dir, updated)
                 target_project = projects_dir / (project_name + '.json')
                 with target_project.open('x', encoding='utf-8') as out:
                     created.append(target_project)

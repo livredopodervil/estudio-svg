@@ -1,8 +1,9 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#362c29"><title>RD Studio · M1b experimental</title><link rel="stylesheet" href="/style.css?v=3.13.3"><link rel="stylesheet" href="/studio-layout-v1.css?v=1.1"></head><body>
 <header class="top"><div class="brand"><span class="logo">✺</span><span><b>ESTÚDIO SVG</b><small>M1b experimental · base V3.13.4</small></span></div><div class="projectRow"><button id="openProjectBrowser" type="button" title="Biblioteca de projetos organizada">▤ <span id="currentProjectName">Projetos</span></button><select id="projectSelect" aria-label="Projeto atual" hidden></select><button id="newProject" title="Novo projeto">＋</button></div><div class="topactions"><button id="openSvgFromTop" title="Abrir editor gráfico SVG da cena">✎ SVG</button><button id="editJson" title="Ver e editar JSON da cena ou projeto">{ } JSON</button><button id="importButton">Importar JSON</button><button id="importBundle" title="Importar ZIP com JSON e imagens, áudio ou vídeo">↑ Importar ZIP</button><button id="relinkMissingImages" title="Associar imagens a referências pendentes">Vincular imagens</button><button id="exportButton">Exportar JSON</button><button id="exportBundle" title="Baixar JSON e mídias referenciadas em um ZIP">↓ ZIP com mídias</button><button id="saveButton" class="primary">Salvar</button></div></header>
 <nav class="mobileTabs"><button data-pane="scenesPanel" class="on">Cenas</button><button data-pane="previewPanel">Composição</button><button data-pane="editPanel">Editor</button><button data-pane="workPanel">Produção</button></nav>
-<nav class="workspaceTools" aria-label="Ferramentas principais"><button id="manageProjects" type="button">Projetos e arquivos</button><button id="batchTiming" type="button" class="primary">Tempo / áudio em lote</button><button id="openLibrary" type="button">Objetos / movimentos</button><button id="quickNarration" type="button">Narração</button></nav>
+<nav class="workspaceTools" aria-label="Ferramentas principais"><button id="manageProjects" type="button">Projetos e arquivos</button><button id="batchTiming" type="button" class="primary">Tempo / áudio em lote</button><button id="openLibrary" type="button">Objetos / movimentos</button><button id="quickNarration" type="button">Narração</button><button id="openSuiteM3A" type="button" aria-controls="workspaceSuiteM3A" aria-expanded="false">Suíte RD</button></nav>
 <section id="workspaceProjects" class="workspaceDrawer" hidden><div class="drawerHead"><h3>Projetos e arquivos</h3><button id="closeProjects">Fechar</button></div><p class="info">Arquivar retira o projeto da lista ativa, preservando JSON e mídia. Restaure a qualquer momento. Salve as mudanças antes.</p><div class="inline"><button id="archiveProject">Arquivar projeto atual</button><button id="projectInventory">Atualizar arquivos deste projeto</button><button id="projectBundleShortcut">Baixar ZIP do projeto</button></div><div id="workspaceInventory" class="workspaceList"></div><h4>Projetos arquivados</h4><div id="archivedList" class="workspaceList"></div></section>
+<section id="workspaceSuiteM3A" class="workspaceDrawer" hidden aria-label="Serviços da suíte RD"><div class="drawerHead"><h3>Suíte RD · serviços locais</h3><button id="closeSuiteM3A" type="button">Fechar</button></div><p class="info">Estado de leitura e acesso aos aplicativos existentes. Não salva, altera arquivos ou publica. O projeto aberto no Estúdio SVG é preservado.</p><div class="inline"><button id="suiteRefreshM3A" type="button">Atualizar estados</button><span id="suiteSummaryM3A" role="status" aria-live="polite">Verificação ainda não realizada.</span></div><div id="suiteServicesM3A" class="workspaceList" aria-live="polite"></div><p class="info">O painel administrativo do site abre em outra aba porque sua política de segurança impede incorporação por iframe. O editor audiovisual permanece nesta aba.</p></section>
 <section id="workspaceLibrary" class="workspaceDrawer" hidden><div class="drawerHead"><h3>Biblioteca de objetos e movimentos</h3><button id="closeLibrary">Fechar</button></div><p class="info">Objetos SVG editáveis: insira em uma cena SVG ou crie uma nova cena. Os movimentos usam as faixas existentes.</p><div class="libraryGrid" id="objectCatalog"></div><div class="inline"><label><input type="checkbox" id="libraryNewScene"> Criar nova cena</label></div><div class="formField"><label for="motionTarget">Objeto a animar na cena atual</label><select id="motionTarget"></select></div><div class="inline"><select id="motionPreset"></select><button id="applyMotion">Aplicar movimento</button></div><h4>Composições GIL / SpatialSeed</h4><p class="info">Exemplos GIL executados diretamente na cena quando compatíveis. Sem MP4 intermediário; fonte preservada. O formato GIL3 legado ainda não é importável.</p><div class="inline"><select id="gilLibrarySelect"><option value="native-demo">Demonstração nativa · 8 s</option><option value="orbit">Órbitas</option><option value="kinetic">Máquina cinética</option><option value="wave">Superposição de ondas</option><option value="pulse-network">Rede de pulsos 3D</option><option value="field">Campo cinemático dinâmico</option><option value="datacenter">Data center · 36 s</option></select><button id="gilLibraryInsert">Inserir exemplo GIL</button><button id="gilLibraryDownload">Baixar fonte para página</button><button id="gilLibraryFile">Importar GIL / SpatialSeed</button><button id="workspaceGILLink" type="button">Editar fonte GIL aqui</button></div></section>
 <section id="timingDialog" class="workspaceDrawer" aria-labelledby="timingTitle" hidden>
 <div class="drawerHead"><h3 id="timingTitle">Tempo / áudio em lote</h3><button id="timingCloseTop" type="button">Fechar</button></div><p>Altere apenas a duração da cena. Arquivos originais são preservados; reduzir pode cortar o trecho visual e as outras faixas na exportação.</p>
@@ -18,6 +19,7 @@
 <div id="ssCameraBar" class="ssCameraBar" role="group" aria-label="SpatialSeed WebGL e câmera da cena">
  <button id="ssViewportToggle" type="button" aria-pressed="false">◈ Ativar WebGL nesta cena</button>
  <button id="ssViewportImport" type="button">Abrir .spatialseed</button>
+ <button id="ssViewportStore" type="button">Capturar edição 3D na cena</button>
  <button id="ssViewportTools" type="button" aria-pressed="false">Ferramentas 3D externas</button>
  <button id="ssViewportHud" type="button" aria-pressed="true">Mostrar HUD original</button>
  <button id="ssCameraCapture" type="button">◆ Keyframe câmera</button>
@@ -78,5 +80,151 @@
  <iframe id="ssStudioFrame" title="Editor SpatialSeed (main do GitHub)" allow="fullscreen"></iframe>
  <output id="ssStudioStatus" role="status">Preparando renderer SpatialSeed...</output>
 </div>
+<style>
+#workspaceSuiteM3A .rd-suite-entry{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line,#4d5962);padding:10px 0}
+#workspaceSuiteM3A .rd-suite-entry div{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+#workspaceSuiteM3A .rd-suite-entry small{display:block;color:var(--muted,#aaa)}
+#workspaceSuiteM3A .rd-suite-entry button,#workspaceSuiteM3A .rd-suite-entry a{font:inherit;min-height:36px;padding:7px 10px;border-radius:7px}
+#workspaceSuiteM3A .rd-suite-entry a{color:inherit;border:1px solid currentColor;text-decoration:none}
+#workspaceSuiteM3A .rd-suite-entry a:focus-visible,#workspaceSuiteM3A button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+</style>
+<script type="module" src="/studio-suite-m3a.mjs"></script>
 <script type="module" src="/studio-spatialseed-main.mjs"></script>
+<!-- RDEVO-HOT-M3A-026-BEGIN -->
+<style id="rdevoLiveStyles">
+/* RDevo: optional CSS skins for the REAL M3-A panel; M3-A data & action handlers are unchanged. */
+#rdevoHotSwitcher{position:fixed;z-index:2400;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:680px;margin:auto;padding:7px;background:#162934f5;color:#f5fafb;border:1px solid #75a4b4;border-radius:13px;box-shadow:0 5px 24px #0009;font:12px system-ui,sans-serif}
+#rdevoHotSwitcher button{min-height:36px;font-size:12px;padding:5px 9px;white-space:nowrap;border-radius:8px;border:1px solid #6995aa;background:#264456;color:#fff}
+#rdevoHotSwitcher button[aria-pressed="true"]{background:#ddf0e5;color:#162c23;font-weight:bold}
+#rdevoHotSwitcher .rdevoHotClose{margin-left:auto;background:#563a42}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A:not([hidden]){box-sizing:border-box;z-index:2200;color:#f7f7f7;background:#1b2d36;border:2px solid #679fb0;border-radius:14px;box-shadow:0 10px 35px #000b;overflow:auto;overscroll-behavior:contain}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry{border:1px solid #547381;border-radius:9px;padding:10px;margin:4px 0;background:#273a43}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry strong{display:block;color:#f4f7f7}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry small{color:#bbd1d5}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry a,body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry button{padding:9px;min-height:44px;min-width:76px;border:1px solid #a3d9dd;color:inherit;background:#304a55;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+body[data-rdevo-variant="grid"] #workspaceSuiteM3A:not([hidden]){width:min(96vw,980px);margin:7px auto;max-height:min(76dvh,780px)}
+body[data-rdevo-variant="grid"] #suiteServicesM3A{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:7px}
+body[data-rdevo-variant="grid"] #workspaceSuiteM3A .rd-suite-entry{display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:9px}
+body[data-rdevo-variant="compact"] #workspaceSuiteM3A:not([hidden]){position:fixed;top:calc(56px + env(safe-area-inset-top));right:9px;width:min(410px,calc(100vw - 18px));height:auto;max-height:calc(100dvh - 145px);margin:0;padding:9px}
+body[data-rdevo-variant="compact"] #workspaceSuiteM3A .rd-suite-entry{padding:6px 9px;gap:4px}
+body[data-rdevo-variant="compact"] #workspaceSuiteM3A .rd-suite-entry small{font-size:10px}
+body[data-rdevo-variant="bottom"] #workspaceSuiteM3A:not([hidden]){position:fixed;inset:auto 0 0 0;width:100%;height:min(65dvh,650px);border-radius:18px 18px 0 0;padding:8px 9px calc(82px + env(safe-area-inset-bottom));margin:0}
+body[data-rdevo-variant="bottom"] #suiteServicesM3A{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+body[data-rdevo-variant="bottom"] #workspaceSuiteM3A .rd-suite-entry{display:flex;flex-direction:column;align-items:stretch}
+body[data-rdevo-variant="side"] #workspaceSuiteM3A:not([hidden]){position:fixed;inset:0 0 0 auto;width:min(420px,100vw);height:100dvh;max-height:100dvh;border-radius:0;margin:0;padding:calc(12px + env(safe-area-inset-top)) 10px calc(80px + env(safe-area-inset-bottom))}
+body[data-rdevo-variant="side"] #workspaceSuiteM3A .rd-suite-entry{display:grid;grid-template-columns:1fr auto}
+@media(max-width:420px){#rdevoHotSwitcher{font-size:11px;padding:6px;gap:3px}#rdevoHotSwitcher button{min-height:34px;font-size:11px;padding:4px 7px}}
+</style>
+<script id="rdevoLiveAdapter">
+(()=>{
+ 'use strict';
+ const keys=['original','grid','compact','bottom','side'];
+ const key=new URLSearchParams(location.search).get('rdevo_variant');
+ if(!keys.includes(key))return; // never touch normal Studio sessions
+ window.addEventListener('load',()=>{
+  const panel=document.getElementById('workspaceSuiteM3A');
+  const opener=document.getElementById('openSuiteM3A');
+  if(!panel||!opener)return;
+  const bar=document.createElement('nav');bar.id='rdevoHotSwitcher';bar.setAttribute('aria-label','RDevo · estilos do painel real');
+  for(const [id,label] of [['original','Atual'],['grid','Grade'],['compact','Compacta'],['bottom','Inferior'],['side','Lateral']]){
+   const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.variant=id;
+   b.addEventListener('click',()=>choose(id));bar.append(b);
+  }
+  const close=document.createElement('button');close.type='button';close.className='rdevoHotClose';close.textContent='Sair do teste';
+  close.addEventListener('click',()=>{
+   panel.hidden=true;document.body.removeAttribute('data-rdevo-variant');bar.remove();
+   const url=new URL(location.href);url.searchParams.delete('rdevo_variant');history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+  });bar.append(close);document.body.append(bar);
+  function choose(v){
+   document.body.dataset.rdevoVariant=v;
+   for(const b of bar.querySelectorAll('[data-variant]')) b.setAttribute('aria-pressed',String(b.dataset.variant===v));
+   const url=new URL(location.href);url.searchParams.set('rdevo_variant',v);
+   history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+   if(panel.hidden)opener.click();
+  }
+  window.addEventListener('message',event=>{
+   if(event.source!==window.parent || !/^http:\/\/127\.0\.0\.1:[0-9]+$/.test(event.origin))return;
+   const data=event.data;
+   if(data && data.type==='rdevo:hot-variant' && keys.includes(data.variant))choose(data.variant);
+  });
+  choose(key);
+ },{once:true});
+})();
+</script>
+<!-- RDEVO-HOT-M3A-026-END -->
+
+<!-- RDEVO-DESIGN-027-BEGIN -->
+<style id="rdevoDesign027">
+/* Color and typography belong to the page, not to the semantic model. */
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A:not([hidden]){
+ color:var(--rdevo027-text,#fff0d6)!important;
+ background:var(--rdevo027-panel,#2b2522)!important;
+ border-color:var(--rdevo027-border,#514037)!important;
+ border-radius:var(--rdevo027-radius,12px)!important;
+ font-family:var(--rdevo027-font,system-ui)!important;
+}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry{
+ background:var(--rdevo027-surface,#302824)!important;
+ border-color:var(--rdevo027-border,#514037)!important;
+ border-radius:var(--rdevo027-radius,9px)!important;
+}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry strong{color:var(--rdevo027-text,#fff0d6)!important}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry small{color:var(--rdevo027-muted,#c9a98f)!important}
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry a,
+body[data-rdevo-variant]:not([data-rdevo-variant="original"]) #workspaceSuiteM3A .rd-suite-entry button{
+ color:var(--rdevo027-text,#fff0d6)!important;
+ border-color:var(--rdevo027-border,#514037)!important;
+ background:var(--rdevo027-button,#3c3029)!important;
+ border-radius:var(--rdevo027-radius,8px)!important;
+}
+#rdevoHotSwitcher{background:var(--rdevo027-panel,#2b2522)!important;color:var(--rdevo027-text,#fff0d6)!important;border-color:var(--rdevo027-border,#514037)!important;font-family:var(--rdevo027-font,system-ui)!important}
+#rdevoHotSwitcher button{background:var(--rdevo027-button,#3c3029)!important;color:var(--rdevo027-text,#fff0d6)!important;border-color:var(--rdevo027-border,#514037)!important}
+#rdevoHotSwitcher button[aria-pressed="true"]{background:var(--rdevo027-accent,#b87951)!important;color:var(--rdevo027-pressed,#1b1511)!important}
+</style>
+<script id="rdevoStyleExtractor027">
+(()=>{
+ 'use strict';
+ const query=new URLSearchParams(location.search);
+ if(!query.has('rdevo_variant'))return; // Original Studio sessions remain unchanged.
+ const roles={bg:'--bg',panel:'--panel',surface:'--field',border:'--line',text:'--fg',muted:'--muted',accent:'--accent',focus:'--focus'};
+ const root=getComputedStyle(document.documentElement);
+ const body=getComputedStyle(document.body);
+ const panel=document.querySelector('#previewPanel')||document.querySelector('.panel');
+ const panelStyle=panel?getComputedStyle(panel):body;
+ const button=document.querySelector('button');
+ const buttonStyle=button?getComputedStyle(button):body;
+ const choose=(token,fallback)=>root.getPropertyValue(token).trim()||fallback;
+ const color=(value,fallback)=>typeof value==='string' && value.length<110 && CSS.supports('color',value)?value:fallback;
+ const take=(token,fallback)=>color(choose(token,fallback),fallback);
+ const palette={
+  bg:take(roles.bg,color(body.backgroundColor,'#1d1918')),
+  panel:take(roles.panel,color(panelStyle.backgroundColor,'#2b2522')),
+  surface:take(roles.surface,'#201b19'),
+  border:take(roles.border,color(panelStyle.borderTopColor,'#514037')),
+  text:take(roles.text,color(body.color,'#fff0d6')),
+  muted:take(roles.muted,'#c9a98f'),
+  accent:take(roles.accent,'#b87951'),
+  focus:take(roles.focus,'#f7d6aa'),
+  button:color(buttonStyle.backgroundColor,'#3c3029'),
+  pressed:'#1b1511'
+ };
+ const validFont=body.fontFamily.length<170&&!/[;{}]/.test(body.fontFamily)?body.fontFamily:'system-ui';
+ const radius=/^\d+(?:\.\d+)?(?:px|rem|em)$/.test(buttonStyle.borderTopLeftRadius)?buttonStyle.borderTopLeftRadius:'8px';
+ const typography={fontFamily:validFont,fontSize:body.fontSize,lineHeight:body.lineHeight};
+ const profile={schema:'rdevo.design-profile/0.1',source:'studio-computed-style',scope:'studio.suite',palette,typography,radius};
+ const vars={bg:'bg',panel:'panel',surface:'surface',border:'border',text:'text',muted:'muted',accent:'accent',focus:'focus',button:'button',pressed:'pressed'};
+ for(const [name,key] of Object.entries(vars))document.body.style.setProperty('--rdevo027-'+name,palette[key]);
+ document.body.style.setProperty('--rdevo027-font',validFont);
+ document.body.style.setProperty('--rdevo027-radius',radius);
+ // No page text, file paths, tokens or project data are sent.
+ function send(target,origin){target.postMessage({type:'rdevo:design-profile',profile},origin);}
+ window.addEventListener('message',e=>{
+  if(e.source!==window.parent||!/^http:\/\/127\.0\.0\.1:\d+$/.test(e.origin))return;
+  if(e.data&&e.data.type==='rdevo:extract-style')send(e.source,e.origin);
+ });
+ window.RDevoDesign027={snapshot:()=>structuredClone(profile)};
+})();
+</script>
+<!-- RDEVO-DESIGN-027-END -->
+
 </body></html>

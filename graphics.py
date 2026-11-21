@@ -92,6 +92,10 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720,*,browser
        f'<ellipse cx="{1070+52*math.sin(p*math.tau)}" cy="{350+30*math.sin(p*math.pi)}" rx="510" ry="330" fill="{esc(ac)}" opacity=".065"/>',
        f'<ellipse cx="130" cy="{height_v-110}" rx="590" ry="320" fill="{esc(ac)}" opacity=".11"/>',
        f'<path d="M0 {height_v*.75:.0f} Q300 {height_v*.65:.0f} 640 {height_v*.82:.0f} T1280 {height_v*.72:.0f}" stroke="{esc(ac)}" stroke-width="2" fill="none" opacity=".20"/>']
+    webgl = c.get('spatialseed_viewport', {}).get('enabled') is True
+    if webgl:
+        # Keep definitions for authored layers, leave the native world visible.
+        a = a[:2]
     layer_config=c.get('camadas') or {}
     layers=[]
     def layer(key,markup,z):
@@ -118,7 +122,7 @@ def visualize(c,p=0,idx=0,total=1,media_dir=None,width=1280,height=720,*,browser
         shade=f'<rect width="1280" height="{height_v}" fill="url(#shade)"/>'
         if 'imagem' in layer_config:emit('imagem',image_bg+shade,10)
         else:a.append(layer('imagem',image_bg+shade,10))
-    for z in range(23):
+    for z in range(0 if webgl else 23):
         x=(z*193+53)%1280;y=(z*283+78)%height_v
         a.append(f'<circle cx="{x}" cy="{y}" r="{2+z%3}" fill="{esc(ac)}" opacity=".16"/>')
     content_start=len(a)

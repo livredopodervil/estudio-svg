@@ -231,3 +231,18 @@ Executar: `cd "$HOME/estudio_svg_v3_git" && RD_GIL_ROOT="$HOME/rd_studio_gil_v01
   o bridge somente encaminha operações tipadas e eventos. Não criar outro relógio,
   renderer ou compilador. M2 não está conectado ao WebGL até teste de integração.
 - Nenhuma publicação M2 antes de aceitação visual no Android.
+
+## M3-A — Painel de serviços da suíte (patch local experimental, sem publicação)
+- Base alvo: `feat/studio-shared-scene-m2`, HEAD `6eaacb06dff74f88d34b5b92598be1f33822380b`. Aplique apenas com preflight de SHA dos arquivos originais e `git apply --check`.
+- Serviço de leitura `GET /api/suite/status`, módulo `studio_suite_m3a.py`, sem mutações e sem token administrativo. A interface adiciona `web/studio-suite-m3a.mjs` e um único acesso `Suíte RD` na barra existente. Não cria servidor, relógio, motor de áudio nem publicador.
+- O RD Studio administrativo 4.4.2 continua separado, local em porta 8885; `X-Frame-Options: DENY` deve ser preservado, portanto abre em aba própria. `GET /api/state` só é acessado pelo servidor local via host fixo `127.0.0.1`. Operações POST administrativas permanecem fora do M3-A.
+- O site de referência validado no Termux é um clone de `main` no commit `8e8554f81a20f6946124bc0efb3a5fc9d699e840`; a rotina `update-social.yml` estava `disabled_manually`, GitHub Pages ativo. O status remoto poderá evoluir; não presumir que uma consulta local atualiza a versão publicada.
+- Proteger os oito arquivos locais não rastreados de RD-Audio e a modificação `SpatialSeed-0054xx/packages/game-runtime/src/CollisionWorld.js`; não importar, descartar, adicionar a commits ou substituir esses arquivos.
+- Após patch: testar Python e JS, confirmar `GET /api/suite/status`, inspecionar o painel em retrato no Android, abertura administrativa, preservação do projeto/edições e ausência de publicação. Não fazer commit/push/merge sem aprovação. Detalhes: `docs/RD_SUITE_M3A_STATUS_READONLY.md`.
+
+## Convergência experimental M3a + Motion (M1, não publicar)
+- Preservar painel M3a e RD-Audio; consultar docs/MOTION_SPATIAL_REVIEW.md.
+- Motionmaxxing: word-rise original; Claude Animation: beetle adaptado sob MIT, créditos preservados.
+- Captura WebGL só é experimental; exige APIs project.open, time.domain.seek e viewer.frame.capture e teste visual no Android.
+- Source .spatialseed armazenada por SHA-256; capturar edição e depois salvar; não substituir branches de trabalho.
+- Não aprovar exportação, áudio ou WebGL sem testes end-to-end.

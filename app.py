@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse, binascii, base64, io, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, traceback, uuid, hashlib, zipfile
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
+from spatialseed_sources import store_spatialseed_files
 from pathlib import Path
 from urllib.parse import parse_qs,urlsplit
 from PIL import Image, ImageOps
@@ -35,6 +36,7 @@ def save_project(project,data):
     with PROJECT_LOCK:
         p=project_path(project);valid=normalize(data)
         if p.is_symlink() or archive_path(PROJECTS,project).exists():raise StudioError('Projeto arquivado ou caminho inseguro; restaure antes de salvar')
+        store_spatialseed_files(PROJECTS, valid)
         tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(valid,ensure_ascii=False,indent=2),encoding='utf8');tmp.replace(p)
         return valid
 
@@ -377,6 +379,9 @@ class Handler(BaseHTTPRequestHandler):
         def q(key,default=''):return args.get(key,[default])[0]
         try:
             if method=='POST' and not self.valid_origin():return self.response(403,{'error':'Origem não autorizada'})
+            if route=='/api/suite/status' and method=='GET':
+                from studio_suite_m3a import snapshot
+                return self.response(200,snapshot())
             if route=='/api/health' and method=='GET':
                 return self.response(200,{'ok':True,'version':VERSION,
                     'tools':{k:bool(shutil.which(k)) for k in ['ffmpeg','ffprobe','edge-tts','convert','espeak-ng','piper','termux-tts-speak']}})
@@ -586,7 +591,7 @@ class Handler(BaseHTTPRequestHandler):
                 v=data.get('video',{}) if isinstance(data.get('video'),dict) else {}
                 w=int(v.get('width',1280));h=int(v.get('height',720))
                 if min(w,h)<320 or max(w,h)>1920:raise StudioError('Resolução inválida')
-                src=visualize(c,float(data.get('progress',0)),int(data.get('index',0)),int(data.get('total',1)),MEDIA,w,h)
+                src=visualize(c,1.0 if data.get('animation_engine')=='v3' else float(data.get('progress',0)),int(data.get('index',0)),int(data.get('total',1)),MEDIA,w,h,browser=data.get('animation_engine')=='v3')
                 return self.response(200,src,'image/svg+xml; charset=utf-8')
             if route.startswith('/api/offline-export/'):
                 # API de escrita restrita ao host/origem do Studio; token não previsível.
@@ -878,6 +883,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.response(200,ss_file.read_bytes(),ctype)
         if r=='/spatialseed-camera-track.mjs':
             return self.response(200,(ROOT/'web'/'spatialseed-camera-track.mjs').read_bytes(),'text/javascript; charset=utf-8')
+        if r=='/studio-suite-m3a.mjs':
+            return self.response(200,(ROOT/'web'/'studio-suite-m3a.mjs').read_bytes(),'text/javascript; charset=utf-8')
         if r=='/studio-shared-scene.mjs':
             return self.response(200,(ROOT/'web'/'studio-shared-scene.mjs').read_bytes(),'text/javascript; charset=utf-8')
         if r=='/studio-spatialseed-panel.mjs':
@@ -886,7 +893,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.response(200,(ROOT/'web'/'studio-spatialseed-viewport.mjs').read_bytes(),'text/javascript; charset=utf-8')
         if r=='/studio-spatialseed-main.mjs':
             return self.response(200,(ROOT/'web'/'studio-spatialseed-main.mjs').read_bytes(),'text/javascript; charset=utf-8')
-        if r in ('/gil-native.mjs','/scene-objects.mjs','/instance-manager-v1.mjs','/instance-graph-v1.mjs','/scene-object-editor.mjs','/browser-render.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/studio-m1p.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/studio-preparation-deadline.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs','/rd-audio-all-voices.mjs'):
+        if r in ('/gil-native.mjs','/scene-objects.mjs','/instance-manager-v1.mjs','/instance-graph-v1.mjs','/scene-object-editor.mjs','/browser-render.mjs','/studio-v3-preview.mjs','/viewport-affine.mjs','/platform-capabilities.mjs','/viewport-gizmo.mjs','/visual-effects.mjs','/title-gallery.mjs','/title-gil.mjs','/roteiro-v02.mjs','/roteiro-styles.mjs','/roteiro-editor.mjs','/roteiro-plan-v03.mjs','/roteiro-catalog-v04.mjs','/roteiro-project-v04.mjs','/roteiro-v04-ui.mjs','/studio-m1p.mjs','/voice-bulk.mjs','/subtitle-frame.mjs','/offline-render.mjs','/studio-preparation-deadline.mjs','/object-crop.mjs','/svg-direct-edit.mjs','/studio-command-registry-v1.mjs','/studio-console-v1.mjs','/rd-audio-all-voices.mjs'):
             return self.response(200,(ROOT/'web'/r[1:]).read_bytes(),'text/javascript; charset=utf-8')
         if r.startswith('/gil-runtime/'):
             from gil_runtime_paths import MODULES
@@ -911,6 +918,7 @@ class Handler(BaseHTTPRequestHandler):
             with f.open('rb') as inp:shutil.copyfileobj(inp,self.wfile,128*1024)
             return
         filemap={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/image-composer.js':'image-composer.js','/media-recorder.js':'media-recorder.js','/style.css':'style.css', '/captura':'captura.html','/captura.html':'captura.html','/captura.js':'captura.js','/captura-record.js':'captura-record.js','/espacial':'espacial.html','/espacial.html':'espacial.html','/espacial.js':'espacial.js','/espacial.css':'espacial.css','/vetor':'vetor.html','/vetor.html':'vetor.html','/vetor.js':'vetor.js','/vetor.css':'vetor.css','/vetor-classico':'vetor-classico.html','/vetor-classico.html':'vetor-classico.html','/vetor-classico.js':'vetor-classico.js','/vetor-classico.css':'vetor-classico.css'}
+        filemap['/verificar-motion']='verificar-motion.html'
         filemap['/media-recorder-v35.js']='media-recorder-v35.js'
         filemap['/layers-v36.js']='layers-v36.js'
         filemap['/timing-v37.js']='timing-v37.js'

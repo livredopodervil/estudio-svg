@@ -1,7 +1,8 @@
+/* RD_M12_PIVOT_EXPLICIT: articulação na primeira extremidade. */
 /* Declarative SVG objects and tracks. Same scene_animation/timeline_easing contract.
    No DOM, no network, no separate animation runtime. */
 (function(g){'use strict';
- const catalog=[['orbit','Sistema orbital'],['network','Rede de relações'],['wave','Onda / sinal'],['flow','Fluxo de dados'],['radar','Radar / medida'],['particles','Campo de partículas']];
+ const catalog=[['orbit','Sistema orbital'],['network','Rede de relações'],['wave','Onda / sinal'],['flow','Fluxo de dados'],['radar','Radar / medida'],['particles','Campo de partículas'],['word-rise','Título por palavra'],['beetle','Besouro articulado']];
  const motions=[['enter','Entrada rápida'],['pulse','Pulso contínuo'],['orbit','Rotação contínua'],['swing','Oscilação'],['rise','Elevação']];
  function motion(id,kind,duration){
    if(!/^[A-Za-z_][A-Za-z0-9_.:-]{0,80}$/.test(id)||!Number.isFinite(duration)||duration<.5||duration>600)throw Error('Objeto ou duração inválida');
@@ -21,7 +22,40 @@
    function id(){return prefix+'_'+(++n)}
    function add(tag,attr,move){const k=id();markup+=`<${tag} id="${k}" ${attr}/>`;if(move)tracks.push(...motion(k,move,duration));return k;}
    const pt=(a,r=R)=>[cx+r*Math.cos(a),cy+r*Math.sin(a)];
-   if(kind==='orbit'){
+   if(kind==='word-rise'){
+     // Motionmaxxing word-rise: stagger entrances in seconds, then hold.
+     const words=['TEMPO','EM','CENA'], positions=[390,640,855];
+     words.forEach((word,index)=>{
+       const key=id(), start=index*.11, end=start+.48;
+       const factor=Math.min(1,duration/.8)/duration;
+       markup+=`<text id="${key}" x="${positions[index]}" y="${cy-R*1.3}" text-anchor="middle" font-family="sans-serif" font-size="72" font-weight="800" fill="${index===2?'#ffbc69':'#eef4f0'}">${word}</text>`;
+       tracks.push(...motion(key,'rise',duration).map(track=>({
+         ...track,inicio:start*factor,fim:end*factor,de_y:track.tipo==='translacao'?55:0
+       })));
+     });
+   }else if(kind==='beetle'){
+     // Vector adaptation of Hanif's bug rig. Line pivots are the hip joints.
+     const scale=1.45, ink='#342237', shell='#8363bb', ground=cy+R*.45;
+     markup+=`<g transform="translate(${cx} ${ground}) scale(${scale})" data-name="Besouro">`;
+     for(const far of [true,false]){
+       if(!far){
+         add('path',`d="M-88 -34 C-92 -112 70 -118 84 -40 Q0 -26 -88 -34 Z" fill="${shell}" stroke="${ink}" stroke-width="4"`);
+         for(const [x,y,r] of [[-50,-66,9],[-22,-85,8],[28,-82,10],[50,-61,9]])
+           add('circle',`cx="${x}" cy="${y}" r="${r}" fill="#503769"`);
+       }
+       for(let i=0;i<3;i++){
+         const hip=-40+i*40+(far?10:0),foot=hip+(i-1)*64-16;
+         const key=add('line',`x1="${hip}" y1="-36" x2="${foot}" y2="0" data-pivot-x="${hip}" data-pivot-y="-36" stroke="${far?'#665672':ink}" stroke-width="6" stroke-linecap="round"`);
+         const sign=(i+Number(far))%2?1:-1;
+         tracks.push({...motion(key,'orbit',duration)[0],de:-17*sign,ate:17*sign,
+           easing:'sine.inOut',yoyo:true,repeticoes:Math.min(20,Math.max(1,Math.round(duration*.75)-1))});
+       }
+     }
+     add('ellipse',`cx="-92" cy="-46" rx="30" ry="25" fill="#594371" stroke="${ink}" stroke-width="4"`);
+     add('circle','cx="-104" cy="-54" r="6" fill="#ffba65"');
+     add('path',`d="M-98 -64 Q-108 -100 -129 -111 M-85 -66 Q-90 -99 -104 -112" fill="none" stroke="${ink}" stroke-width="4" stroke-linecap="round"`);
+     markup+='</g>';
+   }else if(kind==='orbit'){
      const colors=['#78d9df','#edbc77','#a8a9ff'];
      for(let i=0;i<3;i++){let r=R*(.53+.25*i);add('ellipse',`cx="${cx}" cy="${cy}" rx="${r*1.45}" ry="${r*.55}" fill="none" stroke="${colors[i]}" stroke-width="${3+i}" stroke-opacity=".78" transform="rotate(${i*52} ${cx} ${cy})"`,'orbit');}
      add('circle',`cx="${cx}" cy="${cy}" r="${R*.24}" fill="#f0c676" stroke="#ffe5bb" stroke-width="4"`,'pulse');

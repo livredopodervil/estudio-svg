@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
+from spatialseed_sources import spatialseed_files
 from schema import asset, name, normalize
 
 MAX_BUNDLE_BYTES = 250_000_000
@@ -46,6 +47,11 @@ def bundle_to_file(identifier, raw_project, media_dir, output):
         with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED, compresslevel=5) as archive:
             archive.writestr('projetos/' + identifier + '.json',
                 json.dumps(project, ensure_ascii=False, indent=2))
+            written = set()
+            for filename, data in spatialseed_files(project):
+                if filename not in written:
+                    archive.writestr('spatialseed/' + filename, data)
+                    written.add(filename)
             for filename in referenced:
                 archive.write(media_dir / filename, 'midia/' + filename)
             archive.writestr('LEIA-ME.txt',
